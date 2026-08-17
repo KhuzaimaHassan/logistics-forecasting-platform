@@ -14,7 +14,7 @@ Single Oracle Cloud Always Free Ampere A1 VM — 2 OCPU / 12GB RAM / 200GB stora
 | Redpanda | `redpandadata/redpanda` | single-node broker |
 | Stream producer | custom | replay + live-feed polling |
 | Stream consumer | custom | transform/load |
-| MLflow server | custom (mlflow image) | tracking + registry UI |
+| MLflow server | `ghcr.io/mlflow/mlflow:v2.11.0` | official image, tracking + registry UI |
 | FastAPI | custom | serving + agent endpoint |
 | Streamlit | custom | UI |
 | Prefect worker | `prefecthq/prefect` | executes flows scheduled by Prefect Cloud |
