@@ -1,0 +1,30 @@
+# Caddy reverse proxy configuration for Logistics Forecasting Platform
+# Automatically handles Let's Encrypt TLS in production; serves HTTP locally
+
+:80 {
+    # Route API, health, predictions, and agent endpoints to FastAPI
+    handle_path /api/* {
+        reverse_proxy fastapi:8000
+    }
+
+    handle /health {
+        reverse_proxy fastapi:8000
+    }
+
+    handle /predict/* {
+        reverse_proxy fastapi:8000
+    }
+
+    handle /features/* {
+        reverse_proxy fastapi:8000
+    }
+
+    handle /agent/* {
+        reverse_proxy fastapi:8000
+    }
+
+    # Route UI and websocket connections to Streamlit
+    handle {
+        reverse_proxy streamlit:8501
+    }
+}

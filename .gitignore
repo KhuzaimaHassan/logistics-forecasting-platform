@@ -1,0 +1,30 @@
+# Env / secrets
+.env
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Data
+*.parquet
+*.csv
+data/raw/
+data/processed/
+
+# MLflow / model artifacts
+mlruns/
+mlartifacts/
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

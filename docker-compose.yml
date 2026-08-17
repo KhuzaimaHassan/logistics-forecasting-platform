@@ -1,0 +1,194 @@
+version: "3.8"
+
+networks:
+  logistics-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  redpanda_data:
+  mlflow_data:
+  caddy_data:
+  caddy_config:
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - logistics-net
+    depends_on:
+      - fastapi
+      - streamlit
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-logistics}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - logistics-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-logistics}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - logistics-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.1
+    container_name: redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - logistics-net
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.11.0
+    container_name: mlflow
+    restart: unless-stopped
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-logistics}
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-logistics}
+      - --default-artifact-root
+      - /mlflow/artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+    volumes:
+      - mlflow_data:/mlflow
+    networks:
+      - logistics-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prefect-worker:
+    image: prefecthq/prefect:2-python3.11
+    container_name: prefect-worker
+    restart: unless-stopped
+    environment:
+      PREFECT_API_KEY: ${PREFECT_API_KEY:-}
+      PREFECT_API_URL: ${PREFECT_API_URL:-}
+    command: prefect worker start --pool default-agent-pool
+    networks:
+      - logistics-net
+
+  stream-producer:
+    build:
+      context: .
+      dockerfile: src/extract/Dockerfile
+    container_name: stream-producer
+    restart: unless-stopped
+    environment:
+      REDPANDA_BROKER: ${REDPANDA_BROKER:-redpanda:9092}
+      MTA_API_KEY: ${MTA_API_KEY:-}
+      OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY:-}
+    networks:
+      - logistics-net
+    depends_on:
+      - redpanda
+
+  stream-consumer:
+    build:
+      context: .
+      dockerfile: src/transform/Dockerfile
+    container_name: stream-consumer
+    restart: unless-stopped
+    environment:
+      REDPANDA_BROKER: ${REDPANDA_BROKER:-redpanda:9092}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-logistics}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+    networks:
+      - logistics-net
+    depends_on:
+      - redpanda
+      - postgres
+      - redis
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: src/serving/Dockerfile
+    container_name: fastapi
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-logistics}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    networks:
+      - logistics-net
+    depends_on:
+      - postgres
+      - redis
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
+    container_name: streamlit
+    restart: unless-stopped
+    environment:
+      FASTAPI_URL: http://fastapi:8000
+    networks:
+      - logistics-net
+    depends_on:
+      - fastapi
