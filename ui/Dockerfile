@@ -13,8 +13,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # Copy project definition and validated lockfile
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies using the frozen lockfile
-RUN uv sync --frozen --no-dev
+# Install dependencies using the frozen lockfile scoped to ui
+RUN uv sync --frozen --no-dev --extra core --extra ui
 
 # Copy UI source
 COPY ui/ /app/ui/
