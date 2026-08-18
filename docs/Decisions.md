@@ -111,3 +111,27 @@ Architecture Decision Record (ADR) log. Each entry: context, decision, alternati
 - Centralized `infra/docker/*.Dockerfile` — separates container build definitions from service code and dependencies.
 
 **Consequences:** Leaner Docker topology, simpler database migrations, automatic HTTPS on public VM deployment, and modular service directories.
+
+---
+
+## ADR-009: Dependency management — scoped optional-dependency groups in pyproject.toml
+
+**Context:** All runtime dependencies were initially defined in a single flat `dependencies` list in `pyproject.toml`. This caused every service container (e.g., lightweight serving API or UI dashboard) to install all 225+ dependencies across the entire stack (including heavy ML training libraries, Kafka consumers, and feature store engines), bloating image sizes and increasing build times.
+
+**Decision:** Organize project dependencies into scoped `[project.optional-dependencies]` groups:
+- `core`: Shared baseline dependencies (`pydantic`, `pydantic-settings`, `psycopg2-binary`, `sqlalchemy`, `redis`, `requests`, `python-dotenv`).
+- `extract`: Data ingestion & extraction (`feast`, `pyarrow`, `pandas`, `numpy`).
+- `transform`: Streaming transform & consumer (`kafka-python-ng`, `feast`, `pyarrow`, `pandas`, `numpy`).
+- `serving`: FastAPI prediction & agent endpoints (`fastapi`, `uvicorn`, `feast`, `lightgbm`, `xgboost`, `mlflow`, `langgraph`, `langchain-core`, `faiss-cpu`).
+- `ui`: Streamlit frontend (`streamlit`, `requests`, `pydeck`, `pandas`).
+- `training`: Model training pipelines (`feast`, `lightgbm`, `xgboost`, `mlflow`, `pyarrow`, `pandas`, `numpy`).
+- `monitoring`: Drift detection & orchestration (`evidently`, `prefect`, `pandas`).
+- `dev`: Developer tooling (`pytest`, `pytest-asyncio`, `pytest-cov`, `ruff`, `black`, `httpx`).
+
+Maintain a single unified `uv.lock` at the root for deterministic resolution, and configure each service Dockerfile to install strictly its required slices via `RUN uv sync --frozen --no-dev --extra core --extra <service-name>`.
+
+**Alternatives considered:**
+- Multiple independent `pyproject.toml` files per service — creates fragmented dependency management, version drift between services, and complex monorepo tooling.
+- Single flat `dependencies` list — bloated containers (~88 unnecessary packages in serving/ui), longer CI build times, and larger container attack surfaces.
+
+**Consequences:** Lean, isolated container images built from a single unified repository lockfile. CI continues to validate the entire dependency graph via full extras sync, while each deployed service runs only its necessary footprint.
