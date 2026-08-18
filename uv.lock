@@ -2430,34 +2430,17 @@ wheels = [
 name = "logistics-forecasting-platform"
 version = "0.1.0"
 source = { editable = "." }
-dependencies = [
-    { name = "evidently" },
-    { name = "faiss-cpu" },
-    { name = "fastapi" },
-    { name = "feast" },
-    { name = "kafka-python-ng" },
-    { name = "langchain-core" },
-    { name = "langgraph" },
-    { name = "lightgbm" },
-    { name = "mlflow" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "pandas" },
-    { name = "prefect" },
+
+[package.optional-dependencies]
+core = [
     { name = "psycopg2-binary" },
-    { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "python-dotenv" },
     { name = "redis" },
     { name = "requests" },
     { name = "sqlalchemy" },
-    { name = "streamlit" },
-    { name = "uvicorn" },
-    { name = "xgboost", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "xgboost", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-
-[package.optional-dependencies]
 dev = [
     { name = "black" },
     { name = "httpx" },
@@ -2466,39 +2449,105 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
+extract = [
+    { name = "feast" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+]
+monitoring = [
+    { name = "evidently" },
+    { name = "pandas" },
+    { name = "prefect" },
+]
+serving = [
+    { name = "faiss-cpu" },
+    { name = "fastapi" },
+    { name = "feast" },
+    { name = "langchain-core" },
+    { name = "langgraph" },
+    { name = "lightgbm" },
+    { name = "mlflow" },
+    { name = "uvicorn" },
+    { name = "xgboost", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "xgboost", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+training = [
+    { name = "feast" },
+    { name = "lightgbm" },
+    { name = "mlflow" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+    { name = "xgboost", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "xgboost", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+transform = [
+    { name = "feast" },
+    { name = "kafka-python-ng" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+]
+ui = [
+    { name = "pandas" },
+    { name = "pydeck" },
+    { name = "requests" },
+    { name = "streamlit" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.2.0" },
-    { name = "evidently", specifier = ">=0.4.15" },
-    { name = "faiss-cpu", specifier = ">=1.8.0" },
-    { name = "fastapi", specifier = ">=0.110.0" },
-    { name = "feast", specifier = ">=0.37.0" },
+    { name = "evidently", marker = "extra == 'monitoring'", specifier = ">=0.4.15" },
+    { name = "faiss-cpu", marker = "extra == 'serving'", specifier = ">=1.8.0" },
+    { name = "fastapi", marker = "extra == 'serving'", specifier = ">=0.110.0" },
+    { name = "feast", marker = "extra == 'extract'", specifier = ">=0.37.0" },
+    { name = "feast", marker = "extra == 'serving'", specifier = ">=0.37.0" },
+    { name = "feast", marker = "extra == 'training'", specifier = ">=0.37.0" },
+    { name = "feast", marker = "extra == 'transform'", specifier = ">=0.37.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
-    { name = "kafka-python-ng", specifier = ">=2.2.0" },
-    { name = "langchain-core", specifier = ">=0.1.30" },
-    { name = "langgraph", specifier = ">=0.0.30" },
-    { name = "lightgbm", specifier = ">=4.3.0" },
-    { name = "mlflow", specifier = ">=2.11.0" },
-    { name = "numpy", specifier = ">=1.26.0" },
-    { name = "pandas", specifier = ">=2.2.0" },
-    { name = "prefect", specifier = ">=2.16.0" },
-    { name = "psycopg2-binary", specifier = ">=2.9.9" },
-    { name = "pyarrow", specifier = ">=15.0.0" },
-    { name = "pydantic", specifier = ">=2.6.0" },
-    { name = "pydantic-settings", specifier = ">=2.2.0" },
+    { name = "kafka-python-ng", marker = "extra == 'transform'", specifier = ">=2.2.0" },
+    { name = "langchain-core", marker = "extra == 'serving'", specifier = ">=0.1.30" },
+    { name = "langgraph", marker = "extra == 'serving'", specifier = ">=0.0.30" },
+    { name = "lightgbm", marker = "extra == 'serving'", specifier = ">=4.3.0" },
+    { name = "lightgbm", marker = "extra == 'training'", specifier = ">=4.3.0" },
+    { name = "mlflow", marker = "extra == 'serving'", specifier = ">=2.11.0" },
+    { name = "mlflow", marker = "extra == 'training'", specifier = ">=2.11.0" },
+    { name = "numpy", marker = "extra == 'extract'", specifier = ">=1.26.0" },
+    { name = "numpy", marker = "extra == 'training'", specifier = ">=1.26.0" },
+    { name = "numpy", marker = "extra == 'transform'", specifier = ">=1.26.0" },
+    { name = "pandas", marker = "extra == 'extract'", specifier = ">=2.2.0" },
+    { name = "pandas", marker = "extra == 'monitoring'", specifier = ">=2.2.0" },
+    { name = "pandas", marker = "extra == 'training'", specifier = ">=2.2.0" },
+    { name = "pandas", marker = "extra == 'transform'", specifier = ">=2.2.0" },
+    { name = "pandas", marker = "extra == 'ui'", specifier = ">=2.2.0" },
+    { name = "prefect", marker = "extra == 'monitoring'", specifier = ">=2.16.0" },
+    { name = "psycopg2-binary", marker = "extra == 'core'", specifier = ">=2.9.9" },
+    { name = "pyarrow", marker = "extra == 'extract'", specifier = ">=15.0.0" },
+    { name = "pyarrow", marker = "extra == 'training'", specifier = ">=15.0.0" },
+    { name = "pyarrow", marker = "extra == 'transform'", specifier = ">=15.0.0" },
+    { name = "pydantic", marker = "extra == 'core'", specifier = ">=2.6.0" },
+    { name = "pydantic-settings", marker = "extra == 'core'", specifier = ">=2.2.0" },
+    { name = "pydeck", marker = "extra == 'ui'", specifier = ">=0.9.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
-    { name = "redis", specifier = ">=5.0.0" },
-    { name = "requests", specifier = ">=2.31.0" },
+    { name = "python-dotenv", marker = "extra == 'core'", specifier = ">=1.0.0" },
+    { name = "redis", marker = "extra == 'core'", specifier = ">=5.0.0" },
+    { name = "requests", marker = "extra == 'core'", specifier = ">=2.31.0" },
+    { name = "requests", marker = "extra == 'ui'", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.3.0" },
-    { name = "sqlalchemy", specifier = ">=2.0.0" },
-    { name = "streamlit", specifier = ">=1.32.0" },
-    { name = "uvicorn", specifier = ">=0.28.0" },
-    { name = "xgboost", specifier = ">=2.0.0" },
+    { name = "sqlalchemy", marker = "extra == 'core'", specifier = ">=2.0.0" },
+    { name = "streamlit", marker = "extra == 'ui'", specifier = ">=1.32.0" },
+    { name = "uvicorn", marker = "extra == 'serving'", specifier = ">=0.28.0" },
+    { name = "xgboost", marker = "extra == 'serving'", specifier = ">=2.0.0" },
+    { name = "xgboost", marker = "extra == 'training'", specifier = ">=2.0.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["core", "extract", "transform", "training", "serving", "monitoring", "ui", "dev"]
 
 [[package]]
 name = "mako"

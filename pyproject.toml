@@ -15,32 +15,62 @@ license = { text = "MIT" }
 authors = [
     { name = "Khuzaima Hassan" }
 ]
-dependencies = [
-    "fastapi>=0.110.0",
-    "uvicorn>=0.28.0",
+dependencies = []
+
+[project.optional-dependencies]
+core = [
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
-    "redis>=5.0.0",
     "psycopg2-binary>=2.9.9",
     "sqlalchemy>=2.0.0",
-    "feast>=0.37.0",
-    "mlflow>=2.11.0",
-    "prefect>=2.16.0",
-    "lightgbm>=4.3.0",
-    "xgboost>=2.0.0",
-    "kafka-python-ng>=2.2.0",
-    "langgraph>=0.0.30",
-    "langchain-core>=0.1.30",
-    "faiss-cpu>=1.8.0",
-    "streamlit>=1.32.0",
-    "evidently>=0.4.15",
+    "redis>=5.0.0",
     "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+extract = [
+    "feast>=0.37.0",
     "pyarrow>=15.0.0",
     "pandas>=2.2.0",
     "numpy>=1.26.0",
 ]
-
-[project.optional-dependencies]
+transform = [
+    "kafka-python-ng>=2.2.0",
+    "feast>=0.37.0",
+    "pyarrow>=15.0.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+]
+training = [
+    "feast>=0.37.0",
+    "lightgbm>=4.3.0",
+    "xgboost>=2.0.0",
+    "mlflow>=2.11.0",
+    "pyarrow>=15.0.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+]
+serving = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "feast>=0.37.0",
+    "lightgbm>=4.3.0",
+    "xgboost>=2.0.0",
+    "mlflow>=2.11.0",
+    "langgraph>=0.0.30",
+    "langchain-core>=0.1.30",
+    "faiss-cpu>=1.8.0",
+]
+monitoring = [
+    "evidently>=0.4.15",
+    "prefect>=2.16.0",
+    "pandas>=2.2.0",
+]
+ui = [
+    "streamlit>=1.32.0",
+    "requests>=2.31.0",
+    "pydeck>=0.9.0",
+    "pandas>=2.2.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
