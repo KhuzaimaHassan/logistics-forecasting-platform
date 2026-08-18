@@ -31,16 +31,63 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --system -e ".[dev]"
+          uv sync --frozen --all-extras
 
       - name: Run Ruff Lint
         run: |
-          ruff check .
+          uv run ruff check .
 
       - name: Run Black Code Format Check
         run: |
-          black --check .
+          uv run black --check .
 
       - name: Run Tests with Pytest
         run: |
-          pytest
+          uv run pytest
+
+  docker-compose-validate:
+    name: Docker Compose Build & Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build all Docker images
+        run: |
+          docker compose build
+
+      - name: Start Docker Compose stack
+        run: |
+          docker compose up -d
+
+      - name: Wait for services to stabilize and report status
+        run: |
+          sleep 20
+          docker compose ps
+
+      - name: Verify Caddy reverse proxy to FastAPI /health
+        run: |
+          curl --fail --retry 15 --retry-delay 2 http://localhost/health
+
+      - name: Verify Caddy reverse proxy to Streamlit UI
+        run: |
+          curl --fail --retry 15 --retry-delay 2 http://localhost/
+
+      - name: Direct container health probe for FastAPI
+        run: |
+          docker compose exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
+
+      - name: Direct container health probe for Streamlit
+        run: |
+          docker compose exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
+
+      - name: Inspect container logs
+        if: always()
+        run: |
+          docker compose logs
+
+      - name: Tear down services
+        if: always()
+        run: |
+          docker compose down -v

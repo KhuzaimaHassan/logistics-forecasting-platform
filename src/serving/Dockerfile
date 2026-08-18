@@ -6,11 +6,15 @@ WORKDIR /app
 # Install uv for fast dependency management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copy project definition
-COPY pyproject.toml .
+# Ensure the virtualenv created by uv is on PATH
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
 
-# Install dependencies
-RUN uv pip install --system -e .
+# Copy project definition, lockfile, and readme
+COPY pyproject.toml uv.lock README.md ./
+
+# Install dependencies using the frozen lockfile scoped to serving
+RUN uv sync --frozen --no-dev --no-install-project --extra core --extra serving
 
 # Copy application source
 COPY src/ /app/src/
