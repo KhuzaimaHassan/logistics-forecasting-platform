@@ -31,3 +31,5 @@ A live, production-shaped MLOps pipeline: real-time + historical NYC data → ET
 ## Stack
 
 Python · FastAPI · Streamlit · Feast · Redpanda · Postgres · Redis · MLflow · Prefect · LangGraph · Groq/Gemini · Docker · Oracle Cloud · GitHub Actions
+
+<!-- test direct push to dev -->
