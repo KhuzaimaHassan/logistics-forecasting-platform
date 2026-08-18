@@ -63,20 +63,24 @@ jobs:
 
       - name: Wait for services to stabilize and report status
         run: |
-          sleep 15
+          sleep 20
           docker compose ps
 
-      - name: Verify FastAPI health check endpoint
+      - name: Verify Caddy reverse proxy to FastAPI /health
         run: |
-          curl --fail --retry 10 --retry-delay 3 http://localhost:8000/health
+          curl --fail --retry 15 --retry-delay 2 http://localhost/health
 
-      - name: Verify Streamlit UI endpoint
+      - name: Verify Caddy reverse proxy to Streamlit UI
         run: |
-          curl --fail --retry 10 --retry-delay 3 http://localhost:8501
+          curl --fail --retry 15 --retry-delay 2 http://localhost/
 
-      - name: Verify Caddy reverse proxy routing
+      - name: Direct container health probe for FastAPI
         run: |
-          curl --fail --retry 10 --retry-delay 3 http://localhost/health
+          docker compose exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
+
+      - name: Direct container health probe for Streamlit
+        run: |
+          docker compose exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
 
       - name: Inspect container logs
         if: always()

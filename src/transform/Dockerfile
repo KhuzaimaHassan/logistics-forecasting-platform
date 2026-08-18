@@ -10,11 +10,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
-# Copy project definition and validated lockfile
-COPY pyproject.toml uv.lock ./
+# Copy project definition, lockfile, and readme
+COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies using the frozen lockfile scoped to transform
-RUN uv sync --frozen --no-dev --extra core --extra transform
+RUN uv sync --frozen --no-dev --no-install-project --extra core --extra transform
 
 # Copy application source
 COPY src/ /app/src/
