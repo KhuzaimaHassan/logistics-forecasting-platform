@@ -31,16 +31,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --system -e ".[dev,core,extract,transform,serving,training,monitoring,ui]"
+          uv sync --frozen --all-extras
 
       - name: Run Ruff Lint
         run: |
-          ruff check .
+          uv run ruff check .
 
       - name: Run Black Code Format Check
         run: |
-          black --check .
+          uv run black --check .
 
       - name: Run Tests with Pytest
         run: |
-          pytest
+          uv run pytest
