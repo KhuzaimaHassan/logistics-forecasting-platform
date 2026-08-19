@@ -5,7 +5,7 @@
 ```
 logistics-forecasting-platform/
 ├── docs/           # this docs folder
-├── src/            # extract, transform, features, training, serving, agents, monitoring, orchestration
+├── src/            # common, extract, transform, features, training, serving, agents, monitoring, orchestration
 │                   # (each service's Dockerfile lives with its code, e.g. src/<service>/Dockerfile)
 ├── ui/             # Streamlit app (ui/Dockerfile)
 ├── infra/          # Docker Compose (docker-compose.yml at root/infra), Oracle VM setup scripts

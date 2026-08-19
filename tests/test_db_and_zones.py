@@ -4,6 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -48,7 +49,7 @@ def test_settings_configuration() -> None:
 
 def test_taxi_zones_reference_integrity() -> None:
     """Verify that bundled taxi zones have valid numeric coordinates and unique IDs."""
-    assert len(DEFAULT_NYC_TAXI_ZONES) >= 100
+    assert len(DEFAULT_NYC_TAXI_ZONES) == 265
 
     zone_ids = set()
     for zone in DEFAULT_NYC_TAXI_ZONES:
@@ -113,12 +114,20 @@ def test_fetch_zone_lookup_csv_parsing() -> None:
         assert zones[1]["centroid_lat"] == 40.757015
 
 
-def test_fetch_zone_lookup_csv_network_fallback() -> None:
-    """Test that network exceptions fall back safely to the bundled reference dataset."""
-    with patch("requests.get", side_effect=Exception("Network error")):
-        zones = fetch_zone_lookup_csv("https://unreachable.test")
-        assert len(zones) == len(DEFAULT_NYC_TAXI_ZONES)
-        assert zones[0]["zone_id"] == DEFAULT_NYC_TAXI_ZONES[0]["zone_id"]
+def test_fetch_zone_lookup_csv_fail_fast() -> None:
+    """Test that network errors raise RuntimeError when fail_fast=True."""
+    with patch("requests.get", side_effect=Exception("Connection refused")):
+        with pytest.raises(RuntimeError) as excinfo:
+            fetch_zone_lookup_csv("https://unreachable.test", fail_fast=True)
+        assert "Failed to fetch NYC TLC taxi zone lookup" in str(excinfo.value)
+
+
+def test_fetch_zone_lookup_csv_fallback() -> None:
+    """Test that network errors fall back safely to bundled dataset when fail_fast=False."""
+    with patch("requests.get", side_effect=Exception("Connection refused")):
+        zones = fetch_zone_lookup_csv("https://unreachable.test", fail_fast=False)
+        assert len(zones) == 265
+        assert zones[0]["zone_id"] == 1
 
 
 def test_load_taxi_zones_to_db_in_memory() -> None:
