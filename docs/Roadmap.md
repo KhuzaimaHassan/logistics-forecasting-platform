@@ -34,8 +34,9 @@ Evidently drift reports scheduled via Prefect, surfaced on the UI dashboard, que
 README, architecture diagram, live demo link, portfolio write-up, Lessons-Learned.md filled in retrospectively.
 
 ## Status
-
+ 
 - **Phase 0 — Infra Bootstrap:** Done (completed 2026-08-18)
-- **Phase 1 — Historical ETL:** Not yet started
+- **Phase 1 — Historical ETL:** In Progress (Issue #15 opened)
 - **Phases 2–9:** Not yet started
+
 

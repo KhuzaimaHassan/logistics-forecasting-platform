@@ -71,7 +71,8 @@ logistics-forecasting-platform/
 ```bash
 # Environment & Dependencies (uv)
 uv venv
-uv pip install -e ".[dev]"
+uv sync --all-extras
+
 
 # Linting & Formatting
 ruff check .

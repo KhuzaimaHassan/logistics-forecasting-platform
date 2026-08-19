@@ -21,6 +21,8 @@ logistics-forecasting-platform/
 - `dev` — integration branch for the current milestone.
 - `feature/<milestone-number>-<short-name>` — e.g. `feature/02-historical-etl`. Branched from `dev`, PR'd back into `dev`.
 - Fixes to already-merged milestone infrastructure (security, correctness) sync `dev` → `main` promptly via PR, same as any other PR; the "merge at milestone completion" rule applies to accumulating new milestone feature work, not patching what's already shipped.
+- Immediately after every `dev` → `main` squash-merge, sync `dev` with a "chore: sync dev with main after squash-merge" PR merging `origin/main` into `dev` — before starting any new feature work on `dev`. This is a required standing step at the close of every milestone because squash-merging creates a new commit on `main`.
+
 
 
 ## 3. Milestones ↔ Issues (same pattern as Quasar)
