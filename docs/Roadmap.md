@@ -22,7 +22,7 @@ Redpanda broker up, streaming producer (replay + live MTA/traffic/weather pollin
 FastAPI `/predict/demand`, `/predict/eta`, `/features/*`, `/health` live, reading from the Feast online store, deployed on the Oracle VM.
 
 ## Phase 6 — CI/CD
-GitHub Actions: build/test/deploy on merge to `main`, scheduled/drift-triggered retrain workflow.
+GitHub Actions: build/test/deploy on merge to `main`, scheduled/drift-triggered retrain workflow; add Docker build-layer caching (Buildx / Actions cache) once real ML/agent dependencies land to keep PR turnaround fast.
 
 ## Phase 7 — Agent Layer
 LangGraph Ops Copilot live behind `/agent/chat`, all four tools working, guardrails tested against adversarial input.
@@ -35,4 +35,7 @@ README, architecture diagram, live demo link, portfolio write-up, Lessons-Learne
 
 ## Status
 
-Not yet started — docs finalized first, per the process agreed at project start. This file gets a status update (not started / in progress / done, with dates) per phase as the project progresses.
+- **Phase 0 — Infra Bootstrap:** Done (completed 2026-08-18)
+- **Phase 1 — Historical ETL:** Not yet started
+- **Phases 2–9:** Not yet started
+
