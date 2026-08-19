@@ -1,12 +1,10 @@
-"""Official NYC TLC Taxi Zones reference dataset with precomputed geometric centroids.
+"""NYC TLC Taxi Zones reference dataset with representative centroid coordinates.
 
-Source Attribution & Citations:
-1. NYC Taxi and Limousine Commission (TLC) Taxi Zone Lookup Table:
-   URL: https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv
-2. NYC Open Data / TLC Taxi Zones Geospatial Dataset (Shapefile / GeoJSON):
-   Dataset Identifier: d3c5-ddgc
-   URL: https://data.cityofnewyork.us/Transportation/NYC-Taxi-Zones/d3c5-ddgc
-   Centroids computed via geometric polygon integration (EPSG:2263 NY Long Island State Plane -> EPSG:4326 WGS84).
+Data Notes:
+- Zone metadata (LocationID, Borough, Zone Name, Service Zone) corresponds to the
+  official NYC TLC Taxi Zone Lookup table (https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv).
+- Numeric centroid coordinates (centroid_lat, centroid_lon) are representative coordinates
+  for each NYC taxi zone and airport footprint, used for UI map plotting and distance metrics.
 """
 
 from typing import Dict, List, TypedDict
