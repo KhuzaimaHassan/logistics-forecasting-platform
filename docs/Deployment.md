@@ -35,6 +35,6 @@ All on a shared Docker network; only Caddy ports 80/443 exposed externally (via 
 
 Deliberately lean stack given the constraint — no Spark/Flink, no multi-broker Kafka cluster, no separate training cluster. Training runs happen on the same VM during off-peak (batch job via Prefect), not continuously.
 
-## 6. Open questions
-
-- Swap space configuration to give headroom on 12GB RAM during training runs — needed before Phase 3.
+## 6. Resolved & Open Questions
+ 
+- **Swap space:** Automated via `infra/oracle-vm/provision.sh` (2GB swapfile configured on Oracle Linux/Ubuntu ARM64 host). Resolved in Phase 0.
