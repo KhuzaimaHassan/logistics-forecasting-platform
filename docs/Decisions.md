@@ -135,3 +135,18 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Single flat `dependencies` list — bloated containers (~88 unnecessary packages in serving/ui), longer CI build times, and larger container attack surfaces.
 
 **Consequences:** Lean, isolated container images built from a single unified repository lockfile. CI continues to validate the entire dependency graph via full extras sync, while each deployed service runs only its necessary footprint.
+
+---
+
+## ADR-010: Database schema migrations — Alembic for raw and warehouse schemas
+
+**Context:** Phase 1 requires managing schema evolution and table DDL for PostgreSQL (`raw` and `warehouse` schemas, including `taxi_zones`, `trips`, `loaded_months`, and `pipeline_runs`). A consistent, reproducible migration mechanism is needed across local development, CI automated testing, and Oracle VM container deployment.
+
+**Decision:** Use Alembic (`alembic>=1.13.0`) as the schema migration tool, added to the `core` optional-dependencies group in `pyproject.toml`. Migrations are managed under an `alembic/` directory with standard linear revision history.
+
+**Alternatives considered:**
+- Plain versioned SQL scripts (`001_init.sql`, etc.) with a custom runner — simple, but lacks built-in version tracking tables (`alembic_version`), downgrade/rollback capabilities, branching detection, and programmatic integration with Python/SQLAlchemy test fixtures.
+- Flyway / Liquibase — robust, but requires a JVM runtime or separate binary CLI inside container images, introducing unnecessary tool sprawl and image weight.
+
+**Consequences:** Programmatic and CLI migration management using existing Python/SQLAlchemy tooling (`alembic upgrade head`). Migrations are version-tracked in PostgreSQL, idempotent, and testable directly within `pytest` harnesses using temporary test schemas or in-memory fixtures.
+
