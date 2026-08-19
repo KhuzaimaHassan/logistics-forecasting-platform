@@ -20,6 +20,8 @@ logistics-forecasting-platform/
 - `main` — always deployable. Protected: no direct pushes, PR + passing CI required.
 - `dev` — integration branch for the current milestone.
 - `feature/<milestone-number>-<short-name>` — e.g. `feature/02-historical-etl`. Branched from `dev`, PR'd back into `dev`.
+- Fixes to already-merged milestone infrastructure (security, correctness) sync `dev` → `main` promptly via PR, same as any other PR; the "merge at milestone completion" rule applies to accumulating new milestone feature work, not patching what's already shipped.
+
 
 ## 3. Milestones ↔ Issues (same pattern as Quasar)
 
