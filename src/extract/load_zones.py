@@ -23,9 +23,14 @@ TLC_ZONE_LOOKUP_URL = "https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_loo
 
 
 def fetch_zone_lookup_csv(
-    url: str = TLC_ZONE_LOOKUP_URL, timeout: int = 15
+    url: str = TLC_ZONE_LOOKUP_URL,
+    timeout: int = 15,
+    fail_fast: bool = True,
 ) -> List[ZoneData]:
-    """Download TLC Taxi Zone lookup CSV from CDN and combine with known centroids."""
+    """Download TLC Taxi Zone lookup CSV from CDN and combine with known centroids.
+
+    If fail_fast is True (default), network errors raise RuntimeError immediately.
+    """
     logger.info(f"Fetching NYC TLC Taxi Zone lookup data from: {url}")
     default_map = get_default_zones_map()
     zones: List[ZoneData] = []
@@ -45,10 +50,9 @@ def fetch_zone_lookup_csv(
             zone_name = row.get("Zone", "Unknown").strip() or "Unknown"
             service_zone = row.get("service_zone", "").strip() or None
 
-            # Look up geometric centroid from precomputed reference map
             ref = default_map.get(zone_id)
-            lat = ref["centroid_lat"] if ref else 40.712800
-            lon = ref["centroid_lon"] if ref else -74.006000
+            lat = ref["centroid_lat"] if ref else 0.0
+            lon = ref["centroid_lon"] if ref else 0.0
 
             zones.append(
                 {
@@ -65,8 +69,12 @@ def fetch_zone_lookup_csv(
         )
         return zones
     except Exception as e:
+        if fail_fast:
+            raise RuntimeError(
+                f"Failed to fetch NYC TLC taxi zone lookup from '{url}': {e}"
+            ) from e
         logger.warning(
-            f"Failed to fetch TLC zone lookup CSV from network ({e}). Falling back to bundled reference dataset."
+            f"Failed to fetch TLC zone lookup from network ({e}). Using bundled snapshot."
         )
         return DEFAULT_NYC_TAXI_ZONES
 
@@ -111,12 +119,11 @@ def load_taxi_zones_to_db(
 
 
 def main() -> None:
-    """CLI entrypoint to fetch and load NYC Taxi Zones."""
+    """CLI entrypoint to load NYC Taxi Zones into the database."""
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
     )
-    zones = fetch_zone_lookup_csv()
-    count = load_taxi_zones_to_db(zones)
+    count = load_taxi_zones_to_db()
     print(f"Loaded {count} NYC Taxi Zones into database.")
 
 
