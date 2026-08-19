@@ -9,9 +9,15 @@
 
 ## 2. Python Tooling & Dependency Convention
 
-- Single root `pyproject.toml` managing one project-wide dependency set via `uv`.
+- Single root `pyproject.toml` managing project dependencies via `uv` optional-dependency groups (ADR-009).
 - Code formatting and linting: `ruff` + `black`, configured directly in `pyproject.toml`.
-- Virtual environment setup: `uv venv && uv pip install -e ".[dev]"` (or `uv sync`).
+- Virtual environment setup:
+  ```bash
+  uv venv
+  uv sync --all-extras          # install full workspace dependencies for development
+  # or scoped per service:
+  uv sync --extra core --extra <service>
+  ```
 
 ## 3. `.env` template
 
@@ -60,6 +66,7 @@ ruff check .
 black --check .
 ```
 
-## 6. Open questions
+## 6. Resolved & Open Questions
 
-- Whether a `Makefile` is worth adding for common commands (`make up`, `make test`) — low cost, likely yes, deferred to Phase 0.
+- Standard direct `uv` and `docker compose` commands are preferred over a wrapper `Makefile` to keep cross-platform (Windows/Linux/macOS) execution frictionless.
+

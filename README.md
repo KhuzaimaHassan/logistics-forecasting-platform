@@ -2,7 +2,7 @@
 
 A live, production-shaped MLOps pipeline: real-time + historical NYC data → ETL → feature store → model training → deployment → CI/CD, with an LLM ops-agent layer on top.
 
-**Status:** Design phase. Full docs finalized before any code — start here: [`docs/Architecture.md`](./docs/Architecture.md).
+**Status:** Phase 0 (Infra Bootstrap) completed; Phase 1 (Historical ETL) in progress. System architecture and design: [`docs/Architecture.md`](./docs/Architecture.md).
 
 ## Docs
 
