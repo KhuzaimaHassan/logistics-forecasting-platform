@@ -2433,6 +2433,7 @@ source = { editable = "." }
 
 [package.optional-dependencies]
 core = [
+    { name = "alembic" },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -2501,6 +2502,7 @@ ui = [
 
 [package.metadata]
 requires-dist = [
+    { name = "alembic", marker = "extra == 'core'", specifier = ">=1.13.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.2.0" },
     { name = "evidently", marker = "extra == 'monitoring'", specifier = ">=0.4.15" },
     { name = "faiss-cpu", marker = "extra == 'serving'", specifier = ">=1.8.0" },

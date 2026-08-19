@@ -15,7 +15,7 @@ Build the historical batch extraction, transformation, and storage pipeline for 
     - `warehouse.trips` (partitioned/indexed historical trip records with computed trip duration and 15-minute time bin).
   - Implement a Python loader to download NYC TLC taxi zone lookup data, compute geometric centroids, and insert into `warehouse.taxi_zones`.
   - Unit tests verifying schema creation and zone lookup queries.
-- **Per-Ticket Context:** `docs/Database.md`, `docs/Decisions.md` (ADR-001), `docs/Data-Sources.md`.
+- **Per-Ticket Context:** `docs/Database.md`, `docs/Decisions.md` (ADR-008), `docs/Data-Sources.md`.
 - **Files Touched:** `src/extract/load_zones.py`, `src/common/db.py`, `tests/test_zones.py`.
 - **Estimated Size:** ~150–200 lines.
 - **Depends On:** Phase 0 baseline.
