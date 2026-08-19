@@ -53,18 +53,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify Compose fails fast without credentials
+        run: |
+          OUTPUT=$(docker compose config 2>&1 || true)
+          echo "Output when no credentials supplied:"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "POSTGRES_PASSWORD must be set"
+
       - name: Build all Docker images
         run: |
-          docker compose build
+          docker compose --env-file .env.ci build
 
       - name: Start Docker Compose stack
         run: |
-          docker compose up -d
+          docker compose --env-file .env.ci up -d
 
       - name: Wait for services to stabilize and report status
         run: |
           sleep 20
-          docker compose ps
+          docker compose --env-file .env.ci ps
 
       - name: Verify Caddy reverse proxy to FastAPI /health
         run: |
@@ -76,18 +83,18 @@ jobs:
 
       - name: Direct container health probe for FastAPI
         run: |
-          docker compose exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
+          docker compose --env-file .env.ci exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
 
       - name: Direct container health probe for Streamlit
         run: |
-          docker compose exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
+          docker compose --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
 
       - name: Inspect container logs
         if: always()
         run: |
-          docker compose logs
+          docker compose --env-file .env.ci logs
 
       - name: Tear down services
         if: always()
         run: |
-          docker compose down -v
+          docker compose --env-file .env.ci down -v
