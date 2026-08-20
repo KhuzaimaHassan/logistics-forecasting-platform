@@ -22,13 +22,15 @@ Build the historical batch extraction, transformation, and storage pipeline for 
 
 ### M1-2: Historical TLC Parquet Batch Extractor & Downloader
 - **Scope / Acceptance Criteria:**
-  - Implement `src/extract/batch_puller.py` to stream/download Yellow and Green taxi monthly Parquet files from NYC TLC CloudFront CDN (`https://d37ci6vzurychx.cloudfront.net/trip-data/`).
-  - Support date range filtering (e.g. 2023–2024 monthly batches), retries with exponential backoff, and local temporary caching.
-  - Unit tests with mock HTTP responses and sample Parquet datasets.
-- **Per-Ticket Context:** `docs/Data-Sources.md`, `docs/ETL-Streaming.md`.
-- **Files Touched:** `src/extract/batch_puller.py`, `tests/test_extract.py`.
+  - Implement `src/extract/batch_puller.py` to download Yellow and Green taxi monthly Parquet files from NYC TLC CloudFront CDN (`https://d37ci6vzurychx.cloudfront.net/trip-data/`).
+  - Support date range filtering (e.g. 2023–2024 monthly batches), retries with exponential backoff, checksum/size validation, and local temporary caching.
+  - Fast offline unit tests in `tests/test_extract.py` using mock HTTP responses and synthetic Parquet fixtures to gate every PR.
+  - Separate `.github/workflows/etl_live_smoke.yml` workflow triggered on schedule (`cron`) or `workflow_dispatch` (manual) for optional live network integration smoke testing.
+- **Per-Ticket Context:** `docs/Data-Sources.md`, `docs/ETL-Streaming.md`, `docs/GitHub-Setup.md`.
+- **Files Touched:** `src/extract/batch_puller.py`, `tests/test_extract.py`, `.github/workflows/etl_live_smoke.yml`.
 - **Estimated Size:** ~150–200 lines.
 - **Depends On:** M1-1.
+
 
 ### M1-3: Data Validation, Cleaning & Warehouse Transformation
 - **Scope / Acceptance Criteria:**
