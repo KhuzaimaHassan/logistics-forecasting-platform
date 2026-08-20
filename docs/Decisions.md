@@ -164,5 +164,8 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Enables unimpeded development of Phase 1 ETL pipelines and Streamlit map layouts while explicitly tracking geospatial centroid refinement as technical debt.
 
+**Status / Retried Check:** Retried the Socrata GeoJSON fetch for dataset `d3c5-ddgc` (`https://data.cityofnewyork.us/api/geospatial/d3c5-ddgc?method=export&format=GeoJSON`) via `urllib.request`. The endpoint returned `HTTP Error 404: Not Found` (endpoint deprecated/removed by provider). ADR-011 stands as written; centroid refinement remains tracked as technical debt.
+
+
 
 
