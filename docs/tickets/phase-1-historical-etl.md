@@ -26,6 +26,8 @@ Build the historical batch extraction, transformation, and storage pipeline for 
   - Support date range filtering (e.g. 2023–2024 monthly batches), retries with exponential backoff, checksum/size validation, and local temporary caching.
   - Fast offline unit tests in `tests/test_extract.py` using mock HTTP responses and synthetic Parquet fixtures to gate every PR.
   - Separate `.github/workflows/etl_live_smoke.yml` workflow triggered on schedule (`cron`) or `workflow_dispatch` (manual) for optional live network integration smoke testing.
+  - *Note on Idempotency:* `batch_puller.py` manages local file-level caching (`data/raw/`). Database-level idempotency checking against `warehouse.loaded_months` before extraction/loading is deferred to the M1-4 Prefect batch flow orchestration module.
+
 - **Per-Ticket Context:** `docs/Data-Sources.md`, `docs/ETL-Streaming.md`, `docs/GitHub-Setup.md`.
 - **Files Touched:** `src/extract/batch_puller.py`, `tests/test_extract.py`, `.github/workflows/etl_live_smoke.yml`.
 - **Estimated Size:** ~150–200 lines.
