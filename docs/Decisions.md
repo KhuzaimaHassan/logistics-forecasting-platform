@@ -150,3 +150,19 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Programmatic and CLI migration management using existing Python/SQLAlchemy tooling (`alembic upgrade head`). Migrations are version-tracked in PostgreSQL, idempotent, and testable directly within `pytest` harnesses using temporary test schemas or in-memory fixtures.
 
+---
+
+## ADR-011: Temporary representative taxi zone centroids and technical debt tracking
+
+**Context:** Initial bootstrapping of `warehouse.taxi_zones` uses representative centroid coordinates (`centroid_lat`, `centroid_lon`) scoped strictly to UI map rendering. Replacing these with exact shapefile polygon centroids computed via `shapely`/`pyproj` against official TLC GeoJSON boundaries requires dedicated geospatial dependencies.
+
+**Decision:** Maintain representative coordinates in `src/extract/zones_reference.py` for UI map visualization, explicitly scoped away from spatial distance calculations. Track polygon centroid derivation from official TLC shapefiles as technical debt to be resolved before Phase 9 polish at the latest.
+
+**Alternatives considered:**
+- Adding heavy geospatial dependencies (`geopandas`, `shapely`, `pyproj`) to the core dependency group immediately — adds container weight and build overhead before live geometric polygon processing is required.
+- Blocking Phase 1 ETL pipeline development — unnecessary block on core batch extraction, cleaning, and database loading.
+
+**Consequences:** Enables unimpeded development of Phase 1 ETL pipelines and Streamlit map layouts while explicitly tracking geospatial centroid refinement as technical debt.
+
+
+

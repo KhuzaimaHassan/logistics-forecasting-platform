@@ -4,7 +4,8 @@ Data Notes:
 - Zone metadata (LocationID, Borough, Zone Name, Service Zone) corresponds to the
   official NYC TLC Taxi Zone Lookup table (https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv).
 - Numeric centroid coordinates (centroid_lat, centroid_lon) are representative coordinates
-  for each NYC taxi zone and airport footprint, used for UI map plotting and distance metrics.
+  for each NYC taxi zone and airport footprint, used explicitly for UI map plotting only
+  pending calculation from the official TLC shapefile (see ADR-011).
 """
 
 from typing import Dict, List, TypedDict
