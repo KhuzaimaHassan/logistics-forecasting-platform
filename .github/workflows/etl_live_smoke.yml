@@ -1,0 +1,56 @@
+name: ETL Live Smoke Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  live-etl-smoke-test:
+    name: Live TLC CloudFront Parquet Extraction Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Execute Live TLC Batch Extractor
+        run: |
+          uv run python -m src.extract.batch_puller \
+            --cab-type yellow \
+            --start-year 2023 \
+            --start-month 1 \
+            --end-year 2023 \
+            --end-month 1 \
+            --output-dir /tmp/raw_etl_smoke
+
+      - name: Verify Downloaded Parquet Integrity
+        run: |
+          uv run python -c "
+          import pyarrow.parquet as pq
+          from pathlib import Path
+
+          parquet_path = Path('/tmp/raw_etl_smoke/yellow_tripdata_2023-01.parquet')
+          assert parquet_path.exists(), f'File {parquet_path} does not exist.'
+          size = parquet_path.stat().st_size
+          print(f'Downloaded Parquet size: {size} bytes')
+          assert size > 1_000_000, f'Expected file size > 1MB, got {size} bytes.'
+
+          table = pq.read_table(parquet_path)
+          print(f'Parquet schema:\n{table.schema}')
+          print(f'Total rows in yellow_tripdata_2023-01.parquet: {table.num_rows}')
+          assert table.num_rows > 100_000, f'Expected > 100k rows, got {table.num_rows}.'
+          "
