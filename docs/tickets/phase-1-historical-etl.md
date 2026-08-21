@@ -36,16 +36,24 @@ Build the historical batch extraction, transformation, and storage pipeline for 
 
 ### M1-3: Data Validation, Cleaning & Warehouse Transformation
 - **Scope / Acceptance Criteria:**
-  - Implement batch data transformation pipeline in `src/transform/batch_transformer.py`:
-    - Schema validation and column alignment across Yellow/Green TLC formats.
-    - Outlier and anomaly filtering: invalid coordinates/zone IDs, negative or > 24hr durations, zero distance with positive fare, invalid passenger counts.
-    - Feature derivation: `trip_duration_seconds`, `time_bin_15m`, day of week, hour of day, rush hour indicator.
-    - Bulk load cleaned records into `warehouse.trips`.
-  - Unit tests for cleaning logic, boundary cases, and transformation validity.
+  - Implement two-stage batch transformation pipeline in `src/extract/raw_loader.py` and `src/transform/batch_transformer.py`:
+    - **Stage 1 (Raw Staging)**: Bulk load raw Parquet files into `raw.trips` near-verbatim with minimal transformation (`source_file` tracking).
+    - **Stage 2 (Warehouse Transformation)**: Validate, clean, derive features, and load from `raw.trips` (or raw Parquet) into `warehouse.trips`.
+  - **Concrete Outlier & Anomaly Rules** (documented in `docs/ETL-Streaming.md`):
+    - `trip_duration_seconds`: $60 \le \text{duration} \le 86,400$ (1 min to 24 hrs).
+    - `trip_distance`: $0.0 < \text{distance} \le 300.0$ miles.
+    - `passenger_count`: $1 \le \text{passengers} \le 9$.
+    - `average_speed_mph`: $\le 100.0$ mph.
+    - `fare_amount` & `total_amount`: $\ge 0.0$.
+  - **Zone-ID Validation**: Drop records with unmapped `PULocationID` or `DOLocationID` (outside standard zones 1–265), logging the total dropped count and specific unmapped IDs seen for auditability.
+  - **Deterministic Idempotent `trip_id`**: Generate deterministic UUIDv5 from composite key (`vendor_id`, `pickup_datetime`, `dropoff_datetime`, `PULocationID`, `DOLocationID`, `fare_amount`, `trip_distance`) with `ON CONFLICT (trip_id) DO NOTHING` (or set-based deduplication) to guarantee idempotent re-runs.
+  - **Feature Derivation**: `trip_duration_seconds`, `time_bin_15m` (floor timestamp to 15-min interval), day of week, hour of day, rush hour flag.
+  - **Auditable Logging**: Log counts per rejection reason (`invalid_duration`, `invalid_distance`, `unmapped_zone`, `speed_anomaly`) without full quarantine table overhead.
 - **Per-Ticket Context:** `docs/ETL-Streaming.md`, `docs/Database.md`.
-- **Files Touched:** `src/transform/batch_transformer.py`, `tests/test_transform.py`.
+- **Files Touched:** `src/extract/raw_loader.py`, `src/transform/batch_transformer.py`, `tests/test_transform.py`.
 - **Estimated Size:** ~200–250 lines.
 - **Depends On:** M1-2.
+
 
 ### M1-4: Prefect ETL Batch Flow Orchestration & Worker Integration
 - **Scope / Acceptance Criteria:**
