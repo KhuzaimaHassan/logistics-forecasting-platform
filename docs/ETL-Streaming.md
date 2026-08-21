@@ -12,8 +12,10 @@
   - `passenger_count`: $1 \le \text{passengers} \le 9$.
   - `average_speed_mph`: $\le 100.0$ mph (computed as $\text{distance} / (\text{duration} / 3600)$).
   - `fare_amount` & `total_amount`: $\ge 0.0$.
+- **Rejection Audit Breakdown Semantics**: Per-reason rejection counts are **overlapping checks** (a single rejected row can violate multiple rules, e.g. invalid distance AND invalid passenger count). Therefore, individual reason counts reflect total rule violations across all records and do not sum up to the total net count of rejected rows.
 - **Zone-ID Validation**: Drop rows with unmapped `PULocationID` or `DOLocationID` (outside standard NYC TLC Taxi Zones 1–265). Log summary counts and specific unmapped location IDs seen for run auditability without quarantine table overhead.
-- **Deterministic `trip_id` Generation**: Generate UUIDv5 deterministically from a stable composite string (`vendor_id`, `pickup_datetime`, `dropoff_datetime`, `PULocationID`, `DOLocationID`, `fare_amount`, `trip_distance`). Ensures re-running transformation against the same source file is strictly idempotent (`ON CONFLICT (trip_id) DO NOTHING`).
+- **Deterministic `trip_id` Generation**: Generate a deterministic positive 60-bit BigInteger `trip_id` from a stable composite string (`vendor_id`, `pickup_datetime`, `dropoff_datetime`, `pickup_zone_id`, `dropoff_zone_id`, `fare_amount`, `trip_distance_miles`). Ensures re-running transformation against the same source file is strictly idempotent (`ON CONFLICT (trip_id) DO NOTHING`).
+
 
 ## 2. Streaming producer (live)
 

@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pyarrow.parquet as pq
 
 from src.common.models import RawTrip
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def bulk_load_raw_trips(
-    session: Any, parquet_path: Path, source_file: str, batch_size: int = 5000
+    session: Any, parquet_path: Path, source_file: str, batch_size: int = 50000
 ) -> int:
     """Stage 1: Bulk load raw Parquet records into raw.trips near-verbatim."""
     if not parquet_path.exists():
@@ -39,43 +40,41 @@ def bulk_load_raw_trips(
         else "lpep_dropoff_datetime"
     )
 
-    records = df.to_dict(orient="records")
+    # Fast column renaming and dict conversion
+    raw_df = pd.DataFrame()
+    raw_df["vendor_id"] = df.get("VendorID", 0).fillna(0).astype(int)
+    raw_df["pickup_datetime"] = pd.to_datetime(df[pickup_col])
+    raw_df["dropoff_datetime"] = pd.to_datetime(df[dropoff_col])
+    raw_df["passenger_count"] = df.get("passenger_count", 0.0).fillna(0.0).astype(float)
+    raw_df["trip_distance"] = df.get("trip_distance", 0.0).fillna(0.0).astype(float)
+    raw_df["rate_code_id"] = df.get("RatecodeID", 0.0).fillna(0.0).astype(float)
+    raw_df["store_and_fwd_flag"] = (
+        df.get("store_and_fwd_flag", "").fillna("").astype(str)
+    )
+    raw_df["pickup_location_id"] = df.get("PULocationID", 0).fillna(0).astype(int)
+    raw_df["dropoff_location_id"] = df.get("DOLocationID", 0).fillna(0).astype(int)
+    raw_df["payment_type"] = df.get("payment_type", 0.0).fillna(0.0).astype(float)
+    raw_df["fare_amount"] = df.get("fare_amount", 0.0).fillna(0.0).astype(float)
+    raw_df["extra"] = df.get("extra", 0.0).fillna(0.0).astype(float)
+    raw_df["mta_tax"] = df.get("mta_tax", 0.0).fillna(0.0).astype(float)
+    raw_df["tip_amount"] = df.get("tip_amount", 0.0).fillna(0.0).astype(float)
+    raw_df["tolls_amount"] = df.get("tolls_amount", 0.0).fillna(0.0).astype(float)
+    raw_df["improvement_surcharge"] = (
+        df.get("improvement_surcharge", 0.0).fillna(0.0).astype(float)
+    )
+    raw_df["total_amount"] = df.get("total_amount", 0.0).fillna(0.0).astype(float)
+    raw_df["congestion_surcharge"] = (
+        df.get("congestion_surcharge", 0.0).fillna(0.0).astype(float)
+    )
+    raw_df["airport_fee"] = df.get("airport_fee", 0.0).fillna(0.0).astype(float)
+    raw_df["source_file"] = source_file
+
+    mappings = raw_df.to_dict(orient="records")
     total_loaded = 0
 
-    for i in range(0, len(records), batch_size):
-        chunk = records[i : i + batch_size]
-        objects = []
-        for r in chunk:
-            objects.append(
-                RawTrip(
-                    vendor_id=int(r.get("VendorID", 0) or 0),
-                    pickup_datetime=r.get(pickup_col),
-                    dropoff_datetime=r.get(dropoff_col),
-                    passenger_count=int(r.get("passenger_count", 0) or 0),
-                    trip_distance=float(r.get("trip_distance", 0.0) or 0.0),
-                    ratecode_id=int(r.get("RatecodeID", 0) or 0),
-                    store_and_fwd_flag=r.get("store_and_fwd_flag"),
-                    pu_location_id=int(r.get("PULocationID", 0) or 0),
-                    do_location_id=int(r.get("DOLocationID", 0) or 0),
-                    payment_type=int(r.get("payment_type", 0) or 0),
-                    fare_amount=float(r.get("fare_amount", 0.0) or 0.0),
-                    extra=float(r.get("extra", 0.0) or 0.0),
-                    mta_tax=float(r.get("mta_tax", 0.0) or 0.0),
-                    tip_amount=float(r.get("tip_amount", 0.0) or 0.0),
-                    tolls_amount=float(r.get("tolls_amount", 0.0) or 0.0),
-                    improvement_surcharge=float(
-                        r.get("improvement_surcharge", 0.0) or 0.0
-                    ),
-                    total_amount=float(r.get("total_amount", 0.0) or 0.0),
-                    congestion_surcharge=float(
-                        r.get("congestion_surcharge", 0.0) or 0.0
-                    ),
-                    airport_fee=float(r.get("airport_fee", 0.0) or 0.0),
-                    source_file=source_file,
-                )
-            )
-
-        session.bulk_save_objects(objects)
+    for i in range(0, len(mappings), batch_size):
+        chunk = mappings[i : i + batch_size]
+        session.bulk_insert_mappings(RawTrip, chunk)
         session.commit()
         total_loaded += len(chunk)
 

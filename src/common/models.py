@@ -56,7 +56,12 @@ class RawTrip(Base):
     __tablename__ = "trips"
     __table_args__ = {"schema": "raw"}
 
-    raw_id: int = Column(BigInteger, primary_key=True, autoincrement=True)
+    raw_id: int = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+
     vendor_id: Optional[int] = Column(Integer, nullable=True)
     pickup_datetime: Optional[datetime] = Column(DateTime(timezone=True), nullable=True)
     dropoff_datetime: Optional[datetime] = Column(
