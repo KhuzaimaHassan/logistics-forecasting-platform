@@ -34,7 +34,8 @@ Build the historical batch extraction, transformation, and storage pipeline for 
 - **Depends On:** M1-1.
 
 
-### M1-3: Data Validation, Cleaning & Warehouse Transformation
+### [x] M1-3: Data Validation, Cleaning & Warehouse Transformation
+
 - **Scope / Acceptance Criteria:**
   - Implement two-stage batch transformation pipeline in `src/extract/raw_loader.py` and `src/transform/batch_transformer.py`:
     - **Stage 1 (Raw Staging)**: Bulk load raw Parquet files into `raw.trips` near-verbatim with minimal transformation (`source_file` tracking).
