@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
+from src.common.models import WarehouseTrip
+
 logger = logging.getLogger(__name__)
 
 # Standard NYC TLC Taxi Zone Location IDs (1 to 265)
@@ -35,7 +37,7 @@ class TransformationReport:
             f"Total Input Rows: {self.total_input_rows:,}",
             f"Clean Rows Landed: {self.clean_rows:,}",
             f"Total Rejected Rows: {self.rejected_rows:,}",
-            "Rejection Breakdown:",
+            "Rejection Breakdown (overlapping checks - individual reasons count rule violations and do not sum to total rejected rows):",
         ]
         for reason, count in sorted(self.rejection_reasons.items()):
             lines.append(f"  - {reason}: {count:,}")
@@ -199,7 +201,7 @@ class BatchTransformer:
         unmapped_do = set(df.loc[~valid_do_zone, "dropoff_zone_id"].unique())
         report.unmapped_zone_ids_seen = (unmapped_pu | unmapped_do) - {0}
 
-        # Track rejection counts per filter
+        # Track rejection counts per filter (overlapping checks)
         report.rejection_reasons = {
             "invalid_duration": int((~valid_duration).sum()),
             "invalid_distance": int((~valid_distance).sum()),
@@ -229,12 +231,17 @@ class BatchTransformer:
         # Feature Engineering on clean dataset
         clean_df["cab_type"] = cab_type.lower()
         clean_df["time_bin_15m"] = clean_df["pickup_datetime"].dt.floor("15min")
-        clean_df["hour_of_day"] = clean_df["pickup_datetime"].dt.hour
-        clean_df["day_of_week"] = clean_df["pickup_datetime"].dt.dayofweek
+        clean_df["hour_of_day"] = clean_df["pickup_datetime"].dt.hour.astype(int)
+        clean_df["day_of_week"] = clean_df["pickup_datetime"].dt.dayofweek.astype(int)
         clean_df["is_weekend"] = clean_df["day_of_week"].isin([5, 6])
+        clean_df["trip_duration_seconds"] = clean_df["trip_duration_seconds"].astype(
+            int
+        )
+        clean_df["passenger_count"] = clean_df["passenger_count"].astype(int)
         clean_df["trip_distance_km"] = (
             clean_df["trip_distance_miles"] * MILES_TO_KM
         ).round(2)
+        clean_df["source"] = "historical"
 
         # Generate deterministic BigInteger trip_id
         composite_str = (
@@ -274,46 +281,41 @@ class BatchTransformer:
 
 
 def batch_insert_warehouse_trips(
-    session: Any, clean_df: pd.DataFrame, batch_size: int = 5000
+    session: Any, clean_df: pd.DataFrame, batch_size: int = 50000
 ) -> int:
-    """Bulk insert clean trip records into warehouse.trips table using ON CONFLICT DO NOTHING / bulk save."""
+    """Bulk insert clean trip records into warehouse.trips table using session.bulk_insert_mappings."""
     if clean_df.empty:
         return 0
 
-    from src.common.models import WarehouseTrip
+    target_cols = [
+        "trip_id",
+        "vendor_id",
+        "cab_type",
+        "pickup_zone_id",
+        "dropoff_zone_id",
+        "pickup_datetime",
+        "dropoff_datetime",
+        "trip_duration_seconds",
+        "time_bin_15m",
+        "day_of_week",
+        "hour_of_day",
+        "is_weekend",
+        "passenger_count",
+        "trip_distance_km",
+        "fare_amount",
+        "total_amount",
+        "source",
+    ]
 
-    inserted_count = 0
-    records = clean_df.to_dict(orient="records")
+    wh_df = clean_df[target_cols].copy()
+    mappings = wh_df.to_dict(orient="records")
 
-    for i in range(0, len(records), batch_size):
-        chunk = records[i : i + batch_size]
-        objects = []
-        for r in chunk:
-            objects.append(
-                WarehouseTrip(
-                    trip_id=r["trip_id"],
-                    vendor_id=r["vendor_id"],
-                    cab_type=r["cab_type"],
-                    pickup_zone_id=r["pickup_zone_id"],
-                    dropoff_zone_id=r["dropoff_zone_id"],
-                    pickup_datetime=r["pickup_datetime"],
-                    dropoff_datetime=r["dropoff_datetime"],
-                    trip_duration_seconds=int(r["trip_duration_seconds"]),
-                    time_bin_15m=r["time_bin_15m"],
-                    day_of_week=int(r["day_of_week"]),
-                    hour_of_day=int(r["hour_of_day"]),
-                    is_weekend=bool(r["is_weekend"]),
-                    passenger_count=int(r["passenger_count"]),
-                    trip_distance_km=float(r["trip_distance_km"]),
-                    fare_amount=float(r["fare_amount"]),
-                    total_amount=float(r["total_amount"]),
-                    source="historical",
-                )
-            )
-
-        session.bulk_save_objects(objects)
+    total_inserted = 0
+    for i in range(0, len(mappings), batch_size):
+        chunk = mappings[i : i + batch_size]
+        session.bulk_insert_mappings(WarehouseTrip, chunk)
         session.commit()
-        inserted_count += len(chunk)
+        total_inserted += len(chunk)
 
-    logger.info(f"Bulk inserted {inserted_count:,} records into warehouse.trips.")
-    return inserted_count
+    logger.info(f"Bulk inserted {total_inserted:,} records into warehouse.trips.")
+    return total_inserted
