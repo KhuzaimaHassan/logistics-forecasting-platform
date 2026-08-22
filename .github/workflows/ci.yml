@@ -89,7 +89,29 @@ jobs:
         run: |
           docker compose --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
 
+      - name: Set up Python for ETL Proof
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv for ETL Proof
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Install dependencies for ETL Proof
+        run: |
+          uv sync --frozen --all-extras
+
+      - name: Verify Real PostgreSQL Two-Stage ETL Bulk Load & SQL Row Counts (M1-3 Proof)
+        env:
+          DATABASE_URL: postgresql+psycopg2://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics
+        run: |
+          uv run python scripts/execute_db_load_and_query.py
+
       - name: Inspect container logs
+
         if: always()
         run: |
           docker compose --env-file .env.ci logs

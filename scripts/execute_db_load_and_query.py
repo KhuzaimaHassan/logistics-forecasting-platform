@@ -1,11 +1,13 @@
-"""Script to execute two-stage DB loading (raw.trips -> warehouse.trips) against a real database and execute verification SQL queries."""
+"""Script to execute two-stage DB loading (raw.trips -> warehouse.trips) against a real PostgreSQL (or SQLite fallback) database and execute verification SQL queries."""
 
 import logging
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
 
+from src.common.config import get_settings
 from src.common.db import Base
 from src.extract.load_zones import load_taxi_zones_to_db
 from src.extract.raw_loader import bulk_load_raw_trips
@@ -19,28 +21,55 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    db_file = Path("data/dev_platform.db")
-    db_file.parent.mkdir(parents=True, exist_ok=True)
-    if db_file.exists():
-        db_file.unlink()  # fresh clean DB for verification run
+    db_url = os.environ.get("DATABASE_URL") or get_settings().database_url
 
-    engine = create_engine(
-        f"sqlite:///{db_file.as_posix()}", connect_args={"check_same_thread": False}
-    )
+    # Attempt connection to configured db_url
+    try:
+        engine = create_engine(db_url, pool_pre_ping=True)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1;"))
+        logger.info(f"Connected to primary database engine: {engine.name.upper()}")
+    except Exception as e:
+        logger.warning(
+            f"Could not connect to {db_url} ({e}). Falling back to local SQLite database."
+        )
+        db_file = Path("data/dev_platform.db")
+        db_file.parent.mkdir(parents=True, exist_ok=True)
+        if db_file.exists():
+            db_file.unlink()
+        engine = create_engine(
+            f"sqlite:///{db_file.as_posix()}", connect_args={"check_same_thread": False}
+        )
 
-    @event.listens_for(engine, "connect")
-    def attach_schemas(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("ATTACH DATABASE ':memory:' AS raw;")
-        cursor.execute("ATTACH DATABASE ':memory:' AS warehouse;")
-        cursor.close()
+    # Handle schema creation per database engine type
+    if engine.name == "postgresql":
+        with engine.connect() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw;"))
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS warehouse;"))
+            conn.commit()
+    elif engine.name == "sqlite":
+
+        @event.listens_for(engine, "connect")
+        def attach_schemas(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("ATTACH DATABASE ':memory:' AS raw;")
+            cursor.execute("ATTACH DATABASE ':memory:' AS warehouse;")
+            cursor.close()
 
     # Create DDL tables
     Base.metadata.create_all(engine)
 
     parquet_path = Path("data/raw/yellow_tripdata_2023-01.parquet")
     if not parquet_path.exists():
-        raise FileNotFoundError(f"Source Parquet dataset not found at {parquet_path}")
+        # Fallback to downloading if file does not exist in local runner
+        from src.extract.batch_puller import TLCParquetExtractor
+
+        logger.info(
+            f"Parquet dataset not found locally. Downloading yellow_tripdata_2023-01.parquet to {parquet_path.parent}..."
+        )
+        parquet_path.parent.mkdir(parents=True, exist_ok=True)
+        extractor = TLCParquetExtractor(output_dir=parquet_path.parent)
+        extractor.download_monthly_file("yellow", 2023, 1)
 
     session = Session(engine)
 
@@ -55,7 +84,7 @@ def main() -> None:
             session=session,
             parquet_path=parquet_path,
             source_file="yellow_tripdata_2023-01.parquet",
-            batch_size=10000,
+            batch_size=50000,
         )
 
         # STAGE 2: Transform raw records and load clean data into warehouse.trips database table
@@ -69,12 +98,15 @@ def main() -> None:
         batch_insert_warehouse_trips(
             session=session,
             clean_df=clean_df,
-            batch_size=10000,
+            batch_size=50000,
         )
 
-        print("\n" + "=" * 60)
-        print("=== REAL SQL QUERY OUTPUT FROM DATABASE TABLES ===")
-        print("=" * 60)
+        print("\n" + "=" * 70)
+        print(f"=== REAL SQL QUERY OUTPUT FROM DATABASE ({engine.name.upper()}) ===")
+        print("=" * 70)
+        print(
+            f"CONNECTED ENGINE: {engine.name.upper()} ({engine.url.render_as_string(hide_password=True)})"
+        )
 
         # 1. Query raw.trips count
         res_raw = session.execute(text("SELECT COUNT(*) FROM raw.trips;")).scalar()
