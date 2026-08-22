@@ -68,7 +68,8 @@ def main() -> None:
             f"Parquet dataset not found locally. Downloading yellow_tripdata_2023-01.parquet to {parquet_path.parent}..."
         )
         parquet_path.parent.mkdir(parents=True, exist_ok=True)
-        extractor = TLCParquetExtractor(output_dir=parquet_path.parent)
+        extractor = TLCParquetExtractor(download_dir=parquet_path.parent)
+
         extractor.download_monthly_file("yellow", 2023, 1)
 
     session = Session(engine)
