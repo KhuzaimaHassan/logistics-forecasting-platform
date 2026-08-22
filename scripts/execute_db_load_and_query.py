@@ -77,7 +77,7 @@ def main() -> None:
     try:
         # Pre-populate taxi zones for foreign key relationships
         logger.info("Loading reference Taxi Zones into warehouse.taxi_zones...")
-        load_taxi_zones_to_db(session)
+        load_taxi_zones_to_db(session=session)
 
         # STAGE 1: Load raw Parquet into raw.trips database table
         logger.info("=== STAGE 1: Bulk loading raw dataset into raw.trips ===")
