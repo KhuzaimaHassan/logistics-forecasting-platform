@@ -82,15 +82,20 @@ def fetch_zone_lookup_csv(
 def load_taxi_zones_to_db(
     zones: Optional[List[ZoneData]] = None,
     engine: Optional[Engine] = None,
+    session: Optional[Session] = None,
 ) -> int:
     """Insert or upsert taxi zones reference records into warehouse.taxi_zones."""
     if zones is None:
         zones = DEFAULT_NYC_TAXI_ZONES
 
-    eng = engine or get_engine()
     loaded_count = 0
+    close_session = False
+    if session is None:
+        eng = engine or get_engine()
+        session = Session(bind=eng)
+        close_session = True
 
-    with Session(bind=eng) as session:
+    try:
         for z in zones:
             existing = session.query(TaxiZone).filter_by(zone_id=z["zone_id"]).first()
             if existing:
@@ -111,6 +116,9 @@ def load_taxi_zones_to_db(
                 session.add(new_zone)
             loaded_count += 1
         session.commit()
+    finally:
+        if close_session:
+            session.close()
 
     logger.info(
         f"Successfully loaded {loaded_count} taxi zones into warehouse.taxi_zones."
