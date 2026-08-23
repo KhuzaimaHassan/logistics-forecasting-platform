@@ -135,3 +135,52 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Single flat `dependencies` list — bloated containers (~88 unnecessary packages in serving/ui), longer CI build times, and larger container attack surfaces.
 
 **Consequences:** Lean, isolated container images built from a single unified repository lockfile. CI continues to validate the entire dependency graph via full extras sync, while each deployed service runs only its necessary footprint.
+
+---
+
+## ADR-010: Database schema migrations — Alembic for raw and warehouse schemas
+
+**Context:** Phase 1 requires managing schema evolution and table DDL for PostgreSQL (`raw` and `warehouse` schemas, including `taxi_zones`, `trips`, `loaded_months`, and `pipeline_runs`). A consistent, reproducible migration mechanism is needed across local development, CI automated testing, and Oracle VM container deployment.
+
+**Decision:** Use Alembic (`alembic>=1.13.0`) as the schema migration tool, added to the `core` optional-dependencies group in `pyproject.toml`. Migrations are managed under an `alembic/` directory with standard linear revision history.
+
+**Alternatives considered:**
+- Plain versioned SQL scripts (`001_init.sql`, etc.) with a custom runner — simple, but lacks built-in version tracking tables (`alembic_version`), downgrade/rollback capabilities, branching detection, and programmatic integration with Python/SQLAlchemy test fixtures.
+- Flyway / Liquibase — robust, but requires a JVM runtime or separate binary CLI inside container images, introducing unnecessary tool sprawl and image weight.
+
+**Consequences:** Programmatic and CLI migration management using existing Python/SQLAlchemy tooling (`alembic upgrade head`). Migrations are version-tracked in PostgreSQL, idempotent, and testable directly within `pytest` harnesses using temporary test schemas or in-memory fixtures.
+
+---
+
+## ADR-011: Temporary representative taxi zone centroids and technical debt tracking
+
+**Context:** Initial bootstrapping of `warehouse.taxi_zones` uses representative centroid coordinates (`centroid_lat`, `centroid_lon`) scoped strictly to UI map rendering. Replacing these with exact shapefile polygon centroids computed via `shapely`/`pyproj` against official TLC GeoJSON boundaries requires dedicated geospatial dependencies.
+
+**Decision:** Maintain representative coordinates in `src/extract/zones_reference.py` for UI map visualization, explicitly scoped away from spatial distance calculations. Track polygon centroid derivation from official TLC shapefiles as technical debt to be resolved before Phase 9 polish at the latest.
+
+**Alternatives considered:**
+- Adding heavy geospatial dependencies (`geopandas`, `shapely`, `pyproj`) to the core dependency group immediately — adds container weight and build overhead before live geometric polygon processing is required.
+- Blocking Phase 1 ETL pipeline development — unnecessary block on core batch extraction, cleaning, and database loading.
+
+**Consequences:** Enables unimpeded development of Phase 1 ETL pipelines and Streamlit map layouts while explicitly tracking geospatial centroid refinement as technical debt.
+
+**Status / Retried Check:** Retried the Socrata GeoJSON fetch for dataset `d3c5-ddgc` (`https://data.cityofnewyork.us/api/geospatial/d3c5-ddgc?method=export&format=GeoJSON`) via `urllib.request`. The endpoint returned `HTTP Error 404: Not Found` (endpoint deprecated/removed by provider). ADR-011 stands as written; centroid refinement remains tracked as technical debt.
+
+---
+
+## ADR-012: Orchestration engine upgrade — Prefect 3.x and work-pool/worker deployment model
+
+**Context:** Phase 1 (M1-4) introduces batch ETL flow orchestration, and Phase 8 will introduce scheduled model retraining and Evidently AI data drift monitoring. ADR-005 established Prefect Cloud as the orchestrator. Prefect 3.x refactors orchestration around work pools (`work-pool`) and process/docker workers (`prefect worker start --pool ...`), deprecating legacy Prefect 2.x agent/block patterns.
+
+**Decision:** Standardize on Prefect 3.x (`prefect>=3.0.0`) and adopt the unified work-pool / worker deployment model with a default work pool (`default-agent-pool`). Build a dedicated `prefect-worker` container image (`src/orchestration/Dockerfile`) containing application dependencies and source modules (`src.extract`, `src.transform`, `src.common`).
+
+**Alternatives considered:**
+- Legacy Prefect 2.x agent/block deployment (`prefect agent start`) — deprecated in Prefect 3.x, leads to technical debt and incompatibility with future Prefect Cloud workspace updates.
+- In-process cron triggers inside FastAPI / Streamlit — couples orchestration directly to UI/API lifecycle, lacks execution logs, retry state tracking, and cloud observability.
+
+**Consequences:** Locks in a consistent flow deployment pattern (`flow.deploy(...)` / `prefect.yaml`) across batch ETL (Phase 1), feature materialization (Phase 2), model training (Phase 3), and Evidently drift monitoring (Phase 8). The worker runs as a dedicated service in `docker-compose.yml` polling `default-agent-pool` for scheduled flow runs.
+
+
+
+
+

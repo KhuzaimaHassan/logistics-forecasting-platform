@@ -1,0 +1,88 @@
+name: ETL Live Smoke Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  live-etl-smoke-test:
+    name: Live TLC CloudFront Extraction & PostgreSQL Bulk Load Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Execute Live TLC Batch Extractor
+        run: |
+          uv run python -m src.extract.batch_puller \
+            --cab-type yellow \
+            --start-year 2023 \
+            --start-month 1 \
+            --end-year 2023 \
+            --end-month 1 \
+            --output-dir data/raw
+
+      - name: Verify Downloaded Parquet Integrity
+        run: |
+          uv run python -c "
+          import pyarrow.parquet as pq
+          from pathlib import Path
+
+          parquet_path = Path('data/raw/yellow_tripdata_2023-01.parquet')
+          assert parquet_path.exists(), f'File {parquet_path} does not exist.'
+          size = parquet_path.stat().st_size
+          print(f'Downloaded Parquet size: {size} bytes')
+          assert size > 1_000_000, f'Expected file size > 1MB, got {size} bytes.'
+
+          table = pq.read_table(parquet_path)
+          print(f'Parquet schema:\n{table.schema}')
+          print(f'Total rows in yellow_tripdata_2023-01.parquet: {table.num_rows}')
+          assert table.num_rows > 100_000, f'Expected > 100k rows, got {table.num_rows}.'
+          "
+
+      - name: Start PostgreSQL Container
+        run: |
+          docker compose --env-file .env.ci up -d postgres
+          sleep 10
+          docker compose --env-file .env.ci ps
+
+      - name: Verify Real PostgreSQL Two-Stage ETL Bulk Load & SQL Row Counts
+        env:
+          DATABASE_URL: postgresql+psycopg2://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics
+        run: |
+          uv run python scripts/execute_db_load_and_query.py
+          uv run python -c "
+          from sqlalchemy import create_engine, text
+          from sqlalchemy.orm import Session
+          import os
+
+          db_url = os.environ['DATABASE_URL']
+          engine = create_engine(db_url)
+          with Session(engine) as session:
+              raw_cnt = session.execute(text('SELECT COUNT(*) FROM raw.trips;')).scalar()
+              wh_cnt = session.execute(text('SELECT COUNT(*) FROM warehouse.trips;')).scalar()
+              print(f'Assertion Check: raw.trips={raw_cnt:,}, warehouse.trips={wh_cnt:,}')
+              assert raw_cnt > 100_000, f'Expected > 100k raw trips, got {raw_cnt}'
+              assert wh_cnt > 100_000, f'Expected > 100k warehouse trips, got {wh_cnt}'
+          print('PostgreSQL two-stage ETL row count assertion PASSED successfully!')
+          "
+
+      - name: Tear down PostgreSQL Container
+        if: always()
+        run: |
+          docker compose --env-file .env.ci down -v

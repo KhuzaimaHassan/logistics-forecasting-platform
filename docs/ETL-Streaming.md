@@ -1,12 +1,24 @@
 # ETL & Streaming
 
-## 1. Batch extractor (historical)
+## 1. Batch extractor & two-stage warehouse loading
 
-- Python job (`src/extract/batch_puller.py`) that downloads new TLC monthly Parquet files, plus the one-time backfill run for the initial historical window.
-- Idempotent: re-running for a month that's already loaded is a no-op (checked against a `loaded_months` tracking table in Postgres).
-- Scheduled monthly via Prefect (new-month check), plus a manual backfill flow for initial setup.
+- Python extraction (`src/extract/batch_puller.py`) downloads TLC monthly Parquet files to local staging (`data/raw/`).
+- **Two-stage loading pattern**:
+  1. **Raw Staging (`raw.trips`)**: Bulk loads raw Parquet rows near-verbatim into PostgreSQL table `raw.trips` with `source_file` metadata.
+  2. **Warehouse Transformation (`warehouse.trips`)**: Validates, cleans, derives features, and loads cleaned trips into `warehouse.trips`.
+- **Concrete Batch Outlier & Cleaning Thresholds**:
+  - `trip_duration_seconds`: $60 \le \text{duration} \le 86,400$ (1 minute to 24 hours).
+  - `trip_distance`: $0.0 < \text{distance} \le 300.0$ miles.
+  - `passenger_count`: $1 \le \text{passengers} \le 9$.
+  - `average_speed_mph`: $\le 100.0$ mph (computed as $\text{distance} / (\text{duration} / 3600)$).
+  - `fare_amount` & `total_amount`: $\ge 0.0$.
+- **Rejection Audit Breakdown Semantics**: Per-reason rejection counts are **overlapping checks** (a single rejected row can violate multiple rules, e.g. invalid distance AND invalid passenger count). Therefore, individual reason counts reflect total rule violations across all records and do not sum up to the total net count of rejected rows.
+- **Zone-ID Validation**: Drop rows with unmapped `PULocationID` or `DOLocationID` (outside standard NYC TLC Taxi Zones 1–265). Log summary counts and specific unmapped location IDs seen for run auditability without quarantine table overhead.
+- **Deterministic `trip_id` Generation**: Generate a deterministic positive 60-bit BigInteger `trip_id` from a stable composite string (`vendor_id`, `pickup_datetime`, `dropoff_datetime`, `pickup_zone_id`, `dropoff_zone_id`, `fare_amount`, `trip_distance_miles`). Ensures re-running transformation against the same source file is strictly idempotent (`ON CONFLICT (trip_id) DO NOTHING`).
+
 
 ## 2. Streaming producer (live)
+
 
 Two responsibilities, one process:
 

@@ -90,6 +90,8 @@ jobs:
           docker compose --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
 
       - name: Inspect container logs
+
+
         if: always()
         run: |
           docker compose --env-file .env.ci logs

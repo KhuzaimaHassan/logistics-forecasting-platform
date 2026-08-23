@@ -14,13 +14,24 @@ Single Postgres instance (Docker, on the Oracle VM) serves three roles: warehous
 **`trips`**
 | Column | Type | Notes |
 |---|---|---|
-| trip_id | uuid / bigint | PK |
+| trip_id | bigint | PK (Identity) |
+| vendor_id | int | TLC vendor identifier |
+| cab_type | text | 'yellow' or 'green' |
 | pickup_zone_id | int | FK → taxi_zones |
 | dropoff_zone_id | int | FK → taxi_zones |
-| pickup_ts | timestamptz | |
-| dropoff_ts | timestamptz | |
-| distance_km | numeric | |
+| pickup_datetime | timestamptz | Trip start timestamp |
+| dropoff_datetime | timestamptz | Trip end timestamp |
+| trip_duration_seconds | int | Duration in seconds |
+| time_bin_15m | timestamptz | 15-minute floor of pickup_datetime |
+| day_of_week | int | 0=Monday to 6=Sunday |
+| hour_of_day | int | 0 to 23 |
+| is_weekend | boolean | True for Saturday/Sunday |
+| trip_distance_km | numeric | Distance in kilometers |
+| fare_amount | numeric | Base fare |
+| tip_amount | numeric | Tip amount |
+| total_amount | numeric | Total charged amount |
 | source | text | 'historical' or 'replay' |
+
 
 **`taxi_zones`** (static reference, loaded once from TLC's Taxi Zone Lookup)
 | Column | Type | Notes |

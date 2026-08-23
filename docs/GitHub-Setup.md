@@ -5,15 +5,16 @@
 ```
 logistics-forecasting-platform/
 ├── docs/           # this docs folder
-├── src/            # extract, transform, features, training, serving, agents, monitoring, orchestration
+├── src/            # common, extract, transform, features, training, serving, agents, monitoring, orchestration
 │                   # (each service's Dockerfile lives with its code, e.g. src/<service>/Dockerfile)
 ├── ui/             # Streamlit app (ui/Dockerfile)
 ├── infra/          # Docker Compose (docker-compose.yml at root/infra), Oracle VM setup scripts
 ├── tests/
 └── .github/
-    ├── workflows/       # CI/CD (triggers on pull_request to dev & main, push to main)
+    ├── workflows/       # CI/CD (ci.yml gates dev & main PRs; etl_live_smoke.yml runs weekly/on-demand)
     └── ISSUE_TEMPLATE/  # milestone issue template
 ```
+
 
 ## 2. Branch strategy
 
