@@ -56,15 +56,16 @@ Build the historical batch extraction, transformation, and storage pipeline for 
 - **Depends On:** M1-2.
 
 
-### M1-4: Prefect ETL Batch Flow Orchestration & Worker Integration
+### M1-4: Prefect ETL Batch Flow Orchestration & Worker Integration (Completed)
 - **Scope / Acceptance Criteria:**
-  - Implement Prefect flow in `src/orchestration/flows/historical_etl.py` chaining extract -> clean -> load tasks with task retries and state tracking.
-  - Update `prefect-worker` service configuration (custom Dockerfile or mounted code) so flows run seamlessly inside the compose topology.
-  - Add end-to-end integration test validating a sample month pipeline run from TLC source to Postgres `warehouse.trips`.
-- **Per-Ticket Context:** `docs/ETL-Streaming.md`, `docs/Deployment.md`, `docs/Roadmap.md`.
-- **Files Touched:** `src/orchestration/flows/historical_etl.py`, `docker-compose.yml`, `tests/test_etl_flow.py`.
+  - Implement Prefect flow in `src/orchestration/flows/historical_etl.py` chaining extract -> stage 1 raw load -> stage 2 clean warehouse transform -> record loaded month in `warehouse.loaded_months` with task retries and state tracking.
+  - Update `prefect-worker` service configuration with a custom Dockerfile (`src/orchestration/Dockerfile`) so flows run seamlessly inside the compose topology.
+  - Add comprehensive unit and integration tests in `tests/test_etl_flow.py` validating end-to-end flow execution and proving strict idempotency (second run skips cleanly with unchanged DB row counts).
+- **Per-Ticket Context:** `docs/ETL-Streaming.md`, `docs/Deployment.md`, `docs/Roadmap.md`, `docs/Decisions.md` (ADR-012).
+- **Files Touched:** `src/orchestration/flows/historical_etl.py`, `src/orchestration/Dockerfile`, `src/orchestration/deploy.py`, `docker-compose.yml`, `tests/test_etl_flow.py`, `docs/Decisions.md`.
 - **Estimated Size:** ~150–200 lines.
 - **Depends On:** M1-3.
+
 
 ---
 

@@ -166,6 +166,21 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Status / Retried Check:** Retried the Socrata GeoJSON fetch for dataset `d3c5-ddgc` (`https://data.cityofnewyork.us/api/geospatial/d3c5-ddgc?method=export&format=GeoJSON`) via `urllib.request`. The endpoint returned `HTTP Error 404: Not Found` (endpoint deprecated/removed by provider). ADR-011 stands as written; centroid refinement remains tracked as technical debt.
 
+---
+
+## ADR-012: Orchestration engine upgrade — Prefect 3.x and work-pool/worker deployment model
+
+**Context:** Phase 1 (M1-4) introduces batch ETL flow orchestration, and Phase 8 will introduce scheduled model retraining and Evidently AI data drift monitoring. ADR-005 established Prefect Cloud as the orchestrator. Prefect 3.x refactors orchestration around work pools (`work-pool`) and process/docker workers (`prefect worker start --pool ...`), deprecating legacy Prefect 2.x agent/block patterns.
+
+**Decision:** Standardize on Prefect 3.x (`prefect>=3.0.0`) and adopt the unified work-pool / worker deployment model with a default work pool (`default-agent-pool`). Build a dedicated `prefect-worker` container image (`src/orchestration/Dockerfile`) containing application dependencies and source modules (`src.extract`, `src.transform`, `src.common`).
+
+**Alternatives considered:**
+- Legacy Prefect 2.x agent/block deployment (`prefect agent start`) — deprecated in Prefect 3.x, leads to technical debt and incompatibility with future Prefect Cloud workspace updates.
+- In-process cron triggers inside FastAPI / Streamlit — couples orchestration directly to UI/API lifecycle, lacks execution logs, retry state tracking, and cloud observability.
+
+**Consequences:** Locks in a consistent flow deployment pattern (`flow.deploy(...)` / `prefect.yaml`) across batch ETL (Phase 1), feature materialization (Phase 2), model training (Phase 3), and Evidently drift monitoring (Phase 8). The worker runs as a dedicated service in `docker-compose.yml` polling `default-agent-pool` for scheduled flow runs.
+
+
 
 
 

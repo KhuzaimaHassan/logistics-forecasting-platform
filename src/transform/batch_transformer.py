@@ -308,6 +308,31 @@ def batch_insert_warehouse_trips(
     ]
 
     wh_df = clean_df[target_cols].copy()
+
+    # Query existing trip_ids in warehouse.trips to guarantee ON CONFLICT DO NOTHING idempotency
+    all_trip_ids = wh_df["trip_id"].tolist()
+    existing_ids = set()
+    for idx in range(0, len(all_trip_ids), 10000):
+        id_chunk = all_trip_ids[idx : idx + 10000]
+        found = (
+            session.query(WarehouseTrip.trip_id)
+            .filter(WarehouseTrip.trip_id.in_(id_chunk))
+            .all()
+        )
+        existing_ids.update(r[0] for r in found)
+
+    if existing_ids:
+        logger.info(
+            f"Found {len(existing_ids):,} existing trip_id(s) already in warehouse.trips. Skipping duplicates."
+        )
+        wh_df = wh_df[~wh_df["trip_id"].isin(existing_ids)]
+
+    if wh_df.empty:
+        logger.info(
+            "All trip records already present in warehouse.trips. 0 new records inserted."
+        )
+        return 0
+
     mappings = wh_df.to_dict(orient="records")
 
     total_inserted = 0
