@@ -61,28 +61,14 @@ jobs:
           sleep 10
           docker compose --env-file .env.ci ps
 
-      - name: Verify Real PostgreSQL Two-Stage ETL Bulk Load & SQL Row Counts
+      - name: Verify Real PostgreSQL Prefect Flow Two-Stage Bulk Load & Idempotency
         env:
           DATABASE_URL: postgresql+psycopg2://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics
         run: |
-          uv run python scripts/execute_db_load_and_query.py
-          uv run python -c "
-          from sqlalchemy import create_engine, text
-          from sqlalchemy.orm import Session
-          import os
-
-          db_url = os.environ['DATABASE_URL']
-          engine = create_engine(db_url)
-          with Session(engine) as session:
-              raw_cnt = session.execute(text('SELECT COUNT(*) FROM raw.trips;')).scalar()
-              wh_cnt = session.execute(text('SELECT COUNT(*) FROM warehouse.trips;')).scalar()
-              print(f'Assertion Check: raw.trips={raw_cnt:,}, warehouse.trips={wh_cnt:,}')
-              assert raw_cnt > 100_000, f'Expected > 100k raw trips, got {raw_cnt}'
-              assert wh_cnt > 100_000, f'Expected > 100k warehouse trips, got {wh_cnt}'
-          print('PostgreSQL two-stage ETL row count assertion PASSED successfully!')
-          "
+          uv run python scripts/verify_m1_4_prefect_flow.py
 
       - name: Tear down PostgreSQL Container
+
         if: always()
         run: |
           docker compose --env-file .env.ci down -v
