@@ -1,6 +1,7 @@
 """Verification script to execute the Prefect historical batch ETL flow against real data twice and prove idempotency."""
 
 import logging
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine, event, text
@@ -16,21 +17,31 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    db_file = Path("data/dev_platform.db")
-    db_file.parent.mkdir(parents=True, exist_ok=True)
-    if db_file.exists():
-        db_file.unlink()  # clean run
+    db_url = os.getenv("DATABASE_URL")
+    if db_url and "postgresql" in db_url:
+        logger.info("Connecting to real PostgreSQL database via DATABASE_URL.")
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw;"))
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS warehouse;"))
+            conn.commit()
+    else:
+        db_file = Path("data/dev_platform.db")
+        db_file.parent.mkdir(parents=True, exist_ok=True)
+        if db_file.exists():
+            db_file.unlink()  # clean run
 
-    engine = create_engine(
-        f"sqlite:///{db_file.as_posix()}", connect_args={"check_same_thread": False}
-    )
+        logger.info(f"Connecting to local SQLite database at {db_file}.")
+        engine = create_engine(
+            f"sqlite:///{db_file.as_posix()}", connect_args={"check_same_thread": False}
+        )
 
-    @event.listens_for(engine, "connect")
-    def attach_schemas(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("ATTACH DATABASE ':memory:' AS raw;")
-        cursor.execute("ATTACH DATABASE ':memory:' AS warehouse;")
-        cursor.close()
+        @event.listens_for(engine, "connect")
+        def attach_schemas(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("ATTACH DATABASE ':memory:' AS raw;")
+            cursor.execute("ATTACH DATABASE ':memory:' AS warehouse;")
+            cursor.close()
 
     Base.metadata.create_all(engine)
     session = Session(engine)
@@ -100,6 +111,8 @@ def main() -> None:
     ), f"Expected status 'skipped', got {res2['status']}"
     assert raw_cnt_2 == raw_cnt_1, "Row count mismatch in raw.trips"
     assert wh_cnt_2 == wh_cnt_1, "Row count mismatch in warehouse.trips"
+    assert raw_cnt_1 > 100_000, f"Expected > 100k raw trips, got {raw_cnt_1}"
+    assert wh_cnt_1 > 100_000, f"Expected > 100k warehouse trips, got {wh_cnt_1}"
     print(
         "\nSUCCESS: Idempotency confirmed. Second run skipped and DB row counts are strictly unchanged!"
     )
