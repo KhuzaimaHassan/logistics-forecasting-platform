@@ -2462,6 +2462,12 @@ monitoring = [
     { name = "pandas" },
     { name = "prefect" },
 ]
+orchestration = [
+    { name = "pandas" },
+    { name = "prefect" },
+    { name = "pyarrow" },
+    { name = "requests" },
+]
 serving = [
     { name = "faiss-cpu" },
     { name = "fastapi" },
@@ -2524,12 +2530,15 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'transform'", specifier = ">=1.26.0" },
     { name = "pandas", marker = "extra == 'extract'", specifier = ">=2.2.0" },
     { name = "pandas", marker = "extra == 'monitoring'", specifier = ">=2.2.0" },
+    { name = "pandas", marker = "extra == 'orchestration'", specifier = ">=2.2.0" },
     { name = "pandas", marker = "extra == 'training'", specifier = ">=2.2.0" },
     { name = "pandas", marker = "extra == 'transform'", specifier = ">=2.2.0" },
     { name = "pandas", marker = "extra == 'ui'", specifier = ">=2.2.0" },
-    { name = "prefect", marker = "extra == 'monitoring'", specifier = ">=2.16.0" },
+    { name = "prefect", marker = "extra == 'monitoring'", specifier = ">=3.0.0" },
+    { name = "prefect", marker = "extra == 'orchestration'", specifier = ">=3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'core'", specifier = ">=2.9.9" },
     { name = "pyarrow", marker = "extra == 'extract'", specifier = ">=15.0.0" },
+    { name = "pyarrow", marker = "extra == 'orchestration'", specifier = ">=15.0.0" },
     { name = "pyarrow", marker = "extra == 'training'", specifier = ">=15.0.0" },
     { name = "pyarrow", marker = "extra == 'transform'", specifier = ">=15.0.0" },
     { name = "pydantic", marker = "extra == 'core'", specifier = ">=2.6.0" },
@@ -2541,6 +2550,7 @@ requires-dist = [
     { name = "python-dotenv", marker = "extra == 'core'", specifier = ">=1.0.0" },
     { name = "redis", marker = "extra == 'core'", specifier = ">=5.0.0" },
     { name = "requests", marker = "extra == 'core'", specifier = ">=2.31.0" },
+    { name = "requests", marker = "extra == 'orchestration'", specifier = ">=2.31.0" },
     { name = "requests", marker = "extra == 'ui'", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.3.0" },
     { name = "sqlalchemy", marker = "extra == 'core'", specifier = ">=2.0.0" },
@@ -2549,7 +2559,7 @@ requires-dist = [
     { name = "xgboost", marker = "extra == 'serving'", specifier = ">=2.0.0" },
     { name = "xgboost", marker = "extra == 'training'", specifier = ">=2.0.0" },
 ]
-provides-extras = ["core", "extract", "transform", "training", "serving", "monitoring", "ui", "dev"]
+provides-extras = ["core", "extract", "transform", "training", "serving", "monitoring", "orchestration", "ui", "dev"]
 
 [[package]]
 name = "mako"
