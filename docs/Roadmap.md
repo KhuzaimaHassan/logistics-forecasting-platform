@@ -7,7 +7,8 @@ Oracle VM provisioned, Docker Compose skeleton (empty services), GitHub repo + b
 
 ## Phase 1 — Historical ETL
 Batch extractor pulls TLC data, cleans/transforms, loads to Postgres (`raw` → `warehouse`). `taxi_zones` reference table loaded.
-*Note: The underlying transform and load functions were verified against live PostgreSQL in CI (`etl_live_smoke.yml`), and the full Prefect orchestration flow (`historical_tlc_batch_etl_flow`) and idempotency skip logic were verified end-to-end against SQLite. Wire the full Prefect flow execution directly into `etl_live_smoke.yml` against live PostgreSQL as a fast-follow in Phase 2.*
+*Note: The complete Prefect orchestration flow (`historical_tlc_batch_etl_flow`), two-stage bulk load (3,066,766 raw records -> 2,940,141 warehouse records), and second-run idempotency skip logic are verified and proven against live PostgreSQL in CI (`etl_live_smoke.yml`).*
+
 
 
 ## Phase 2 — Feature Store
