@@ -36,7 +36,8 @@ README, architecture diagram, live demo link, portfolio write-up, Lessons-Learne
 ## Status
  
 - **Phase 0 — Infra Bootstrap:** Done (completed 2026-08-18)
-- **Phase 1 — Historical ETL:** In Progress (Issue #15 opened)
+- **Phase 1 — Historical ETL:** Done (completed 2026-08-23)
 - **Phases 2–9:** Not yet started
+
 
 
