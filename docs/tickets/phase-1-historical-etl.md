@@ -15,23 +15,13 @@ Build the historical batch extraction, transformation, and storage pipeline for 
     - `warehouse.trips` (partitioned/indexed historical trip records with computed trip duration and 15-minute time bin).
   - Implement a Python loader to download NYC TLC taxi zone lookup data, compute geometric centroids, and insert into `warehouse.taxi_zones`.
   - Unit tests verifying schema creation and zone lookup queries.
-<<<<<<< HEAD
-<<<<<<< HEAD
-- **Per-Ticket Context:** `docs/Database.md`, `docs/Decisions.md` (ADR-008), `docs/Data-Sources.md`.
-=======
-- **Per-Ticket Context:** `docs/Database.md`, `docs/Decisions.md` (ADR-001), `docs/Data-Sources.md`.
->>>>>>> origin/main
-=======
-- **Per-Ticket Context:** `docs/Database.md`, `docs/Decisions.md` (ADR-001), `docs/Data-Sources.md`.
->>>>>>> origin/main
+- **Per-Ticket Context:** `docs/Database.md`, `docs/Decisions.md` (ADR-008, ADR-010), `docs/Data-Sources.md`.
 - **Files Touched:** `src/extract/load_zones.py`, `src/common/db.py`, `tests/test_zones.py`.
 - **Estimated Size:** ~150–200 lines.
 - **Depends On:** Phase 0 baseline.
 
 ### M1-2: Historical TLC Parquet Batch Extractor & Downloader
 - **Scope / Acceptance Criteria:**
-<<<<<<< HEAD
-<<<<<<< HEAD
   - Implement `src/extract/batch_puller.py` to download Yellow and Green taxi monthly Parquet files from NYC TLC CloudFront CDN (`https://d37ci6vzurychx.cloudfront.net/trip-data/`).
   - Support date range filtering (e.g. 2023–2024 monthly batches), retries with exponential backoff, checksum/size validation, and local temporary caching.
   - Fast offline unit tests in `tests/test_extract.py` using mock HTTP responses and synthetic Parquet fixtures to gate every PR.
