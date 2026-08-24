@@ -194,6 +194,9 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** The feature registry is centralized in PostgreSQL, transactional, concurrent, and directly accessible by all containers over the internal Docker network (`logistics-net`). Reuses existing PostgreSQL resources within the single-VM budget without adding operational complexity.
 
+**Driver Note (psycopg2 vs. psycopg3):** Feast's PostgreSQL offline store (`feast.infra.offline_stores.contrib.postgres_offline_store`) specifically mandates `psycopg` 3 (`psycopg[binary,pool]>=3.1.0`) for connection pooling and PostgreSQL type conversion. The rest of the project's SQLAlchemy and Alembic models continue using `psycopg2-binary` via `postgresql+psycopg2://`. Maintaining both drivers in `pyproject.toml` is a deliberate, explicit accommodation of Feast's internal requirements alongside the established SQLAlchemy stack.
+
+
 ---
 
 ## ADR-014: Feature definition — origin_zone_demand_pressure as raw rolling count

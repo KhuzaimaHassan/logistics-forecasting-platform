@@ -89,7 +89,64 @@ jobs:
         run: |
           docker compose --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
 
+      - name: Set up Python for Feast live connectivity check
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --all-extras
+
+      - name: Verify Feast schema creation and SQL registry connection against live Postgres & Redis
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uv run python -c "
+          from src.features.config import ensure_feast_schema, get_feature_store
+          import redis
+          import psycopg
+
+          print('=== Step 1: Ensuring Feast Schema in Live PostgreSQL ===')
+          ensure_feast_schema()
+          print('Feast schema ensured successfully.')
+
+          print('=== Step 2: Verifying PostgreSQL Feast Schema Existence ===')
+          with psycopg.connect('postgresql://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics') as conn:
+              with conn.cursor() as cur:
+                  cur.execute(\"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'feast';\")
+                  row = cur.fetchone()
+                  assert row is not None, 'Schema feast was not found in PostgreSQL!'
+                  print(f'Confirmed PostgreSQL schema exists: {row[0]}')
+
+          print('=== Step 3: Initializing Feast FeatureStore with SQL Registry & Redis ===')
+          store = get_feature_store()
+          print(f'FeatureStore project: {store.project}')
+          print(f'Registry type: {store.config.registry.registry_type}')
+          print(f'Offline store type: {store.config.offline_store.type}')
+          print(f'Online store type: {store.config.online_store.type}')
+
+          print('=== Step 4: Testing Redis Connectivity ===')
+          r = redis.Redis.from_url('redis://localhost:6379/0')
+          assert r.ping(), 'Redis ping failed!'
+          print('Redis ping response: PONG')
+
+          print('=== Live Feast Infrastructure Verification: ALL CHECKS PASSED ===')
+          "
+
       - name: Inspect container logs
+
 
 
         if: always()
