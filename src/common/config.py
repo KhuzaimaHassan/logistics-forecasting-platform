@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Redis
     redis_host: str = Field(default="localhost", alias="REDIS_HOST")
     redis_port: int = Field(default=6379, alias="REDIS_PORT")
+    redis_url_override: Optional[str] = Field(default=None, alias="REDIS_URL")
 
     # Redpanda
     redpanda_broker: str = Field(default="localhost:9092", alias="REDPANDA_BROKER")
@@ -57,6 +58,13 @@ class Settings(BaseSettings):
             f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def redis_url(self) -> str:
+        """Construct the Redis connection URL."""
+        if self.redis_url_override:
+            return self.redis_url_override
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
 
 
 @lru_cache()
