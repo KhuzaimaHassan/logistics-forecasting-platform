@@ -180,6 +180,34 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Locks in a consistent flow deployment pattern (`flow.deploy(...)` / `prefect.yaml`) across batch ETL (Phase 1), feature materialization (Phase 2), model training (Phase 3), and Evidently drift monitoring (Phase 8). The worker runs as a dedicated service in `docker-compose.yml` polling `default-agent-pool` for scheduled flow runs.
 
+---
+
+## ADR-013: Feast registry backend — PostgreSQL SQL registry (feast schema)
+
+**Context:** Phase 2 introduces Feast as the feature store. Feast requires a central registry to store and synchronize entity and feature view definitions across offline training pipelines, background materialization workers, and online serving APIs.
+
+**Decision:** Use Feast's native SQL Registry backend (`registry_type: sql`) pointed to the shared PostgreSQL 16 database under the `feast` schema (`postgresql+psycopg2://...`).
+
+**Alternatives considered:**
+- File-based SQLite / Protobuf registry (`data/registry.db`) — rejected. In multi-container Docker topologies, file-based registries require mounting shared volumes across multiple containers, introducing file-locking contention, write race conditions, and cache invalidation lag during simultaneous read/write operations.
+- Remote Object Storage registry (Cloudflare R2 / AWS S3) — rejected. Introduces external network latency and third-party credential dependencies to every local feature lookup and container startup, unnecessary for a single-host colocated stack.
+
+**Consequences:** The feature registry is centralized in PostgreSQL, transactional, concurrent, and directly accessible by all containers over the internal Docker network (`logistics-net`). Reuses existing PostgreSQL resources within the single-VM budget without adding operational complexity.
+
+---
+
+## ADR-014: Feature definition — origin_zone_demand_pressure as raw rolling count
+
+**Context:** `Feature-Store.md` defined `origin_zone_demand_pressure` as a linkage feature for `corridor_duration_features` (corridor trip duration prediction) derived from origin zone demand. An open question existed regarding whether this value should be the prediction output of the demand forecast model or the raw rolling pickup count from `zone_demand_features`.
+
+**Decision:** Formally define `origin_zone_demand_pressure` as the raw rolling pickup count (`pickup_count_last_15m` / `pickup_count_last_1h`) of the origin zone from `zone_demand_features`, not model-predicted demand.
+
+**Alternatives considered:**
+- Model-predicted demand (output of the demand model) — rejected. Introduces a circular dependency where training the duration model requires historical inference logs or re-evaluating the demand model across all historical training timestamps. Any retraining or architecture update of the demand model would invalidate all historical duration training datasets. Furthermore, online serving would require chained synchronous model inferences, increasing prediction latency and failure modes.
+
+**Consequences:** Eliminates circular model dependencies, prevents training-time data leakage, and ensures point-in-time correctness during historical feature extraction. At inference time, `origin_zone_demand_pressure` is a direct sub-10ms key lookup in Redis from `zone_demand_features`.
+
+
 
 
 
