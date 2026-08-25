@@ -57,9 +57,9 @@ def main() -> None:
     views = store.list_feature_views()
     entity_names = sorted([e.name for e in entities])
     view_names = sorted([v.name for v in views])
-    assert "zone" in entity_names and "corridor" in entity_names, (
-        f"Missing entities in registry: {entity_names}"
-    )
+    assert (
+        "zone" in entity_names and "corridor" in entity_names
+    ), f"Missing entities in registry: {entity_names}"
     assert (
         "zone_demand_features" in view_names
         and "corridor_duration_features" in view_names
