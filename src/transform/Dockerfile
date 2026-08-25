@@ -13,8 +13,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # Copy project definition, lockfile, and readme
 COPY pyproject.toml uv.lock README.md ./
 
-# Install dependencies using the frozen lockfile scoped to transform
-RUN uv sync --frozen --no-dev --no-install-project --extra core --extra transform
+# Install dependencies using the frozen lockfile scoped to transform and features
+RUN uv sync --frozen --no-dev --no-install-project --extra core --extra transform --extra features
+
 
 # Copy application source
 COPY src/ /app/src/

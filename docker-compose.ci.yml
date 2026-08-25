@@ -1,0 +1,5 @@
+# CI-only Docker Compose override for host-level connectivity checks
+services:
+  redis:
+    ports:
+      - "6379:6379"
