@@ -89,11 +89,12 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
 
-      - name: Confirm Feast imports inside serving, orchestration, and transform containers
+      - name: Confirm Feast imports inside serving, orchestration, and transform images
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T fastapi python -c "import feast; print(f'FastAPI Feast version: {feast.__version__}')"
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T prefect-worker python -c "import feast; print(f'Prefect-Worker Feast version: {feast.__version__}')"
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T stream-consumer python -c "import feast; print(f'Stream-Consumer Feast version: {feast.__version__}')"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci run --rm fastapi python -c "import feast; print(f'FastAPI Feast version: {feast.__version__}')"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci run --rm prefect-worker python -c "import feast; print(f'Prefect-Worker Feast version: {feast.__version__}')"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci run --rm stream-consumer python -c "import feast; print(f'Stream-Consumer Feast version: {feast.__version__}')"
+
 
       - name: Set up Python for Feast live connectivity check
         uses: actions/setup-python@v5
