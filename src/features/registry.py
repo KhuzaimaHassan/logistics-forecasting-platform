@@ -25,14 +25,17 @@ def apply_feature_definitions(
 
     Args:
         store: Optional pre-configured FeatureStore instance.
-        entities: List of Feast Entity objects to apply.
-        views: List of Feast FeatureView objects to apply.
+        entities: List of Feast Entity objects to apply. Defaults to platform entities if None.
+        views: List of Feast FeatureView objects to apply. Defaults to platform views if None.
         repo_path: Optional repository path if store is not provided.
         use_sqlite_fallback: Fallback flag if instantiating default store.
 
     Returns:
         The updated FeatureStore instance.
     """
+    from src.features.entities import get_all_entities
+    from src.features.views import get_all_feature_views
+
     if store is None:
         if not use_sqlite_fallback:
             ensure_feast_schema()
@@ -41,11 +44,14 @@ def apply_feature_definitions(
             use_sqlite_fallback=use_sqlite_fallback,
         )
 
+    target_entities = entities if entities is not None else get_all_entities()
+    target_views = views if views is not None else get_all_feature_views()
+
     objects_to_apply = []
-    if entities:
-        objects_to_apply.extend(entities)
-    if views:
-        objects_to_apply.extend(views)
+    if target_entities:
+        objects_to_apply.extend(target_entities)
+    if target_views:
+        objects_to_apply.extend(target_views)
 
     if objects_to_apply:
         store.apply(objects_to_apply)
@@ -100,9 +106,14 @@ def main() -> None:
             print(f"Registered Feature Views ({len(views)}): {[v.name for v in views]}")
         elif args.action == "apply":
             print(f"Applying definitions in {args.repo_path} to Feast registry...")
-            # Discover and apply any local feature view definitions
-            store.apply([])
-            print(f"Registry initialized for project '{store.project}'.")
+            apply_feature_definitions(store=store)
+            entities = store.list_entities()
+            views = store.list_feature_views()
+            print(f"Registry updated for project '{store.project}'.")
+            print(
+                f"Registered Entities ({len(entities)}): {[e.name for e in entities]}"
+            )
+            print(f"Registered Feature Views ({len(views)}): {[v.name for v in views]}")
     except Exception as exc:
         print(f"Error executing feature registry CLI: {exc}", file=sys.stderr)
         sys.exit(1)
