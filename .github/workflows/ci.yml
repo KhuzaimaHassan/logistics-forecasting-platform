@@ -62,16 +62,16 @@ jobs:
 
       - name: Build all Docker images
         run: |
-          docker compose --env-file .env.ci build
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci build
 
       - name: Start Docker Compose stack
         run: |
-          docker compose --env-file .env.ci up -d
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci up -d
 
       - name: Wait for services to stabilize and report status
         run: |
           sleep 20
-          docker compose --env-file .env.ci ps
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci ps
 
       - name: Verify Caddy reverse proxy to FastAPI /health
         run: |
@@ -83,11 +83,17 @@ jobs:
 
       - name: Direct container health probe for FastAPI
         run: |
-          docker compose --env-file .env.ci exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
 
       - name: Direct container health probe for Streamlit
         run: |
-          docker compose --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
+
+      - name: Confirm Feast imports inside serving, orchestration, and transform containers
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T fastapi python -c "import feast; print(f'FastAPI Feast version: {feast.__version__}')"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T prefect-worker python -c "import feast; print(f'Prefect-Worker Feast version: {feast.__version__}')"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T stream-consumer python -c "import feast; print(f'Stream-Consumer Feast version: {feast.__version__}')"
 
       - name: Set up Python for Feast live connectivity check
         uses: actions/setup-python@v5
@@ -113,47 +119,15 @@ jobs:
           POSTGRES_DB: logistics
           REDIS_URL: redis://localhost:6379/0
         run: |
-          uv run python -c "
-          from src.features.config import ensure_feast_schema, get_feature_store
-          import redis
-          import psycopg
-
-          print('=== Step 1: Ensuring Feast Schema in Live PostgreSQL ===')
-          ensure_feast_schema()
-          print('Feast schema ensured successfully.')
-
-          print('=== Step 2: Verifying PostgreSQL Feast Schema Existence ===')
-          with psycopg.connect('postgresql://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics') as conn:
-              with conn.cursor() as cur:
-                  cur.execute(\"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'feast';\")
-                  row = cur.fetchone()
-                  assert row is not None, 'Schema feast was not found in PostgreSQL!'
-                  print(f'Confirmed PostgreSQL schema exists: {row[0]}')
-
-          print('=== Step 3: Initializing Feast FeatureStore with SQL Registry & Redis ===')
-          store = get_feature_store()
-          print(f'FeatureStore project: {store.project}')
-          print(f'Registry type: {store.config.registry.registry_type}')
-          print(f'Offline store type: {store.config.offline_store.type}')
-          print(f'Online store type: {store.config.online_store.type}')
-
-          print('=== Step 4: Testing Redis Connectivity ===')
-          r = redis.Redis.from_url('redis://localhost:6379/0')
-          assert r.ping(), 'Redis ping failed!'
-          print('Redis ping response: PONG')
-
-          print('=== Live Feast Infrastructure Verification: ALL CHECKS PASSED ===')
-          "
+          uv run python -u scripts/verify_live_feast_smoke.py
 
       - name: Inspect container logs
-
-
-
         if: always()
         run: |
-          docker compose --env-file .env.ci logs
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci logs
 
       - name: Tear down services
         if: always()
         run: |
-          docker compose --env-file .env.ci down -v
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci down -v
+
