@@ -14,8 +14,11 @@ venv/
 # Data
 *.parquet
 *.csv
+*.db
+data/
 data/raw/
 data/processed/
+
 
 # MLflow / model artifacts
 mlruns/

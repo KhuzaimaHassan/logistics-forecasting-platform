@@ -1,4 +1,4 @@
-"""Smoke test script verifying live Feast PostgreSQL schema and Redis connectivity."""
+"""Smoke test script verifying live Feast PostgreSQL schema, SQL registry entity/view application, and Redis connectivity."""
 
 import time
 
@@ -6,6 +6,7 @@ import psycopg
 import redis
 
 from src.features.config import ensure_feast_schema, get_feature_store
+from src.features.registry import apply_feature_definitions
 
 
 def main() -> None:
@@ -46,12 +47,36 @@ def main() -> None:
         flush=True,
     )
 
-    print("=== Step 4: Testing Redis Connectivity ===", flush=True)
+    print(
+        "=== Step 4: Applying Entities and Feature Views to Live PostgreSQL Registry ===",
+        flush=True,
+    )
     t4 = time.perf_counter()
+    apply_feature_definitions(store=store)
+    entities = store.list_entities()
+    views = store.list_feature_views()
+    entity_names = sorted([e.name for e in entities])
+    view_names = sorted([v.name for v in views])
+    assert "zone" in entity_names and "corridor" in entity_names, (
+        f"Missing entities in registry: {entity_names}"
+    )
+    assert (
+        "zone_demand_features" in view_names
+        and "corridor_duration_features" in view_names
+    ), f"Missing views in registry: {view_names}"
+    print(f"Registered Entities ({len(entities)}): {entity_names}", flush=True)
+    print(f"Registered Feature Views ({len(views)}): {view_names}", flush=True)
+    print(
+        f"Entities and views applied to live SQL registry in {time.perf_counter() - t4:.3f}s.",
+        flush=True,
+    )
+
+    print("=== Step 5: Testing Redis Connectivity ===", flush=True)
+    t5 = time.perf_counter()
     r = redis.Redis.from_url("redis://localhost:6379/0")
     assert r.ping(), "Redis ping failed!"
     print(
-        f"Redis ping response: PONG (verified in {time.perf_counter() - t4:.3f}s).",
+        f"Redis ping response: PONG (verified in {time.perf_counter() - t5:.3f}s).",
         flush=True,
     )
 
