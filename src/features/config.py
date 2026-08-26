@@ -32,7 +32,9 @@ def expand_env_placeholders(content: str, settings: Optional[Settings] = None) -
         "POSTGRES_DB": settings.postgres_db,
         "POSTGRES_USER": settings.postgres_user,
         "POSTGRES_PASSWORD": settings.postgres_password,
+        "POSTGRES_SSLMODE": "disable",
         "DATABASE_URL": settings.database_url,
+
         "REDIS_HOST": settings.redis_host,
         "REDIS_PORT": str(settings.redis_port),
         "REDIS_URL": settings.redis_url,
