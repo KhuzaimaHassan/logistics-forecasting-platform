@@ -204,5 +204,6 @@ def test_alembic_configuration_and_migration_file_exists() -> None:
     assert versions_dir.exists(), "alembic/versions directory must exist"
 
     migration_files = list(versions_dir.glob("*.py"))
-    assert len(migration_files) >= 1, "At least one migration script must exist"
+    assert len(migration_files) >= 2, "At least two migration scripts must exist"
     assert any("0001_initial_schemas" in f.name for f in migration_files)
+    assert any("0002_feature_aggregation_tables" in f.name for f in migration_files)

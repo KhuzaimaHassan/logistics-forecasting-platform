@@ -210,8 +210,21 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Eliminates circular model dependencies, prevents training-time data leakage, and ensures point-in-time correctness during historical feature extraction. At inference time, `origin_zone_demand_pressure` is a direct sub-10ms key lookup in Redis from `zone_demand_features`.
 
+---
 
+## ADR-015: Historical offline feature aggregation — 1-hour row grain with time-windowed incremental range compute and 7-day lookback buffer
 
+**Context:** Phase 2 introduces historical feature aggregation tables (`warehouse.zone_demand_features_hourly` and `warehouse.corridor_duration_features_hourly`) in PostgreSQL to serve as Feast offline store sources. We need to establish the row granularity (1-hour vs. 15-minute) and execution strategy (unconditional full recompute vs. parameterized time-windowed range compute).
 
+**Decision:**
+1. **1-Hour Timestamp Row Grain (`HH:00:00` UTC):** Store offline features at 1-hour snapshot intervals. Each hourly row contains both 15-minute rolling metrics (`pickup_count_last_15m`, `avg_duration_last_15m` representing the window $[T-15\text{m}, T]$) and multi-scale rolling metrics (`1h`, `24h`, `7d`).
+2. **Parameterized Time-Windowed Range Compute (with 7-Day Lookback Buffer):** Compute aggregations over target time ranges $[T_{\text{start}}, T_{\text{end}}]$ by querying raw trips from $[T_{\text{start}} - 7\text{ days}, T_{\text{end}}]$. Results are written idempotently using PostgreSQL `ON CONFLICT (...) DO UPDATE`.
+3. **Multi-Scale Anti-Leakage Gating:** `zone_demand_features_hourly` strictly gates rolling windows on `pickup_datetime <= T`; `corridor_duration_features_hourly` strictly gates rolling duration statistics on completed trips where `dropoff_datetime <= T`.
 
+**Alternatives considered:**
+- **15-minute row grain:** Rejected for offline storage. Inflates table cardinality 4x (~800k zone rows/month and ~6M corridor rows/month), straining PostgreSQL buffer cache and memory budgets (ADR-002) without offering distinct prediction targets, since the models forecast hourly demand and ETA.
+- **Unconditional full-history recompute on every ETL run:** Rejected. Scales at $O(\text{all time})$; as historical data expands past 30M+ trips, full Cartesian joins will cause CPU thrashing and memory exhaustion on the single-host VM.
 
+**Consequences:**
+- Avoids 4x storage bloat (~196k zone rows and ~1.5M corridor rows per month) while maintaining complete schema and feature definition parity with online feature views.
+- **Training Sampling Constraint:** Training dataset generators (Phase 3) must sample observation timestamps at hour boundaries (`HH:00:00` UTC) to prevent sub-hour feature snapshot staleness during Feast point-in-time joins.
