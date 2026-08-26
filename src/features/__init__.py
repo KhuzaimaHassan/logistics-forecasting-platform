@@ -14,6 +14,14 @@ from src.features.entities import (
     parse_corridor_id,
     zone_entity,
 )
+from src.features.offline_extractor import (
+    backfill_all_loaded_months,
+    compute_corridor_duration_features_hourly,
+    compute_zone_demand_features_hourly,
+    extract_and_load_offline_features,
+    is_us_holiday,
+    load_offline_features_to_db,
+)
 from src.features.registry import apply_feature_definitions
 from src.features.views import (
     CORRIDOR_DURATION_SCHEMA,
@@ -46,4 +54,10 @@ __all__ = [
     "get_corridor_duration_postgres_source",
     "ZONE_DEMAND_SCHEMA",
     "CORRIDOR_DURATION_SCHEMA",
+    "compute_zone_demand_features_hourly",
+    "compute_corridor_duration_features_hourly",
+    "extract_and_load_offline_features",
+    "backfill_all_loaded_months",
+    "load_offline_features_to_db",
+    "is_us_holiday",
 ]

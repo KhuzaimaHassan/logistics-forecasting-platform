@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -209,3 +210,58 @@ class MonitoringReport(Base):
     created_at: datetime = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class ZoneDemandFeaturesHourly(Base):
+    """Historical hourly zone demand features computed from warehouse.trips."""
+
+    __tablename__ = "zone_demand_features_hourly"
+    __table_args__ = (
+        Index("ix_zone_demand_features_hourly_lookup", "zone_id", "pickup_datetime"),
+        {"schema": "warehouse"},
+    )
+
+    zone_id: int = Column(
+        Integer, ForeignKey("warehouse.taxi_zones.zone_id"), primary_key=True
+    )
+    pickup_datetime: datetime = Column(DateTime(timezone=True), primary_key=True)
+    created_at: datetime = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    pickup_count_last_15m: int = Column(BigInteger, nullable=False, default=0)
+    pickup_count_last_1h: int = Column(BigInteger, nullable=False, default=0)
+    pickup_count_last_24h: int = Column(BigInteger, nullable=False, default=0)
+    pickup_count_same_hour_last_week: int = Column(
+        BigInteger, nullable=False, default=0
+    )
+    hour_of_day: int = Column(Integer, nullable=False)
+    day_of_week: int = Column(Integer, nullable=False)
+    is_weekend: bool = Column(Boolean, nullable=False)
+    is_holiday: bool = Column(Boolean, nullable=False)
+    avg_temp_last_1h: Optional[float] = Column(Float, nullable=True)
+    is_precipitating: bool = Column(Boolean, nullable=False, default=False)
+
+
+class CorridorDurationFeaturesHourly(Base):
+    """Historical hourly corridor duration features computed from warehouse.trips."""
+
+    __tablename__ = "corridor_duration_features_hourly"
+    __table_args__ = (
+        Index(
+            "ix_corridor_duration_features_hourly_lookup",
+            "corridor_id",
+            "dropoff_datetime",
+        ),
+        {"schema": "warehouse"},
+    )
+
+    corridor_id: str = Column(String(16), primary_key=True)
+    dropoff_datetime: datetime = Column(DateTime(timezone=True), primary_key=True)
+    created_at: datetime = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    avg_duration_last_15m: float = Column(Float, nullable=False, default=0.0)
+    avg_duration_last_1h: float = Column(Float, nullable=False, default=0.0)
+    distance_km: float = Column(Float, nullable=False, default=0.0)
+    origin_zone_demand_pressure: int = Column(BigInteger, nullable=False, default=0)
+    avg_traffic_speed_current: Optional[float] = Column(Float, nullable=True)

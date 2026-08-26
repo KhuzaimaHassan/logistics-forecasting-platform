@@ -28,9 +28,11 @@ Two prediction targets, trained and versioned independently, connected via the `
 ## 5. Training pipeline
 
 1. Pull training set from Feast offline store (point-in-time correct).
+   - **Sampling Constraint (ADR-015):** Training entity observation timestamps must be sampled on **hour boundaries (`HH:00:00` UTC)** to align with the 1-hour offline table grain and avoid sub-hour feature snapshot staleness.
 2. Train/validation split by time (not random) — standard practice for forecasting, avoids leakage.
 3. Train, evaluate against baseline, log params/metrics/artifacts to MLflow.
 4. Manual promotion to "production" stage in MLflow registry initially; automated promotion-on-improvement is a Phase 6+ CI/CD enhancement, not v1.
+
 
 ## 6. Retraining triggers
 

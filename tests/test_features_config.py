@@ -60,6 +60,7 @@ def test_get_feast_repo_config_from_yaml():
     assert "postgresql+psycopg2://" in config.registry.path
     assert config.offline_store.type == "postgres"
     assert config.offline_store.db_schema == "warehouse"
+    assert config.offline_store.sslmode == "disable"
     assert config.online_store.type == "redis"
     assert config.online_store.key_ttl_seconds == 86400
 

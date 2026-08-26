@@ -12,6 +12,8 @@ offline_store:
   db_schema: warehouse
   user: ${POSTGRES_USER}
   password: ${POSTGRES_PASSWORD}
+  sslmode: ${POSTGRES_SSLMODE:-disable}
+
 online_store:
   type: redis
   connection_string: ${REDIS_URL}
