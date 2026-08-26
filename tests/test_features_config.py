@@ -65,7 +65,6 @@ def test_get_feast_repo_config_from_yaml():
     assert config.online_store.key_ttl_seconds == 86400
 
 
-
 def test_get_feast_repo_config_sqlite_fallback():
     """Verify sqlite fallback configuration for fast in-memory tests."""
     config = get_feast_repo_config(use_sqlite_fallback=True)

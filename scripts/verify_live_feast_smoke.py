@@ -251,8 +251,8 @@ def main() -> None:
                 text("""
                     SELECT COUNT(*) FROM warehouse.trips
                     WHERE pickup_zone_id = :zid
-                      AND pickup_datetime > :t_minus_1h
-                      AND pickup_datetime <= :t_obs;
+                      AND pickup_datetime >= :t_minus_1h
+                      AND pickup_datetime < :t_obs;
                     """),
                 {
                     "zid": zid,
@@ -265,8 +265,8 @@ def main() -> None:
                 text("""
                     SELECT COUNT(*) FROM warehouse.trips
                     WHERE pickup_zone_id = :zid
-                      AND pickup_datetime > :t_minus_15m
-                      AND pickup_datetime <= :t_obs;
+                      AND pickup_datetime >= :t_minus_15m
+                      AND pickup_datetime < :t_obs;
                     """),
                 {
                     "zid": zid,
