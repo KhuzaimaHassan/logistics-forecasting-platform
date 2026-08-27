@@ -20,7 +20,18 @@ logger = logging.getLogger(__name__)
 
 
 def to_utc_datetime_series(s: pd.Series) -> pd.Series:
-    """Convert a Series of strings, datetimes, or unix timestamps to UTC timezone-aware datetimes."""
+    """Convert a Series of datetimes, strings, or timestamps to UTC timezone-aware datetimes.
+
+    WORKAROUND NOTE:
+    Handling numeric integer/float epoch series (unit='s') is a test-isolation workaround.
+    When Feast initializes a local SQLite registry in a test, Feast mutates the process-global
+    Python sqlite3 module (registering a custom datetime adapter that serializes datetimes to
+    integer epoch seconds in SQLite test databases). Subsequent SQLite test fixtures reading
+    tables back receive raw integer seconds instead of ISO strings.
+
+    In production (PostgreSQL 16 via psycopg2/psycopg3), timestamps are always native PostgreSQL
+    TIMESTAMP WITH TIME ZONE objects or ISO-8601 strings and do not touch Python's sqlite3 module.
+    """
     if s.empty:
         return s
     if pd.api.types.is_numeric_dtype(s):
@@ -29,6 +40,7 @@ def to_utc_datetime_series(s: pd.Series) -> pd.Series:
     if dt_s.dt.tz is None:
         return dt_s.dt.tz_localize(timezone.utc)
     return dt_s.dt.tz_convert(timezone.utc)
+
 
 
 def is_us_holiday(dt: datetime) -> bool:
