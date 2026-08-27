@@ -42,7 +42,6 @@ def to_utc_datetime_series(s: pd.Series) -> pd.Series:
     return dt_s.dt.tz_convert(timezone.utc)
 
 
-
 def is_us_holiday(dt: datetime) -> bool:
     """Determine if a given date is a US Federal Holiday in NYC.
 
