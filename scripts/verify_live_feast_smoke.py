@@ -253,20 +253,33 @@ def main() -> None:
     with engine.connect() as conn:
         for row in historical_df.itertuples():
             zid = int(row.zone_id)
-            row_time = pd.to_datetime(row.event_timestamp).tz_convert(timezone.utc)
-            feast_1h = int(row.pickup_count_last_1h)
-            feast_15m = int(row.pickup_count_last_15m)
+            ts = pd.to_datetime(row.event_timestamp)
+            row_time = (
+                ts.tz_localize(timezone.utc)
+                if ts.tz is None
+                else ts.tz_convert(timezone.utc)
+            )
+
+            # Convert Feast values handling possible NaN for unobserved entities
+            feast_1h = (
+                0
+                if pd.isna(row.pickup_count_last_1h)
+                else int(row.pickup_count_last_1h)
+            )
+            feast_15m = (
+                0
+                if pd.isna(row.pickup_count_last_15m)
+                else int(row.pickup_count_last_15m)
+            )
 
             # Manual SQL query computing rolling 1h pickups directly from raw trips
             sql_1h = conn.execute(
-                text(
-                    """
+                text("""
                     SELECT COUNT(*) FROM warehouse.trips
                     WHERE pickup_zone_id = :zid
                       AND pickup_datetime >= :t_minus_1h
                       AND pickup_datetime < :t_obs;
-                    """
-                ),
+                    """),
                 {
                     "zid": zid,
                     "t_minus_1h": row_time - timedelta(hours=1),
@@ -275,14 +288,12 @@ def main() -> None:
             ).scalar()
 
             sql_15m = conn.execute(
-                text(
-                    """
+                text("""
                     SELECT COUNT(*) FROM warehouse.trips
                     WHERE pickup_zone_id = :zid
                       AND pickup_datetime >= :t_minus_15m
                       AND pickup_datetime < :t_obs;
-                    """
-                ),
+                    """),
                 {
                     "zid": zid,
                     "t_minus_15m": row_time - timedelta(minutes=15),
@@ -326,7 +337,6 @@ def main() -> None:
         "=== Live Feast Infrastructure Verification: ALL 5 CHECKS & CORRIDOR PIT RETRIEVAL PASSED ===",
         flush=True,
     )
-
 
 
 if __name__ == "__main__":
