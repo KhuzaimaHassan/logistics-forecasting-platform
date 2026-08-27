@@ -216,12 +216,22 @@ def main() -> None:
         flush=True,
     )
     t8 = time.perf_counter()
-    # Query Feast historical features for zone 161 and zone 236 at 12:00:00 UTC
-    obs_time = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    # Query Feast historical features across 5 distinct zone-time observations:
+    # 1. Zone 161 at 11:00 (active non-zero 15m window: 5 trips, 1h: 20 trips)
+    # 2. Zone 236 at 11:00 (active non-zero 15m window: 3 trips, 1h: 12 trips)
+    # 3. Zone 161 at 12:00 (tail window, 15m: 0 trips, 1h: 10 trips)
+    # 4. Zone 236 at 12:00 (tail window, 15m: 0 trips, 1h: 8 trips)
+    # 5. Zone 142 at 11:00 (baseline zero activity, 15m: 0 trips, 1h: 0 trips)
+    t_11 = datetime(2023, 1, 1, 11, 0, 0, tzinfo=timezone.utc)
+    t_12 = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
     zone_entity_df = pd.DataFrame(
         [
-            {"zone_id": 161, "event_timestamp": obs_time},
-            {"zone_id": 236, "event_timestamp": obs_time},
+            {"zone_id": 161, "event_timestamp": t_11},
+            {"zone_id": 236, "event_timestamp": t_11},
+            {"zone_id": 161, "event_timestamp": t_12},
+            {"zone_id": 236, "event_timestamp": t_12},
+            {"zone_id": 142, "event_timestamp": t_11},
         ]
     )
     features_to_fetch = [
@@ -243,8 +253,24 @@ def main() -> None:
     with engine.connect() as conn:
         for row in historical_df.itertuples():
             zid = int(row.zone_id)
-            feast_1h = int(row.pickup_count_last_1h)
-            feast_15m = int(row.pickup_count_last_15m)
+            ts = pd.to_datetime(row.event_timestamp)
+            row_time = (
+                ts.tz_localize(timezone.utc)
+                if ts.tz is None
+                else ts.tz_convert(timezone.utc)
+            )
+
+            # Convert Feast values handling possible NaN for unobserved entities
+            feast_1h = (
+                0
+                if pd.isna(row.pickup_count_last_1h)
+                else int(row.pickup_count_last_1h)
+            )
+            feast_15m = (
+                0
+                if pd.isna(row.pickup_count_last_15m)
+                else int(row.pickup_count_last_15m)
+            )
 
             # Manual SQL query computing rolling 1h pickups directly from raw trips
             sql_1h = conn.execute(
@@ -256,8 +282,8 @@ def main() -> None:
                     """),
                 {
                     "zid": zid,
-                    "t_minus_1h": obs_time - timedelta(hours=1),
-                    "t_obs": obs_time,
+                    "t_minus_1h": row_time - timedelta(hours=1),
+                    "t_obs": row_time,
                 },
             ).scalar()
 
@@ -270,24 +296,46 @@ def main() -> None:
                     """),
                 {
                     "zid": zid,
-                    "t_minus_15m": obs_time - timedelta(minutes=15),
-                    "t_obs": obs_time,
+                    "t_minus_15m": row_time - timedelta(minutes=15),
+                    "t_obs": row_time,
                 },
             ).scalar()
 
             print(
-                f"Spot-check Zone {zid} at {obs_time}: Feast 1h={feast_1h} vs SQL 1h={sql_1h} | Feast 15m={feast_15m} vs SQL 15m={sql_15m}",
+                f"Spot-check Zone {zid} at {row_time}: Feast 1h={feast_1h} vs SQL 1h={sql_1h} | Feast 15m={feast_15m} vs SQL 15m={sql_15m}",
                 flush=True,
             )
             assert (
                 feast_1h == sql_1h
-            ), f"Zone {zid} 1h count mismatch: Feast {feast_1h} vs SQL {sql_1h}"
+            ), f"Zone {zid} at {row_time} 1h mismatch: Feast {feast_1h} vs SQL {sql_1h}"
             assert (
                 feast_15m == sql_15m
-            ), f"Zone {zid} 15m count mismatch: Feast {feast_15m} vs SQL {sql_15m}"
+            ), f"Zone {zid} at {row_time} 15m mismatch: Feast {feast_15m} vs SQL {sql_15m}"
+
+    # Also spot-check corridor duration feature PIT retrieval
+    corridor_entity_df = pd.DataFrame(
+        [
+            {"corridor_id": "161_236", "event_timestamp": t_11},
+        ]
+    )
+    corridor_historical_df = store.get_historical_features(
+        entity_df=corridor_entity_df,
+        features=[
+            "corridor_duration_features:avg_duration_last_1h",
+            "corridor_duration_features:avg_duration_last_15m",
+            "corridor_duration_features:origin_zone_demand_pressure",
+        ],
+    ).to_df()
+    print(
+        f"Feast retrieved corridor historical features:\n{corridor_historical_df}",
+        flush=True,
+    )
+    assert corridor_historical_df["avg_duration_last_1h"].iloc[0] == 900.0
+    assert corridor_historical_df["origin_zone_demand_pressure"].iloc[0] == 20
 
     print(
-        "=== Live Feast Infrastructure Verification: ALL CHECKS PASSED ===", flush=True
+        "=== Live Feast Infrastructure Verification: ALL 5 CHECKS & CORRIDOR PIT RETRIEVAL PASSED ===",
+        flush=True,
     )
 
 
