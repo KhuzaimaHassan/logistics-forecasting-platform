@@ -1,5 +1,14 @@
 """Feast feature store module for logistics forecasting platform."""
 
+from src.features.client import (
+    CorridorDurationOnlineFeatures,
+    FeastOnlineClient,
+    PredictionOnlineFeatures,
+    ZoneDemandOnlineFeatures,
+    get_corridor_duration_online_features,
+    get_online_client,
+    get_zone_demand_online_features,
+)
 from src.features.config import (
     ensure_feast_schema,
     expand_env_placeholders,
@@ -13,6 +22,10 @@ from src.features.entities import (
     get_all_entities,
     parse_corridor_id,
     zone_entity,
+)
+from src.features.materialize import (
+    ALL_ONLINE_FEATURE_VIEW_NAMES,
+    materialize_features,
 )
 from src.features.offline_extractor import (
     backfill_all_loaded_months,
@@ -60,4 +73,13 @@ __all__ = [
     "backfill_all_loaded_months",
     "load_offline_features_to_db",
     "is_us_holiday",
+    "materialize_features",
+    "ALL_ONLINE_FEATURE_VIEW_NAMES",
+    "ZoneDemandOnlineFeatures",
+    "CorridorDurationOnlineFeatures",
+    "PredictionOnlineFeatures",
+    "FeastOnlineClient",
+    "get_online_client",
+    "get_zone_demand_online_features",
+    "get_corridor_duration_online_features",
 ]
