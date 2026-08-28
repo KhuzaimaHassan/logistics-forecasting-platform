@@ -1,0 +1,21 @@
+project: logistics_forecasting
+registry:
+  registry_type: sql
+  path: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?options=-csearch_path%3Dfeast
+  sqlalchemy_params:
+    echo: false
+offline_store:
+  type: postgres
+  host: ${POSTGRES_HOST}
+  port: ${POSTGRES_PORT}
+  database: ${POSTGRES_DB}
+  db_schema: warehouse
+  user: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+  sslmode: ${POSTGRES_SSLMODE:-disable}
+
+online_store:
+  type: redis
+  connection_string: ${REDIS_HOST}:${REDIS_PORT}
+  key_ttl_seconds: 86400
+

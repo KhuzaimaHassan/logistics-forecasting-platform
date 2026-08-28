@@ -66,6 +66,7 @@ services:
       timeout: 5s
       retries: 5
 
+
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v24.1.1
     container_name: redpanda

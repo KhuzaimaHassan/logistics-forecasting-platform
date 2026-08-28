@@ -12,7 +12,8 @@ Open-source, self-hosted (see [Decisions.md (ADR-004, ADR-013)](file:///docs/Dec
 | Entity | Description | Join Key | Value Type |
 |---|---|---|---|
 | `zone` | NYC taxi zone ID — the primary grouping for demand features | `zone_id` | `INT32` |
-| `corridor` | Pickup-zone → dropoff-zone pair — used for duration/ETA features | `corridor_id` (`{pu}_{do}`) | `STRING` |
+| `corridor` | Origin-to-destination zone pair for duration/ETA features | `corridor_id` (canonical format `"{pickup_zone_id}_{dropoff_zone_id}"`, e.g. `"142_236"`) | `STRING` |
+
 
 ## 3. Feature views (initial set)
 

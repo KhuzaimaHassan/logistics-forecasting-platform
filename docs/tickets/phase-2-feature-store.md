@@ -57,11 +57,12 @@ Implement the self-hosted Feast feature store infrastructure on top of PostgreSQ
 ### M2-3: Historical Feature Aggregations & Offline Materialization
 - **Scope / Acceptance Criteria:**
   - Implement offline data preparation pipeline in `src/features/offline_extractor.py`:
-    - Compute 15-minute / hourly aggregation views on `warehouse.trips` for historical training feature sources.
+    - Compute and populate historical aggregation tables in PostgreSQL `warehouse` schema: `warehouse.zone_demand_features_hourly` and `warehouse.corridor_duration_features_hourly` computed from `warehouse.trips`.
   - Validate point-in-time correctness with distinct anti-leakage gates:
     - `zone_demand_features`: assert that feature values at observation timestamp $T$ only incorporate trips with `pickup_datetime <= T`.
     - `corridor_duration_features`: assert that feature values at observation timestamp $T$ only incorporate completed trips with `dropoff_datetime <= T`.
   - Integration tests generating sample historical training DataFrames from test trip records.
+
 - **Per-Ticket Context:** `docs/Feature-Store.md`, `docs/Database.md`.
 - **Files Touched:** `src/features/offline_extractor.py`, `src/features/sources.py`, `tests/test_offline_features.py`.
 - **Estimated Size:** ~200–250 lines.

@@ -62,16 +62,16 @@ jobs:
 
       - name: Build all Docker images
         run: |
-          docker compose --env-file .env.ci build
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci build
 
       - name: Start Docker Compose stack
         run: |
-          docker compose --env-file .env.ci up -d
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci up -d
 
       - name: Wait for services to stabilize and report status
         run: |
           sleep 20
-          docker compose --env-file .env.ci ps
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci ps
 
       - name: Verify Caddy reverse proxy to FastAPI /health
         run: |
@@ -83,20 +83,52 @@ jobs:
 
       - name: Direct container health probe for FastAPI
         run: |
-          docker compose --env-file .env.ci exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T fastapi python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8000/health').getcode() == 200"
 
       - name: Direct container health probe for Streamlit
         run: |
-          docker compose --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci exec -T streamlit python -c "import urllib.request; assert urllib.request.urlopen('http://localhost:8501').getcode() == 200"
+
+      - name: Confirm Feast imports inside serving, orchestration, and transform images
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci run --rm fastapi python -c "import feast; print(f'FastAPI Feast version: {feast.__version__}')"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci run --rm prefect-worker python -c "import feast; print(f'Prefect-Worker Feast version: {feast.__version__}')"
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci run --rm stream-consumer python -c "import feast; print(f'Stream-Consumer Feast version: {feast.__version__}')"
+
+
+      - name: Set up Python for Feast live connectivity check
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --all-extras
+
+      - name: Verify Feast schema creation and SQL registry connection against live Postgres & Redis
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uv run python -u scripts/verify_live_feast_smoke.py
 
       - name: Inspect container logs
-
-
         if: always()
         run: |
-          docker compose --env-file .env.ci logs
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci logs
 
       - name: Tear down services
         if: always()
         run: |
-          docker compose --env-file .env.ci down -v
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci down -v
+
