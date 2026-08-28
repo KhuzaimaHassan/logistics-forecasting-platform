@@ -454,7 +454,8 @@ def main() -> None:
 
     # Re-verify values are identical after re-run
     z_features_rerun = online_client.get_zone_demand_features([161])
-    assert z_features_rerun[0].pickup_count_last_1h == 10
+    assert z_features_rerun[0].pickup_count_last_24h == 30
+    assert z_features_rerun[0].hour_of_day == 13
     assert z_features_rerun[0].cache_hit is True
 
     # === Step 13: High-Frequency Wall-Clock Latency Benchmark against Live Redis ===
