@@ -3,13 +3,18 @@
 import time
 from datetime import datetime, timedelta, timezone
 
+import numpy as np
 import pandas as pd
 import redis
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 
 from alembic import command
+from src.features.client import (
+    FeastOnlineClient,
+)
 from src.features.config import ensure_feast_schema, get_feature_store
+from src.features.materialize import materialize_features
 from src.features.offline_extractor import extract_and_load_offline_features
 from src.features.registry import apply_feature_definitions
 
@@ -335,6 +340,153 @@ def main() -> None:
 
     print(
         "=== Live Feast Infrastructure Verification: ALL 5 CHECKS & CORRIDOR PIT RETRIEVAL PASSED ===",
+        flush=True,
+    )
+
+    # === Step 9: Materialize Features into Redis Online Store (Run 1) ===
+    print(
+        "=== Step 9: Materializing Features into Redis Online Store (Run 1) ===",
+        flush=True,
+    )
+    t9 = time.perf_counter()
+    mat_res_1 = materialize_features(
+        start_date=datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        end_date=datetime(2023, 1, 1, 13, 0, 0, tzinfo=timezone.utc),
+        store=store,
+        incremental=False,
+    )
+    print(
+        f"Materialization Run 1 completed in {time.perf_counter() - t9:.3f}s: {mat_res_1}",
+        flush=True,
+    )
+    assert mat_res_1["status"] == "success"
+
+    # === Step 10: Raw Redis Inspection & Physical Key / TTL Verification ===
+    print(
+        "=== Step 10: Inspecting Physical Redis Keys and Verifying 24h TTL ===",
+        flush=True,
+    )
+    redis_client = redis.Redis.from_url(settings.redis_url)
+    keys = redis_client.keys("*")
+    print(f"Total keys found in Redis: {len(keys)}", flush=True)
+    assert len(keys) > 0, "No keys found in Redis online store after materialization!"
+
+    # Sample and inspect Redis keys
+    sample_key = keys[0]
+    sample_type = redis_client.type(sample_key).decode("utf-8")
+    sample_ttl = redis_client.ttl(sample_key)
+    print(
+        f"Sample Redis key: {sample_key!r} | Type: {sample_type} | TTL: {sample_ttl}s (Expected <= 86400s)",
+        flush=True,
+    )
+    assert (
+        0 < sample_ttl <= 86400
+    ), f"Invalid TTL on Redis key: {sample_ttl}s (expected >0 and <=86400)"
+
+    # === Step 11: Direct Online Feature Retrieval via FeastOnlineClient ===
+    print(
+        "=== Step 11: Validating Online Feature Retrieval & Cache Miss Handling ===",
+        flush=True,
+    )
+    online_client = FeastOnlineClient(store=store)
+
+    # 1. Zone demand features: 161 (cached), 236 (cached), 999 (cache miss)
+    z_features = online_client.get_zone_demand_features([161, 236, 999])
+    print(f"Online Zone Demand Features:\n{z_features}", flush=True)
+    assert z_features[0].zone_id == 161
+    assert z_features[0].cache_hit is True
+    assert z_features[0].pickup_count_last_1h == 10  # latest snapshot at 12:00
+    assert z_features[1].zone_id == 236
+    assert z_features[1].cache_hit is True
+    assert z_features[1].pickup_count_last_1h == 8  # latest snapshot at 12:00
+    # Cache miss
+    assert z_features[2].zone_id == 999
+    assert z_features[2].cache_hit is False
+    assert z_features[2].pickup_count_last_1h is None
+
+    # 2. Corridor duration features: 161_236 (cached), 999_999 (cache miss)
+    c_features = online_client.get_corridor_duration_features(["161_236", "999_999"])
+    print(f"Online Corridor Duration Features:\n{c_features}", flush=True)
+    assert c_features[0].corridor_id == "161_236"
+    assert c_features[0].cache_hit is True
+    assert c_features[0].avg_duration_last_1h == 900.0
+    assert c_features[0].origin_zone_demand_pressure == 10
+    # Cache miss
+    assert c_features[1].corridor_id == "999_999"
+    assert c_features[1].cache_hit is False
+
+    # 3. Combined prediction features
+    pred_feat = online_client.get_prediction_features(
+        pickup_zone_id=161, dropoff_zone_id=236
+    )
+    assert pred_feat.all_cached is True
+    assert pred_feat.corridor_id == "161_236"
+    print(f"Combined Prediction Features:\n{pred_feat.to_dict()}", flush=True)
+
+    # === Step 12: Re-Run Materialization (Idempotency & TTL Refresh) ===
+    print(
+        "=== Step 12: Re-Running Materialization (Run 2 - Idempotency Proof) ===",
+        flush=True,
+    )
+    t12 = time.perf_counter()
+    mat_res_2 = materialize_features(
+        start_date=datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        end_date=datetime(2023, 1, 1, 13, 0, 0, tzinfo=timezone.utc),
+        store=store,
+        incremental=False,
+    )
+    print(
+        f"Materialization Run 2 completed in {time.perf_counter() - t12:.3f}s: {mat_res_2}",
+        flush=True,
+    )
+    assert mat_res_2["status"] == "success"
+
+    # Re-verify values are identical after re-run
+    z_features_rerun = online_client.get_zone_demand_features([161])
+    assert z_features_rerun[0].pickup_count_last_1h == 10
+    assert z_features_rerun[0].cache_hit is True
+
+    # === Step 13: High-Frequency Wall-Clock Latency Benchmark against Live Redis ===
+    print(
+        "=== Step 13: Benchmarking Live Redis Online Lookup Latency (100 Requests) ===",
+        flush=True,
+    )
+    latencies_ms = []
+    # Warm up 5 requests
+    for _ in range(5):
+        online_client.get_prediction_features(161, 236)
+
+    # Benchmark 100 requests
+    n_benchmark = 100
+    for _ in range(n_benchmark):
+        t_req = time.perf_counter()
+        online_client.get_prediction_features(161, 236)
+        latencies_ms.append((time.perf_counter() - t_req) * 1000.0)
+
+    p50 = float(np.percentile(latencies_ms, 50))
+    p90 = float(np.percentile(latencies_ms, 90))
+    p95 = float(np.percentile(latencies_ms, 95))
+    p99 = float(np.percentile(latencies_ms, 99))
+    mean_lat = float(np.mean(latencies_ms))
+    min_lat = float(np.min(latencies_ms))
+    max_lat = float(np.max(latencies_ms))
+
+    print(
+        f"Online Feature Lookup Latency Results (N={n_benchmark}):\n"
+        f"  p50:  {p50:.2f} ms\n"
+        f"  p90:  {p90:.2f} ms\n"
+        f"  p95:  {p95:.2f} ms\n"
+        f"  p99:  {p99:.2f} ms\n"
+        f"  Mean: {mean_lat:.2f} ms (Min: {min_lat:.2f} ms, Max: {max_lat:.2f} ms)\n"
+        f"  SLA Check (< 10ms p95): {'PASSED' if p95 < 10.0 else 'WARN - SLA threshold is 10ms'}",
+        flush=True,
+    )
+    assert (
+        p95 < 20.0
+    ), f"Latency SLA severely degraded: p95={p95:.2f}ms (threshold 20.0ms on shared CI)"
+
+    print(
+        "=== Live Feast Online Store Materialization & Retrieval Verification: ALL CHECKS PASSED ===",
         flush=True,
     )
 
