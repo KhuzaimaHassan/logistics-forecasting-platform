@@ -399,10 +399,12 @@ def main() -> None:
     print(f"Online Zone Demand Features:\n{z_features}", flush=True)
     assert z_features[0].zone_id == 161
     assert z_features[0].cache_hit is True
-    assert z_features[0].pickup_count_last_1h == 10  # latest snapshot at 12:00
+    assert z_features[0].pickup_count_last_24h == 30  # 13:00 snapshot value
+    assert z_features[0].hour_of_day == 13
     assert z_features[1].zone_id == 236
     assert z_features[1].cache_hit is True
-    assert z_features[1].pickup_count_last_1h == 8  # latest snapshot at 12:00
+    assert z_features[1].pickup_count_last_24h == 20  # 13:00 snapshot value
+    assert z_features[1].hour_of_day == 13
     # Cache miss
     assert z_features[2].zone_id == 999
     assert z_features[2].cache_hit is False
@@ -414,7 +416,6 @@ def main() -> None:
     assert c_features[0].corridor_id == "161_236"
     assert c_features[0].cache_hit is True
     assert c_features[0].avg_duration_last_1h == 900.0
-    assert c_features[0].origin_zone_demand_pressure == 10
     # Cache miss
     assert c_features[1].corridor_id == "999_999"
     assert c_features[1].cache_hit is False
@@ -426,6 +427,12 @@ def main() -> None:
     assert pred_feat.all_cached is True
     assert pred_feat.corridor_id == "161_236"
     print(f"Combined Prediction Features:\n{pred_feat.to_dict()}", flush=True)
+
+    # 4. Top-level convenience functions
+    z_conv = get_zone_demand_online_features([161], store=store)
+    assert z_conv[0].pickup_count_last_24h == 30
+    c_conv = get_corridor_duration_online_features(["161_236"], store=store)
+    assert c_conv[0].avg_duration_last_1h == 900.0
 
     # === Step 12: Re-Run Materialization (Idempotency & TTL Refresh) ===
     print(
