@@ -452,11 +452,44 @@ def main() -> None:
     )
     assert mat_res_2["status"] == "success"
 
-    # Re-verify values are identical after re-run
-    z_features_rerun = online_client.get_zone_demand_features([161])
-    assert z_features_rerun[0].pickup_count_last_24h == 30
-    assert z_features_rerun[0].hour_of_day == 13
-    assert z_features_rerun[0].cache_hit is True
+    # Re-verify physical keys in Redis and active TTL
+    keys_rerun = redis_client.keys("*")
+    print(f"Total keys in Redis after Run 2: {len(keys_rerun)}", flush=True)
+    assert len(keys_rerun) == len(
+        keys
+    ), f"Key count mismatch after Run 2: {len(keys_rerun)} vs {len(keys)}"
+    sample_ttl_rerun = redis_client.ttl(keys_rerun[0])
+    print(
+        f"Sample key TTL after Run 2 refresh: {sample_ttl_rerun}s (Expected <= 86400s)",
+        flush=True,
+    )
+    assert 0 < sample_ttl_rerun <= 86400
+
+    # Re-query all entities after Run 2
+    z_features_run2 = online_client.get_zone_demand_features([161, 236, 999])
+    c_features_run2 = online_client.get_corridor_duration_features(
+        ["161_236", "999_999"]
+    )
+    pred_feat_run2 = online_client.get_prediction_features(161, 236)
+
+    print("--- Side-by-Side Comparison: Run 1 vs Run 2 ---", flush=True)
+    print(f"Run 1 Zone Demand Features:\n{z_features}", flush=True)
+    print(f"Run 2 Zone Demand Features:\n{z_features_run2}", flush=True)
+    print(f"Run 1 Corridor Duration Features:\n{c_features}", flush=True)
+    print(f"Run 2 Corridor Duration Features:\n{c_features_run2}", flush=True)
+    print(f"Run 1 Prediction Features:\n{pred_feat.to_dict()}", flush=True)
+    print(f"Run 2 Prediction Features:\n{pred_feat_run2.to_dict()}", flush=True)
+
+    # Assert byte-for-byte exact value parity between Run 1 and Run 2
+    assert (
+        z_features == z_features_run2
+    ), f"Zone demand mismatch: {z_features} != {z_features_run2}"
+    assert (
+        c_features == c_features_run2
+    ), f"Corridor duration mismatch: {c_features} != {c_features_run2}"
+    assert (
+        pred_feat.to_dict() == pred_feat_run2.to_dict()
+    ), "Prediction features mismatch between Run 1 and Run 2"
 
     # === Step 13: High-Frequency Wall-Clock Latency Benchmark against Live Redis ===
     print(
