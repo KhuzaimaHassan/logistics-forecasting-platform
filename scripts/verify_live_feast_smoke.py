@@ -10,8 +10,11 @@ from alembic.config import Config
 from sqlalchemy import create_engine, text
 
 from alembic import command
+from src.common.config import get_settings
 from src.features.client import (
     FeastOnlineClient,
+    get_corridor_duration_online_features,
+    get_zone_demand_online_features,
 )
 from src.features.config import ensure_feast_schema, get_feature_store
 from src.features.materialize import materialize_features
@@ -112,7 +115,8 @@ def seed_test_trips_if_empty(engine) -> None:
 
 
 def main() -> None:
-    db_url = "postgresql+psycopg2://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics"
+    settings = get_settings()
+    db_url = settings.database_url
 
     print("=== Step 1: Ensuring Feast Schema in Live PostgreSQL ===", flush=True)
 
