@@ -28,6 +28,10 @@ from src.features.config import ensure_feast_schema, get_feature_store
 from src.features.materialize import materialize_features
 from src.features.offline_extractor import extract_and_load_offline_features
 from src.features.registry import apply_feature_definitions
+from src.training.baseline import (
+    evaluate_corridor_duration_baseline,
+    evaluate_demand_baseline,
+)
 from src.training.dataset import (
     CORRIDOR_FEATURES,
     DEMAND_FEATURES,
@@ -688,7 +692,41 @@ def main() -> None:
     )
 
     print(
-        "\n=== Live Feast, MLflow & Training Dataset Verification: ALL 16 CHECKS PASSED ===",
+        "\n=== Step 17: Evaluating Live Seasonal-Naive Baselines & Logging to MLflow (M3-3) ===",
+        flush=True,
+    )
+    t17 = time.perf_counter()
+    # 1. Demand Seasonal-Naive Baseline
+    demand_eval = evaluate_demand_baseline(
+        val_df=demand_val,
+        experiment_name=DEMAND_EXPERIMENT_NAME,
+        run_name="smoke_test_seasonal_naive_demand",
+        log_to_mlflow=True,
+    )
+    assert demand_eval["run_id"] is not None
+    assert "val_mae" in demand_eval["metrics"]
+    assert demand_eval["metrics"]["val_mae"] >= 0.0
+
+    # 2. Corridor Duration Baseline
+    corridor_eval = evaluate_corridor_duration_baseline(
+        val_df=corridor_val,
+        experiment_name=DURATION_EXPERIMENT_NAME,
+        run_name="smoke_test_moving_avg_duration",
+        log_to_mlflow=True,
+    )
+    assert corridor_eval["run_id"] is not None
+    assert "val_mae" in corridor_eval["metrics"]
+    assert corridor_eval["metrics"]["val_mae"] >= 0.0
+
+    print(
+        f"Seasonal-Naive Baselines evaluated and logged to live MLflow in {time.perf_counter() - t17:.3f}s:\n"
+        f"  Demand Baseline:   MAE={demand_eval['metrics']['val_mae']:.4f}, WAPE={demand_eval['metrics']['val_wape']:.2f}% (Run ID: {demand_eval['run_id']})\n"
+        f"  Corridor Baseline: MAE={corridor_eval['metrics']['val_mae']:.2f}s, WAPE={corridor_eval['metrics']['val_wape']:.2f}% (Run ID: {corridor_eval['run_id']})",
+        flush=True,
+    )
+
+    print(
+        "\n=== Live Feast, MLflow & Baseline Model Verification: ALL 17 CHECKS PASSED ===",
         flush=True,
     )
 

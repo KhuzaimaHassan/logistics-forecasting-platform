@@ -49,7 +49,7 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
 - **Depends On:** M3-1.
 
 
-### M3-3: Seasonal-Naive Baselines & MLflow Metric Logging
+### M3-3: Seasonal-Naive Baselines & MLflow Metric Logging `[COMPLETED]`
 - **Scope / Acceptance Criteria:**
   - Implement seasonal-naive baseline evaluators in `src/training/baseline.py`:
     - **Demand Baseline**: Predicts `pickup_count_same_hour_last_week` (fallback to `pickup_count_last_24h` or rolling 1h if unobserved).
@@ -58,6 +58,7 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
     - Regression metrics: MAE, RMSE, WAPE (Weighted Absolute Percentage Error), and per-zone / per-corridor breakdown metrics.
   - Evaluate baselines on the validation split against real 2023-01 data, print real validation metrics, and log baseline benchmark runs to MLflow under the corresponding experiments.
   - Unit tests verifying baseline predictions, metric computations, edge cases (zero demand, extreme values), and MLflow metric logging.
+
 - **Per-Ticket Context:** `docs/AI-Pipeline.md`, `docs/Decisions.md` (ADR-016).
 - **Files Touched:** `src/training/baseline.py`, `src/training/metrics.py`, `tests/test_baselines.py`.
 - **Estimated Size:** ~200–250 lines.
