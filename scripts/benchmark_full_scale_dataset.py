@@ -25,7 +25,9 @@ from src.transform.batch_transformer import BatchTransformer
 
 
 def main():
-    print("=== Starting Full-Scale Training Dataset Generation Benchmark (2023-01 Data) ===")
+    print(
+        "=== Starting Full-Scale Training Dataset Generation Benchmark (2023-01 Data) ==="
+    )
     raw_parquet_path = "data/raw/yellow_tripdata_2023-01.parquet"
     if not os.path.exists(raw_parquet_path):
         raise FileNotFoundError(f"Missing raw parquet at {raw_parquet_path}")
@@ -44,12 +46,15 @@ def main():
         t0 = time.perf_counter()
         transformer = BatchTransformer()
         raw_df = pd.read_parquet(raw_parquet_path)
-        print(f"Loaded raw parquet: {len(raw_df):,} trips in {time.perf_counter() - t0:.2f}s")
+        print(
+            f"Loaded raw parquet: {len(raw_df):,} trips in {time.perf_counter() - t0:.2f}s"
+        )
 
         t1 = time.perf_counter()
         clean_trips_df, report = transformer.transform_dataframe(raw_df)
-        print(f"Transformed & validated trips: {len(clean_trips_df):,} trips in {time.perf_counter() - t1:.2f}s")
-
+        print(
+            f"Transformed & validated trips: {len(clean_trips_df):,} trips in {time.perf_counter() - t1:.2f}s"
+        )
 
         # Create tables in sqlite
         t2 = time.perf_counter()
@@ -103,44 +108,69 @@ def main():
             """))
 
         # Fast direct insert of required columns into SQLite
-        trips_subset = clean_trips_df[[
-            "pickup_zone_id", "dropoff_zone_id", "pickup_datetime",
-            "dropoff_datetime", "trip_duration_seconds", "trip_distance_km"
-        ]]
-        trips_subset.to_sql("trips", engine, if_exists="append", index=False, chunksize=100000)
-        
+        trips_subset = clean_trips_df[
+            [
+                "pickup_zone_id",
+                "dropoff_zone_id",
+                "pickup_datetime",
+                "dropoff_datetime",
+                "trip_duration_seconds",
+                "trip_distance_km",
+            ]
+        ]
+        trips_subset.to_sql(
+            "trips", engine, if_exists="append", index=False, chunksize=100000
+        )
+
         # Load taxi_zones
         unique_zones = list(range(1, 264))
-        zones_df = pd.DataFrame({"zone_id": unique_zones, "zone_name": [f"Zone_{z}" for z in unique_zones]})
+        zones_df = pd.DataFrame(
+            {"zone_id": unique_zones, "zone_name": [f"Zone_{z}" for z in unique_zones]}
+        )
         zones_df.to_sql("taxi_zones", engine, if_exists="append", index=False)
-        print(f"Loaded clean trips and taxi_zones into SQLite in {time.perf_counter() - t2:.2f}s")
-
+        print(
+            f"Loaded clean trips and taxi_zones into SQLite in {time.perf_counter() - t2:.2f}s"
+        )
 
         # 2. Extract offline features across full month
         print("\n--- Step 2: Extracting Offline Feature Store Hourly Aggregations ---")
         t3 = time.perf_counter()
         start_month = datetime(2023, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         end_month = datetime(2023, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
-        
+
         z_count, c_count = extract_and_load_offline_features(
             engine=engine,
             start_datetime=start_month,
             end_datetime=end_month,
             lookback_days=7,
         )
-        print(f"Offline feature extraction complete in {time.perf_counter() - t3:.2f}s: {z_count:,} zone rows, {c_count:,} corridor rows")
+        print(
+            f"Offline feature extraction complete in {time.perf_counter() - t3:.2f}s: {z_count:,} zone rows, {c_count:,} corridor rows"
+        )
 
         # Dump offline tables to parquet for Feast FileSource
         with engine.connect() as conn:
-            zone_feats_df = pd.read_sql("SELECT * FROM zone_demand_features_hourly", conn)
-            corridor_feats_df = pd.read_sql("SELECT * FROM corridor_duration_features_hourly", conn)
-        
-        zone_feats_df["pickup_datetime"] = pd.to_datetime(zone_feats_df["pickup_datetime"], utc=True)
-        zone_feats_df["created_at"] = pd.to_datetime(zone_feats_df["created_at"], utc=True)
+            zone_feats_df = pd.read_sql(
+                "SELECT * FROM zone_demand_features_hourly", conn
+            )
+            corridor_feats_df = pd.read_sql(
+                "SELECT * FROM corridor_duration_features_hourly", conn
+            )
+
+        zone_feats_df["pickup_datetime"] = pd.to_datetime(
+            zone_feats_df["pickup_datetime"], utc=True
+        )
+        zone_feats_df["created_at"] = pd.to_datetime(
+            zone_feats_df["created_at"], utc=True
+        )
         zone_feats_df.to_parquet(zone_parquet)
 
-        corridor_feats_df["dropoff_datetime"] = pd.to_datetime(corridor_feats_df["dropoff_datetime"], utc=True)
-        corridor_feats_df["created_at"] = pd.to_datetime(corridor_feats_df["created_at"], utc=True)
+        corridor_feats_df["dropoff_datetime"] = pd.to_datetime(
+            corridor_feats_df["dropoff_datetime"], utc=True
+        )
+        corridor_feats_df["created_at"] = pd.to_datetime(
+            corridor_feats_df["created_at"], utc=True
+        )
         corridor_feats_df.to_parquet(corridor_parquet)
 
         # 3. Setup Feast Feature Store
@@ -163,7 +193,9 @@ def main():
         train_end = datetime(2023, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
 
         # 4. Generate Demand Training Dataset
-        print("\n--- Step 3: Generating Full-Scale Demand Training Dataset (Jan 8 - Jan 31) ---")
+        print(
+            "\n--- Step 3: Generating Full-Scale Demand Training Dataset (Jan 8 - Jan 31) ---"
+        )
         t4 = time.perf_counter()
         demand_df = generate_demand_training_dataset(
             store=store,
@@ -178,7 +210,11 @@ def main():
 
         demand_check = validate_dataset_integrity(
             demand_df,
-            required_features=["pickup_count_last_1h", "pickup_count_last_15m", "pickup_count_same_hour_last_week"],
+            required_features=[
+                "pickup_count_last_1h",
+                "pickup_count_last_15m",
+                "pickup_count_same_hour_last_week",
+            ],
             target_col="target_pickup_count_next_1h",
         )
 
@@ -188,16 +224,30 @@ def main():
         )
 
         print(f"Demand Dataset Results (Generated in {t_demand:.2f}s):")
-        print(f"  Total Rows:         {len(demand_df):,} (Expected 263 zones * 576 hours = {263 * 576:,})")
-        print(f"  Train Split (Jan 8-24): {len(demand_train):,} rows (Expected 263 * 408 = {263 * 408:,})")
-        print(f"  Val Split   (Jan 25-31): {len(demand_val):,} rows (Expected 263 * 168 = {263 * 168:,})")
-        print(f"  Validation Empty Check: {'PASSED (NON-EMPTY)' if len(demand_val) > 0 else 'FAILED'}")
-        print(f"  Target Stats:       min={demand_check['target_min']}, max={demand_check['target_max']:,}, mean={demand_check['target_mean']:.2f}")
+        print(
+            f"  Total Rows:         {len(demand_df):,} (Expected 263 zones * 576 hours = {263 * 576:,})"
+        )
+        print(
+            f"  Train Split (Jan 8-24): {len(demand_train):,} rows (Expected 263 * 408 = {263 * 408:,})"
+        )
+        print(
+            f"  Val Split   (Jan 25-31): {len(demand_val):,} rows (Expected 263 * 168 = {263 * 168:,})"
+        )
+        print(
+            f"  Validation Empty Check: {'PASSED (NON-EMPTY)' if len(demand_val) > 0 else 'FAILED'}"
+        )
+        print(
+            f"  Target Stats:       min={demand_check['target_min']}, max={demand_check['target_max']:,}, mean={demand_check['target_mean']:.2f}"
+        )
         print(f"  Feature Nulls:      {demand_check['null_counts']}")
-        print(f"  Anti-Leakage Check: max(Train TS)={demand_train['event_timestamp'].max()} < min(Val TS)={demand_val['event_timestamp'].min()} -> PASSED")
+        print(
+            f"  Anti-Leakage Check: max(Train TS)={demand_train['event_timestamp'].max()} < min(Val TS)={demand_val['event_timestamp'].min()} -> PASSED"
+        )
 
         # 5. Generate Corridor Duration Training Dataset
-        print("\n--- Step 4: Generating Full-Scale Corridor Duration Training Dataset (Jan 8 - Jan 31) ---")
+        print(
+            "\n--- Step 4: Generating Full-Scale Corridor Duration Training Dataset (Jan 8 - Jan 31) ---"
+        )
         t5 = time.perf_counter()
         corridor_df = generate_corridor_training_dataset(
             store=store,
@@ -209,10 +259,13 @@ def main():
         )
         t_corridor = time.perf_counter() - t5
 
-
         corridor_check = validate_dataset_integrity(
             corridor_df,
-            required_features=["avg_duration_last_1h", "distance_km", "origin_zone_demand_pressure"],
+            required_features=[
+                "avg_duration_last_1h",
+                "distance_km",
+                "origin_zone_demand_pressure",
+            ],
             target_col="target_avg_duration_next_1h",
         )
 
@@ -223,12 +276,22 @@ def main():
 
         print(f"Corridor Duration Dataset Results (Generated in {t_corridor:.2f}s):")
         print(f"  Total Active Obs:   {len(corridor_df):,} corridor-hour rows")
-        print(f"  Train Split (Jan 8-24): {len(corridor_train):,} rows ({len(corridor_train)/len(corridor_df)*100:.1f}%)")
-        print(f"  Val Split   (Jan 25-31): {len(corridor_val):,} rows ({len(corridor_val)/len(corridor_df)*100:.1f}%)")
-        print(f"  Validation Empty Check: {'PASSED (GENUINELY NON-EMPTY)' if len(corridor_val) > 0 else 'FAILED'}")
-        print(f"  Target Duration:    min={corridor_check['target_min']:.1f}s, max={corridor_check['target_max']:.1f}s, mean={corridor_check['target_mean']:.1f}s")
+        print(
+            f"  Train Split (Jan 8-24): {len(corridor_train):,} rows ({len(corridor_train)/len(corridor_df)*100:.1f}%)"
+        )
+        print(
+            f"  Val Split   (Jan 25-31): {len(corridor_val):,} rows ({len(corridor_val)/len(corridor_df)*100:.1f}%)"
+        )
+        print(
+            f"  Validation Empty Check: {'PASSED (GENUINELY NON-EMPTY)' if len(corridor_val) > 0 else 'FAILED'}"
+        )
+        print(
+            f"  Target Duration:    min={corridor_check['target_min']:.1f}s, max={corridor_check['target_max']:.1f}s, mean={corridor_check['target_mean']:.1f}s"
+        )
         print(f"  Feature Nulls:      {corridor_check['null_counts']}")
-        print(f"  Anti-Leakage Check: max(Train TS)={corridor_train['event_timestamp'].max()} < min(Val TS)={corridor_val['event_timestamp'].min()} -> PASSED")
+        print(
+            f"  Anti-Leakage Check: max(Train TS)={corridor_train['event_timestamp'].max()} < min(Val TS)={corridor_val['event_timestamp'].min()} -> PASSED"
+        )
 
         print("\n=== All Full-Scale ADR-016 Training Dataset Checks Passed Cleanly ===")
 
