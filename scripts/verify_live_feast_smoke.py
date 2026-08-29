@@ -129,6 +129,36 @@ def seed_test_trips_if_empty(engine) -> None:
                 },
             )
 
+        # Seed 10 trips in hour 12 (12:00 to 12:45) for validation partition coverage
+        for i in range(10):
+            trip_id += 1
+            pu_time = t_base + timedelta(hours=2, minutes=i * 4)
+            do_time = pu_time + timedelta(minutes=18)
+            conn.execute(
+                text("""
+                    INSERT INTO warehouse.trips (
+                        trip_id, vendor_id, cab_type, pickup_zone_id, dropoff_zone_id,
+                        pickup_datetime, dropoff_datetime, trip_duration_seconds,
+                        time_bin_15m, day_of_week, hour_of_day, is_weekend,
+                        trip_distance_km, fare_amount, tip_amount, total_amount, source
+                    ) VALUES (
+                        :trip_id, 1, 'yellow', 161, 236,
+                        :pu_time, :do_time, 1080,
+                        :time_bin_15m, 6, :hour, true,
+                        4.8, 16.0, 3.2, 19.2, 'historical'
+                    ) ON CONFLICT (trip_id) DO NOTHING;
+                    """),
+                {
+                    "trip_id": trip_id,
+                    "pu_time": pu_time,
+                    "do_time": do_time,
+                    "time_bin_15m": pu_time.replace(
+                        minute=(pu_time.minute // 15) * 15, second=0, microsecond=0
+                    ),
+                    "hour": pu_time.hour,
+                },
+            )
+
 
 def main() -> None:
     settings = get_settings()
