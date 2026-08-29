@@ -28,6 +28,14 @@ from src.features.config import ensure_feast_schema, get_feature_store
 from src.features.materialize import materialize_features
 from src.features.offline_extractor import extract_and_load_offline_features
 from src.features.registry import apply_feature_definitions
+from src.training.dataset import (
+    CORRIDOR_FEATURES,
+    DEMAND_FEATURES,
+    generate_corridor_training_dataset,
+    generate_demand_training_dataset,
+    train_val_split_by_time,
+    validate_dataset_integrity,
+)
 
 
 def run_alembic_migrations(db_url: str) -> None:
@@ -591,7 +599,94 @@ def main() -> None:
     )
 
     print(
-        "\n=== Live Feast & MLflow Verification: ALL 14 CHECKS PASSED ===",
+        "\n=== Step 15: Generating Live Demand Training Dataset & Chronological Split (M3-2) ===",
+        flush=True,
+    )
+    t15 = time.perf_counter()
+    demand_dataset = generate_demand_training_dataset(
+        store=store,
+        engine=engine,
+        start_time=start_dt,
+        end_time=end_dt,
+        zone_ids=[161, 236, 142],
+        features=DEMAND_FEATURES,
+    )
+    assert len(demand_dataset) == 3 * 3, f"Expected 9 rows, got {len(demand_dataset)}"
+    assert "target_pickup_count_next_1h" in demand_dataset.columns
+
+    # Verify integrity and anti-leakage
+    demand_check = validate_dataset_integrity(
+        demand_dataset,
+        required_features=["pickup_count_last_1h", "pickup_count_last_15m"],
+        target_col="target_pickup_count_next_1h",
+    )
+    assert demand_check["status"] == "passed"
+
+    # Chronological train/val split test
+    split_dt = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    demand_train, demand_val = train_val_split_by_time(
+        demand_dataset, split_timestamp=split_dt
+    )
+    assert len(demand_train) == 6  # Hours 10, 11 (3 zones * 2 = 6)
+    assert len(demand_val) == 3  # Hour 12 (3 zones * 1 = 3)
+    assert demand_train["event_timestamp"].max() < pd.Timestamp(split_dt)
+    assert demand_val["event_timestamp"].min() >= pd.Timestamp(split_dt)
+
+    print(
+        f"Demand training dataset generated in {time.perf_counter() - t15:.3f}s:\n"
+        f"  Total Rows:     {len(demand_dataset)} across zones [161, 236, 142]\n"
+        f"  Target Range:   min={demand_check['target_min']}, max={demand_check['target_max']}, mean={demand_check['target_mean']:.2f}\n"
+        f"  Train/Val Split: Train={len(demand_train)} rows, Val={len(demand_val)} rows (Zero Leakage: {demand_train['event_timestamp'].max()} < {demand_val['event_timestamp'].min()})\n"
+        f"  Sample Record (Zone 161 @ 11:00):\n"
+        f"    Target (trips departing in [11:00, 12:00)): {demand_dataset[(demand_dataset['zone_id'] == 161) & (demand_dataset['event_timestamp'] == t_11)]['target_pickup_count_next_1h'].iloc[0]}\n"
+        f"    Feast Feature (pickup_count_last_1h @ T<=11:00): {demand_dataset[(demand_dataset['zone_id'] == 161) & (demand_dataset['event_timestamp'] == t_11)]['pickup_count_last_1h'].iloc[0]}",
+        flush=True,
+    )
+
+    print(
+        "\n=== Step 16: Generating Live Corridor Duration Training Dataset & Verification (M3-2) ===",
+        flush=True,
+    )
+    t16 = time.perf_counter()
+    corridor_dataset = generate_corridor_training_dataset(
+        store=store,
+        engine=engine,
+        start_time=start_dt,
+        end_time=end_dt,
+        features=CORRIDOR_FEATURES,
+    )
+    assert not corridor_dataset.empty, "Corridor training dataset is empty"
+    assert "target_avg_duration_next_1h" in corridor_dataset.columns
+    assert "target_trip_count_next_1h" in corridor_dataset.columns
+
+    corridor_check = validate_dataset_integrity(
+        corridor_dataset,
+        required_features=["avg_duration_last_1h", "distance_km"],
+        target_col="target_avg_duration_next_1h",
+    )
+    assert corridor_check["status"] == "passed"
+
+    corridor_train, corridor_val = train_val_split_by_time(
+        corridor_dataset, split_timestamp=split_dt
+    )
+    assert len(corridor_train) + len(corridor_val) == len(corridor_dataset)
+    if not corridor_train.empty and not corridor_val.empty:
+        assert corridor_train["event_timestamp"].max() < pd.Timestamp(split_dt)
+        assert corridor_val["event_timestamp"].min() >= pd.Timestamp(split_dt)
+
+    print(
+        f"Corridor duration training dataset generated in {time.perf_counter() - t16:.3f}s:\n"
+        f"  Total Active Observations: {len(corridor_dataset)}\n"
+        f"  Target Duration Range:     min={corridor_check['target_min']:.1f}s, max={corridor_check['target_max']:.1f}s, mean={corridor_check['target_mean']:.1f}s\n"
+        f"  Train/Val Split:           Train={len(corridor_train)} rows, Val={len(corridor_val)} rows\n"
+        f"  Sample Record (Corridor 161_236 @ 11:00):\n"
+        f"    Target Duration (departing in [11:00, 12:00)): {corridor_dataset[(corridor_dataset['corridor_id'] == '161_236') & (corridor_dataset['event_timestamp'] == t_11)]['target_avg_duration_next_1h'].iloc[0]:.1f}s\n"
+        f"    Feast Feature (avg_duration_last_1h @ T<=11:00): {corridor_dataset[(corridor_dataset['corridor_id'] == '161_236') & (corridor_dataset['event_timestamp'] == t_11)]['avg_duration_last_1h'].iloc[0]:.1f}s",
+        flush=True,
+    )
+
+    print(
+        "\n=== Live Feast, MLflow & Training Dataset Verification: ALL 16 CHECKS PASSED ===",
         flush=True,
     )
 
