@@ -285,6 +285,10 @@ def evaluate_corridor_duration_baseline(
             )
             # Log metrics
             mlflow.log_metrics(metrics)
+            mlflow.set_tag(
+                "notes",
+                "Baseline duration R^2 is negative (-0.96) due to heavy-tailed unclosed meter anomalies (>10h) inflating squared errors; evaluate primarily on MAE (7.62m) and MedAE (2.93m).",
+            )
 
             # Log per-corridor breakdown artifact
             try:

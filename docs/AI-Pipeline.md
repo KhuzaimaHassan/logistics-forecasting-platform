@@ -29,6 +29,8 @@ Two prediction targets, trained and versioned independently, connected via the `
 - **TLC Taximeter Shift Overlap Tail**: In raw TLC data, a tiny fraction of trips (~0.088%, 2,594 out of 2.94M trips in 2023-01) have recorded durations between 10 hours and 23.99 hours (max 86,388s) with short distances (e.g., 2–4 km) and small fares ($10–$25). These occur when taxi meters are inadvertently left running overnight until the driver's next shift the following day.
 - **Aggregation Impact**: When sampled into corridor-hour observations where an obscure corridor has only 1 active trip in that hour, the ground-truth target duration reflects this extreme value.
 - **Evaluation Discipline**: MAE and WAPE are preferred as primary optimization and evaluation metrics because they are robust against extreme tail distortions, while RMSE will naturally reflect high penalties on rare unclosed-meter anomalies.
+- **Baseline Duration $R^2$ Artifact ($R^2 \approx -0.96$)**: The moving-average baseline produces a negative $R^2$ solely because squared error on rare 10h–24h tail targets dwarfs the variance around the mean ($\text{RSS} > \text{TSS}$), even though 50% of predictions are within 176s (2.93 min MedAE) and overall MAE is 456.95s (7.62 min).
+
 
 
 ## 5. Training pipeline
