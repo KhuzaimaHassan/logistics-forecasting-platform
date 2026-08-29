@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 DEMAND_EXPERIMENT_NAME = "nyc-taxi-demand-forecasting"
 DURATION_EXPERIMENT_NAME = "nyc-taxi-corridor-eta"
+CORRIDOR_EXPERIMENT_NAME = DURATION_EXPERIMENT_NAME
 
 
 def get_tracking_uri() -> str:
