@@ -3,3 +3,7 @@ services:
   redis:
     ports:
       - "6379:6379"
+  mlflow:
+    ports:
+      - "5000:5000"
+

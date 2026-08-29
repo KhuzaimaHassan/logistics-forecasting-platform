@@ -3,6 +3,7 @@
 import time
 from datetime import datetime, timedelta, timezone
 
+import mlflow
 import numpy as np
 import pandas as pd
 import redis
@@ -11,6 +12,13 @@ from sqlalchemy import create_engine, text
 
 from alembic import command
 from src.common.config import get_settings
+from src.common.mlflow_utils import (
+    DEMAND_EXPERIMENT_NAME,
+    DURATION_EXPERIMENT_NAME,
+    get_mlflow_client,
+    get_or_create_experiment,
+    setup_mlflow,
+)
 from src.features.client import (
     FeastOnlineClient,
     get_corridor_duration_online_features,
@@ -532,6 +540,58 @@ def main() -> None:
 
     print(
         "=== Live Feast Online Store Materialization & Retrieval Verification: ALL CHECKS PASSED ===",
+        flush=True,
+    )
+
+    # === Step 14: Live PostgreSQL-Backed MLflow Service Smoke Test (M3-1) ===
+    print(
+        "\n=== Step 14: Verifying Live MLflow Service & Logging Experiment Run ===",
+        flush=True,
+    )
+    mlflow_uri = get_settings().mlflow_tracking_uri
+    setup_mlflow(mlflow_uri)
+    client = get_mlflow_client(mlflow_uri)
+
+    exp_demand_id = get_or_create_experiment(DEMAND_EXPERIMENT_NAME, client=client)
+    exp_duration_id = get_or_create_experiment(DURATION_EXPERIMENT_NAME, client=client)
+    print(
+        f"Live MLflow Experiment '{DEMAND_EXPERIMENT_NAME}' ID: {exp_demand_id}",
+        flush=True,
+    )
+    print(
+        f"Live MLflow Experiment '{DURATION_EXPERIMENT_NAME}' ID: {exp_duration_id}",
+        flush=True,
+    )
+
+    run_name = f"ci_smoke_run_{int(time.time())}"
+    with mlflow.start_run(experiment_id=exp_demand_id, run_name=run_name) as active_run:
+        mlflow.log_param("pipeline_stage", "m3-1-smoke-test")
+        mlflow.log_param("model_family", "seasonal_naive")
+        mlflow.log_metric("baseline_val_mae", 4.12)
+        mlflow.log_metric("baseline_val_rmse", 7.89)
+        mlflow.set_tag("test_type", "live_docker_compose_smoke")
+        active_run_id = active_run.info.run_id
+
+    fetched_run = client.get_run(active_run_id)
+    assert fetched_run is not None, "Failed to retrieve run from live MLflow service"
+    assert (
+        fetched_run.info.status == "FINISHED"
+    ), f"Expected FINISHED run status, got {fetched_run.info.status}"
+    assert fetched_run.data.params["pipeline_stage"] == "m3-1-smoke-test"
+    assert fetched_run.data.metrics["baseline_val_mae"] == 4.12
+    print(
+        f"Successfully logged and verified live MLflow Run:\n"
+        f"  Run ID:        {fetched_run.info.run_id}\n"
+        f"  Experiment ID: {fetched_run.info.experiment_id}\n"
+        f"  Status:        {fetched_run.info.status}\n"
+        f"  Params:        {fetched_run.data.params}\n"
+        f"  Metrics:       {fetched_run.data.metrics}\n"
+        f"  Artifact URI:  {fetched_run.info.artifact_uri}",
+        flush=True,
+    )
+
+    print(
+        "\n=== Live Feast & MLflow Verification: ALL 14 CHECKS PASSED ===",
         flush=True,
     )
 

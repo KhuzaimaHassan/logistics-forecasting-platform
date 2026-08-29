@@ -228,3 +228,37 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 **Consequences:**
 - Avoids 4x storage bloat (~196k zone rows and ~1.5M corridor rows per month) while maintaining complete schema and feature definition parity with online feature views.
 - **Training Sampling Constraint:** Training dataset generators (Phase 3) must sample observation timestamps at hour boundaries (`HH:00:00` UTC) to prevent sub-hour feature snapshot staleness during Feast point-in-time joins.
+
+---
+
+## ADR-016: Training dataset generation — Grid-based demand sampling, active-corridor duration sampling, and 7-day holdout time split
+
+**Context:** Phase 3 introduces model training pipelines for zone demand and corridor trip duration (ETA). We need to formalize:
+1. What determines the entity observation rows `(entity, event_timestamp)` passed to Feast's `store.get_historical_features(entity_df=...)`?
+2. How ground-truth targets are computed without data leakage?
+3. How train and validation splits are partitioned across time?
+
+**Decision:**
+1. **Demand Dataset Sampling Strategy (Full Spatial-Temporal Grid):**
+   - Sample every NYC taxi zone ($Z \in \{1 \dots 263\}$) at every hour boundary ($T \in \{\text{HH:00:00 UTC}\}$) over the effective training range.
+   - **Rationale:** Constructing a complete Cartesian grid $\text{Zone} \times \text{Hour}$ ($263 \times 576 = 151,488$ rows for Jan 8–31) explicitly preserves zero-demand observations in low-volume zones, eliminating survivorship bias where models only train on zones with active trips.
+2. **Corridor Duration Dataset Sampling Strategy (Active Corridor-Hours Grid, Pickup-Anchored Target Window):**
+   - Sample active corridor-hours $(C, T)$ where $\ge 1$ trip departed (i.e. `pickup_datetime` $\in [T, T+1\text{h})$) on corridor $C$.
+   - **Pickup-Anchored Target Alignment:** Both demand and duration targets are strictly pickup-anchored: $Y_{\text{demand}}$ counts pickups departing in $[T, T+1\text{h})$, and $Y_{\text{duration}}$ is the mean duration (in seconds) of trips departing in $[T, T+1\text{h})$, matching the serving semantics of `/predict/eta` in `API.md` (which forecasts expected duration for a trip starting at prediction time $T$).
+   - **Feature Gating Stays Separate:** Historical feature values at observation timestamp $T$ remain strictly anti-leakage gated per ADR-015: `zone_demand_features` gate on `pickup_datetime <= T`, while `corridor_duration_features` gate on completed trips with `dropoff_datetime <= T`.
+   - **Rationale:** A full Cartesian grid of $263 \times 263 = 69,169$ corridors $\times 576$ hours generates 39.8M rows where >95% are empty. Filtering to active corridor-hours bounds dataset cardinality (~100k–300k rows) while ensuring robust duration targets.
+   - **Target ($Y_{\text{duration}}$):** Mean trip duration in seconds for trips on corridor $C$ with `pickup_datetime` in $[T, T+1\text{h})$.
+
+3. **7-Day Lookback Buffer:**
+   - Reserve the first 7 days of available historical data (Jan 1–7, 2023) strictly as a lookback feature window. Training observations begin at `2023-01-08 00:00:00 UTC` so that `pickup_count_same_hour_last_week` is 100% observed without null imputation artifacts.
+4. **Time-Based Train / Validation Split:**
+   - **Train partition:** `2023-01-08 00:00:00` to `2023-01-24 23:59:59` UTC (17 days, ~70% of dataset).
+   - **Validation partition:** `2023-01-25 00:00:00` to `2023-01-31 23:59:59` UTC (7 full days = 1 complete weekly cycle, ~30% of dataset).
+   - **Rationale:** Strict chronological splitting prevents temporal data leakage inherent in random cross-validation. Evaluating on a full 7-day holdout guarantees balanced representation of all days of the week and intraday seasonality.
+
+**Alternatives considered:**
+- **Random K-Fold splitting:** Rejected. Randomly partitioning time-series rows leaks future seasonal patterns and autocorrelation into the training set, producing over-optimistic evaluation metrics that fail in live production.
+- **Sparse demand sampling (only hours with pickups > 0):** Rejected. Skews the model's loss landscape toward over-predicting demand in quiet residential or outer-borough zones during late night/early morning hours.
+
+**Consequences:** Clean, reproducible, point-in-time correct training datasets aligned with Feast's hourly offline feature grain, zero feature leakage, and realistic out-of-time validation metrics.
+
