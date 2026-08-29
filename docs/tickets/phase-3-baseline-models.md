@@ -19,7 +19,7 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
 
 ## Tickets
 
-### M3-1: MLflow Experiment Tracking Setup & Cloudflare R2 Artifact Backup
+### M3-1: MLflow Experiment Tracking Setup & Cloudflare R2 Artifact Backup `[COMPLETED]`
 - **Scope / Acceptance Criteria:**
   - Configure MLflow client connection in `src/common/mlflow_utils.py` connecting to the already-running MLflow tracking server (`http://localhost:5000` / `http://mlflow:5000`, PostgreSQL `mlflow` schema-backed since M0/Deployment.md), with SQLite/local directory as a test-isolation fallback only (not re-provisioning the backend).
   - Setup and register canonical MLflow experiments:
@@ -35,7 +35,7 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
 - **Estimated Size:** ~200–250 lines.
 - **Depends On:** Phase 2 baseline.
 
-### M3-2: Point-in-Time Training Dataset Extraction & Splitting (ADR-016)
+### M3-2: Point-in-Time Training Dataset Extraction & Splitting (ADR-016) `[COMPLETED]`
 - **Scope / Acceptance Criteria:**
   - Implement training dataset extraction in `src/training/dataset.py`:
     - `generate_demand_training_dataset(...)`: builds $(zone\_id, event\_timestamp)$ entity grid at hour boundaries (`HH:00:00` UTC), computes ground-truth target $Y = \text{pickup\_count\_next\_1h}$ (pickup-anchored departing in $[T, T+1\text{h})$), and joins offline features from Feast via `store.get_historical_features()`.
@@ -43,11 +43,11 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
     - `train_val_split_by_time(df, split_timestamp)`: splits datasets chronologically into train (Jan 8–24) and validation (Jan 25–31).
   - Enforce data quality assertions: zero data leakage, no missing values on required rolling/calendar feature columns, and non-empty train/validation partitions.
   - Unit and integration tests validating dataset extraction, feature alignment, target computation, and split boundary isolation.
-
 - **Per-Ticket Context:** `docs/AI-Pipeline.md`, `docs/Feature-Store.md`, `docs/Decisions.md` (ADR-015, ADR-016).
 - **Files Touched:** `src/training/dataset.py`, `tests/test_training_dataset.py`.
 - **Estimated Size:** ~250–300 lines.
 - **Depends On:** M3-1.
+
 
 ### M3-3: Seasonal-Naive Baselines & MLflow Metric Logging
 - **Scope / Acceptance Criteria:**

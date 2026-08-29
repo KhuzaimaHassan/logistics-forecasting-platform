@@ -159,6 +159,47 @@ def get_all_zone_ids(engine: Engine) -> List[int]:
     return list(range(1, 264))
 
 
+def _fetch_historical_features_in_batches(
+    store: FeatureStore,
+    entity_df: pd.DataFrame,
+    features: List[str],
+    batch_size: int = 10000,
+) -> pd.DataFrame:
+    """Retrieve historical features from Feast in memory-safe batches.
+
+    Prevents Dask in-memory combinatorial explosions and OOM on large entity dataframes
+    when using local/file offline store engines.
+
+    Args:
+        store: Feast FeatureStore instance.
+        entity_df: Observation entity dataframe with timestamp column.
+        features: List of Feast feature references.
+        batch_size: Maximum rows per retrieval batch.
+
+    Returns:
+        Concatenated DataFrame containing retrieved historical features.
+    """
+    if len(entity_df) <= batch_size:
+        return store.get_historical_features(
+            entity_df=entity_df, features=features
+        ).to_df()
+
+    dfs = []
+    num_batches = (len(entity_df) + batch_size - 1) // batch_size
+    logger.info(
+        "Retrieving Feast historical features across %d batches (%d rows/batch)...",
+        num_batches,
+        batch_size,
+    )
+    for i in range(num_batches):
+        batch_entity_df = entity_df.iloc[i * batch_size : (i + 1) * batch_size].copy()
+        batch_res = store.get_historical_features(
+            entity_df=batch_entity_df, features=features
+        ).to_df()
+        dfs.append(batch_res)
+    return pd.concat(dfs, ignore_index=True)
+
+
 def generate_demand_training_dataset(
     store: Optional[FeatureStore] = None,
     engine: Optional[Engine] = None,
@@ -166,6 +207,7 @@ def generate_demand_training_dataset(
     end_time: Optional[datetime] = None,
     zone_ids: Optional[List[int]] = None,
     features: Optional[List[str]] = None,
+    batch_size: int = 10000,
 ) -> pd.DataFrame:
     """Generate point-in-time demand training dataset from Feast offline store.
 
@@ -179,6 +221,7 @@ def generate_demand_training_dataset(
         end_time: End observation timestamp (defaults to DEFAULT_TRAIN_END).
         zone_ids: List of zone IDs (defaults to all zones in database).
         features: List of Feast feature references to retrieve.
+        batch_size: Max rows per retrieval batch for memory safety.
 
     Returns:
         DataFrame containing entity keys, timestamps, features, and target column.
@@ -216,11 +259,12 @@ def generate_demand_training_dataset(
 
     # 4. Point-in-time feature join via Feast
     logger.info("Executing Feast point-in-time historical feature join...")
-    historical_features = store.get_historical_features(
+    dataset_df = _fetch_historical_features_in_batches(
+        store=store,
         entity_df=entity_df,
         features=features,
+        batch_size=batch_size,
     )
-    dataset_df = historical_features.to_df()
 
     # Ensure clean typing and sort order
     dataset_df["event_timestamp"] = pd.to_datetime(
@@ -229,6 +273,39 @@ def generate_demand_training_dataset(
     dataset_df = dataset_df.sort_values(by=["event_timestamp", "zone_id"]).reset_index(
         drop=True
     )
+
+    # Impute missing rolling counts with 0 for unobserved zones
+    count_cols = [
+        "pickup_count_last_15m",
+        "pickup_count_last_1h",
+        "pickup_count_last_24h",
+        "pickup_count_same_hour_last_week",
+    ]
+    for col in count_cols:
+        if col in dataset_df.columns:
+            dataset_df[col] = dataset_df[col].fillna(0).astype("int64")
+
+    # Calendar features fallback from event_timestamp if null
+    if "hour_of_day" in dataset_df.columns:
+        dataset_df["hour_of_day"] = (
+            dataset_df["hour_of_day"]
+            .fillna(dataset_df["event_timestamp"].dt.hour)
+            .astype("int32")
+        )
+    if "day_of_week" in dataset_df.columns:
+        dataset_df["day_of_week"] = (
+            dataset_df["day_of_week"]
+            .fillna(dataset_df["event_timestamp"].dt.dayofweek)
+            .astype("int32")
+        )
+    if "is_weekend" in dataset_df.columns:
+        dataset_df["is_weekend"] = (
+            dataset_df["is_weekend"]
+            .fillna(dataset_df["day_of_week"].isin([5, 6]))
+            .astype("bool")
+        )
+    if "is_holiday" in dataset_df.columns:
+        dataset_df["is_holiday"] = dataset_df["is_holiday"].fillna(False).astype("bool")
 
     logger.info(
         "Demand training dataset generated successfully: %d rows, %d columns.",
@@ -332,6 +409,7 @@ def generate_corridor_training_dataset(
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     features: Optional[List[str]] = None,
+    batch_size: int = 10000,
 ) -> pd.DataFrame:
     """Generate point-in-time corridor duration training dataset from Feast offline store.
 
@@ -344,10 +422,12 @@ def generate_corridor_training_dataset(
         start_time: Start observation timestamp (defaults to DEFAULT_TRAIN_START).
         end_time: End observation timestamp (defaults to DEFAULT_TRAIN_END).
         features: List of Feast feature references to retrieve.
+        batch_size: Max rows per retrieval batch for memory safety.
 
     Returns:
         DataFrame containing entity keys, timestamps, features, and duration target.
     """
+
     store = store or get_feature_store()
     engine = engine or get_engine()
     start_time = start_time or DEFAULT_TRAIN_START
@@ -376,19 +456,36 @@ def generate_corridor_training_dataset(
         "Executing Feast point-in-time historical feature join for %d corridor-hour observations...",
         len(entity_df),
     )
-    historical_features = store.get_historical_features(
+    dataset_df = _fetch_historical_features_in_batches(
+        store=store,
         entity_df=entity_df,
         features=features,
+        batch_size=batch_size,
     )
-    dataset_df = historical_features.to_df()
 
-    # Sort and clean
+    # Ensure clean typing and sort order
     dataset_df["event_timestamp"] = pd.to_datetime(
         dataset_df["event_timestamp"], utc=True
     )
     dataset_df = dataset_df.sort_values(
         by=["event_timestamp", "corridor_id"]
     ).reset_index(drop=True)
+
+    # Impute missing corridor features
+    if "origin_zone_demand_pressure" in dataset_df.columns:
+        dataset_df["origin_zone_demand_pressure"] = (
+            dataset_df["origin_zone_demand_pressure"].fillna(0).astype("int64")
+        )
+
+    if (
+        "avg_duration_last_1h" in dataset_df.columns
+        and "target_avg_duration_next_1h" in dataset_df.columns
+    ):
+        dataset_df["avg_duration_last_1h"] = (
+            dataset_df["avg_duration_last_1h"]
+            .fillna(dataset_df["target_avg_duration_next_1h"])
+            .astype("float32")
+        )
 
     logger.info(
         "Corridor training dataset generated successfully: %d rows, %d columns.",
@@ -402,6 +499,9 @@ def train_val_split_by_time(
     df: pd.DataFrame,
     split_timestamp: datetime = DEFAULT_VAL_SPLIT,
     timestamp_col: str = "event_timestamp",
+    min_train_rows: int = 1,
+    min_val_rows: int = 1,
+    enforce_non_empty: bool = True,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Split dataset chronologically into train and validation sets (ADR-016).
 
@@ -409,15 +509,44 @@ def train_val_split_by_time(
         df: Input DataFrame containing timestamp column.
         split_timestamp: Cutoff timestamp (records strictly < split go to train; >= split go to val).
         timestamp_col: Name of datetime column to split on.
+        min_train_rows: Minimum rows required in training partition.
+        min_val_rows: Minimum rows required in validation partition.
+        enforce_non_empty: If True, raises ValueError if train or validation partition is empty.
 
     Returns:
         Tuple of (train_df, val_df).
+
+    Raises:
+        ValueError: If input DataFrame is empty or if train/validation partition fails row count requirements.
     """
+    if df.empty:
+        raise ValueError("Cannot split empty dataset.")
+
+    if timestamp_col not in df.columns:
+        raise ValueError(f"Timestamp column '{timestamp_col}' missing from dataset.")
+
     ts_series = pd.to_datetime(df[timestamp_col], utc=True)
     split_ts = pd.to_datetime(split_timestamp, utc=True)
 
     train_df = df[ts_series < split_ts].copy().reset_index(drop=True)
     val_df = df[ts_series >= split_ts].copy().reset_index(drop=True)
+
+    if enforce_non_empty:
+        if len(train_df) < min_train_rows:
+            raise ValueError(
+                f"Training split has {len(train_df)} rows, minimum required is {min_train_rows} (< {split_ts})."
+            )
+        if len(val_df) < min_val_rows:
+            raise ValueError(
+                f"Validation split has {len(val_df)} rows, minimum required is {min_val_rows} (>= {split_ts})."
+            )
+        # Anti-leakage invariant assertion
+        max_train_ts = train_df[timestamp_col].max()
+        min_val_ts = val_df[timestamp_col].min()
+        if max_train_ts >= min_val_ts:
+            raise ValueError(
+                f"Temporal leakage detected: max train timestamp {max_train_ts} >= min val timestamp {min_val_ts}."
+            )
 
     logger.info(
         "Chronological split at %s: Train=%d rows, Val=%d rows.",

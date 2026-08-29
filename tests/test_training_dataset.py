@@ -329,6 +329,20 @@ def test_train_val_split_by_time():
     assert train_df["event_timestamp"].max() < pd.Timestamp(split_point)
     assert val_df["event_timestamp"].min() >= pd.Timestamp(split_point)
 
+    # Test empty validation split failure
+    with pytest.raises(ValueError, match="Validation split has 0 rows"):
+        train_val_split_by_time(
+            df,
+            split_timestamp=datetime(2023, 2, 1, 0, 0, 0, tzinfo=timezone.utc),
+        )
+
+    # Test empty training split failure
+    with pytest.raises(ValueError, match="Training split has 0 rows"):
+        train_val_split_by_time(
+            df,
+            split_timestamp=datetime(2023, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+        )
+
 
 def test_validate_dataset_integrity():
     """Test dataset integrity checks and failure assertions."""

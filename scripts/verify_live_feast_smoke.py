@@ -666,19 +666,21 @@ def main() -> None:
     )
     assert corridor_check["status"] == "passed"
 
+    corridor_split_dt = datetime(2023, 1, 1, 11, 0, 0, tzinfo=timezone.utc)
     corridor_train, corridor_val = train_val_split_by_time(
-        corridor_dataset, split_timestamp=split_dt
+        corridor_dataset, split_timestamp=corridor_split_dt, enforce_non_empty=True
     )
     assert len(corridor_train) + len(corridor_val) == len(corridor_dataset)
-    if not corridor_train.empty and not corridor_val.empty:
-        assert corridor_train["event_timestamp"].max() < pd.Timestamp(split_dt)
-        assert corridor_val["event_timestamp"].min() >= pd.Timestamp(split_dt)
+    assert len(corridor_train) > 0
+    assert len(corridor_val) > 0
+    assert corridor_train["event_timestamp"].max() < pd.Timestamp(corridor_split_dt)
+    assert corridor_val["event_timestamp"].min() >= pd.Timestamp(corridor_split_dt)
 
     print(
         f"Corridor duration training dataset generated in {time.perf_counter() - t16:.3f}s:\n"
         f"  Total Active Observations: {len(corridor_dataset)}\n"
         f"  Target Duration Range:     min={corridor_check['target_min']:.1f}s, max={corridor_check['target_max']:.1f}s, mean={corridor_check['target_mean']:.1f}s\n"
-        f"  Train/Val Split:           Train={len(corridor_train)} rows, Val={len(corridor_val)} rows\n"
+        f"  Train/Val Split:           Train={len(corridor_train)} rows, Val={len(corridor_val)} rows (Zero Leakage: {corridor_train['event_timestamp'].max()} < {corridor_val['event_timestamp'].min()})\n"
         f"  Sample Record (Corridor 161_236 @ 11:00):\n"
         f"    Target Duration (departing in [11:00, 12:00)): {corridor_dataset[(corridor_dataset['corridor_id'] == '161_236') & (corridor_dataset['event_timestamp'] == t_11)]['target_avg_duration_next_1h'].iloc[0]:.1f}s\n"
         f"    Feast Feature (avg_duration_last_1h @ T<=11:00): {corridor_dataset[(corridor_dataset['corridor_id'] == '161_236') & (corridor_dataset['event_timestamp'] == t_11)]['avg_duration_last_1h'].iloc[0]:.1f}s",
