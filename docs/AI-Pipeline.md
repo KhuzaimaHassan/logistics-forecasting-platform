@@ -21,9 +21,15 @@ Two prediction targets, trained and versioned independently, connected via the `
 
 ## 4. Evaluation metrics
 
-- Demand: MAE, RMSE, and % improvement over seasonal-naive.
-- Duration: MAE (minutes), RMSE, % improvement over seasonal-naive.
+- Demand: MAE, RMSE, WAPE (Weighted Absolute Percentage Error), and % improvement over seasonal-naive.
+- Duration: MAE (minutes/seconds), RMSE, WAPE, % improvement over seasonal-naive.
 - Both: evaluated per-zone/per-corridor, not just in aggregate — aggregate metrics can hide poor performance in low-volume zones, which matters more for the agent's "why is this specific zone off" use case.
+
+### Known Data Characteristics & Outlier Tail Handling (ADR-016)
+- **TLC Taximeter Shift Overlap Tail**: In raw TLC data, a tiny fraction of trips (~0.088%, 2,594 out of 2.94M trips in 2023-01) have recorded durations between 10 hours and 23.99 hours (max 86,388s) with short distances (e.g., 2–4 km) and small fares ($10–$25). These occur when taxi meters are inadvertently left running overnight until the driver's next shift the following day.
+- **Aggregation Impact**: When sampled into corridor-hour observations where an obscure corridor has only 1 active trip in that hour, the ground-truth target duration reflects this extreme value.
+- **Evaluation Discipline**: MAE and WAPE are preferred as primary optimization and evaluation metrics because they are robust against extreme tail distortions, while RMSE will naturally reflect high penalties on rare unclosed-meter anomalies.
+
 
 ## 5. Training pipeline
 
