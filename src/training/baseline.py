@@ -196,10 +196,15 @@ def evaluate_demand_baseline(
             mlflow.log_metrics(metrics)
 
             # Log per-zone breakdown artifact
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                breakdown_csv = os.path.join(tmp_dir, "per_zone_validation_metrics.csv")
-                per_zone_df.to_csv(breakdown_csv, index=False)
-                mlflow.log_artifact(breakdown_csv, artifact_path="evaluation")
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    breakdown_csv = os.path.join(
+                        tmp_dir, "per_zone_validation_metrics.csv"
+                    )
+                    per_zone_df.to_csv(breakdown_csv, index=False)
+                    mlflow.log_artifact(breakdown_csv, artifact_path="evaluation")
+            except Exception as art_err:
+                logger.warning("Could not log per-zone artifact to MLflow: %s", art_err)
 
             logger.info("Logged Demand Baseline to MLflow Run ID: %s", run_id)
 
@@ -282,12 +287,17 @@ def evaluate_corridor_duration_baseline(
             mlflow.log_metrics(metrics)
 
             # Log per-corridor breakdown artifact
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                breakdown_csv = os.path.join(
-                    tmp_dir, "per_corridor_validation_metrics.csv"
+            try:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    breakdown_csv = os.path.join(
+                        tmp_dir, "per_corridor_validation_metrics.csv"
+                    )
+                    per_corridor_df.to_csv(breakdown_csv, index=False)
+                    mlflow.log_artifact(breakdown_csv, artifact_path="evaluation")
+            except Exception as art_err:
+                logger.warning(
+                    "Could not log per-corridor artifact to MLflow: %s", art_err
                 )
-                per_corridor_df.to_csv(breakdown_csv, index=False)
-                mlflow.log_artifact(breakdown_csv, artifact_path="evaluation")
 
             logger.info(
                 "Logged Corridor Duration Baseline to MLflow Run ID: %s", run_id
