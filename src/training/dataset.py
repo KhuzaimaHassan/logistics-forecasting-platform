@@ -266,6 +266,14 @@ def generate_demand_training_dataset(
         batch_size=batch_size,
     )
 
+    # Ensure clean typing and sort order
+    dataset_df["event_timestamp"] = pd.to_datetime(
+        dataset_df["event_timestamp"], utc=True
+    )
+    dataset_df = dataset_df.sort_values(by=["event_timestamp", "zone_id"]).reset_index(
+        drop=True
+    )
+
     # Impute missing rolling counts with 0 for unobserved zones
     count_cols = [
         "pickup_count_last_15m",
@@ -455,11 +463,20 @@ def generate_corridor_training_dataset(
         batch_size=batch_size,
     )
 
+    # Ensure clean typing and sort order
+    dataset_df["event_timestamp"] = pd.to_datetime(
+        dataset_df["event_timestamp"], utc=True
+    )
+    dataset_df = dataset_df.sort_values(
+        by=["event_timestamp", "corridor_id"]
+    ).reset_index(drop=True)
+
     # Impute missing corridor features
     if "origin_zone_demand_pressure" in dataset_df.columns:
         dataset_df["origin_zone_demand_pressure"] = (
             dataset_df["origin_zone_demand_pressure"].fillna(0).astype("int64")
         )
+
     if (
         "avg_duration_last_1h" in dataset_df.columns
         and "target_avg_duration_next_1h" in dataset_df.columns
