@@ -15,7 +15,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
 COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies using the frozen lockfile scoped to required components
-RUN uv sync --frozen --no-dev --no-install-project --extra core --extra extract --extra transform --extra orchestration --extra features
+RUN uv sync --frozen --no-dev --no-install-project --extra core --extra extract --extra transform --extra orchestration --extra features --extra training
+
 
 
 # Copy application source
