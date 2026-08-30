@@ -31,6 +31,10 @@ Two prediction targets, trained and versioned independently, connected via the `
 - **Evaluation Discipline**: MAE and WAPE are preferred as primary optimization and evaluation metrics because they are robust against extreme tail distortions, while RMSE will naturally reflect high penalties on rare unclosed-meter anomalies.
 - **Baseline Duration $R^2$ Artifact ($R^2 \approx -0.96$)**: The moving-average baseline produces a negative $R^2$ solely because squared error on rare 10h–24h tail targets dwarfs the variance around the mean ($\text{RSS} > \text{TSS}$), even though 50% of predictions are within 176s (2.93 min MedAE) and overall MAE is 456.95s (7.62 min).
 
+### Feature Engineering & Target Transformations (ADR-017 / M3-4)
+- **Cyclical Harmonic Encodings**: `hour_of_day` and `day_of_week` are encoded into continuous cyclical features ($\sin(2\pi h / 24)$, $\cos(2\pi h / 24)$, $\sin(2\pi d / 7)$, $\cos(2\pi d / 7)$) to maintain smooth boundary continuity (e.g. 23:00 to 00:00).
+- **Corridor Categorical Entities**: `pickup_zone_id` and `dropoff_zone_id` are parsed from `corridor_id` and treated as categorical features for tree gradient partition learning.
+- **Log1p Duration Target Transformation**: Given the log-normal distribution and right-tail meter anomalies, the corridor duration model trains on $\ln(1 + \text{duration})$, inverting predictions via $\hat{y} = \max(60.0, \exp(\hat{y}_{\log}) - 1.0)$ during evaluation and serving.
 
 
 ## 5. Training pipeline
@@ -38,8 +42,10 @@ Two prediction targets, trained and versioned independently, connected via the `
 1. Pull training set from Feast offline store (point-in-time correct).
    - **Sampling Constraint (ADR-015):** Training entity observation timestamps must be sampled on **hour boundaries (`HH:00:00` UTC)** to align with the 1-hour offline table grain and avoid sub-hour feature snapshot staleness.
 2. Train/validation split by time (not random) — standard practice for forecasting, avoids leakage.
-3. Train, evaluate against baseline, log params/metrics/artifacts to MLflow.
-4. Manual promotion to "production" stage in MLflow registry initially; automated promotion-on-improvement is a Phase 6+ CI/CD enhancement, not v1.
+3. Train LightGBM / XGBoost regressors on training split (Jan 8–24) and evaluate against seasonal-naive baseline on validation split (Jan 25–31).
+4. Log params, validation metrics (MAE, RMSE, WAPE, % lift), feature importances (gain & split), and serialized model binaries to MLflow tracking and Model Registry.
+5. Manual promotion to "production" stage in MLflow registry initially; automated promotion-on-improvement is a Phase 6+ CI/CD enhancement, not v1.
+
 
 
 ## 6. Retraining triggers

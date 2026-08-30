@@ -64,7 +64,7 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
 - **Estimated Size:** ~200–250 lines.
 - **Depends On:** M3-2.
 
-### M3-4: LightGBM & XGBoost Regression Models
+### M3-4: LightGBM & XGBoost Regression Models `[COMPLETED]`
 - **Scope / Acceptance Criteria:**
   - Implement model training pipelines in `src/training/train_demand.py` and `src/training/train_duration.py`:
     - Feature matrix preparation (numeric rolling counts, temporal cyclical features `hour_of_day`, `day_of_week`, categorical zone/corridor identifiers, and boolean flags).
@@ -73,10 +73,11 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
     - Log hyperparameters, training/validation metrics, feature importances (saved as artifacts for LangGraph Ops Copilot explanations in Phase 7), and serialized model binaries to MLflow.
     - Register the best-performing model to the MLflow Model Registry.
   - Unit and integration tests validating model fitting, inference signature, metric logging, feature importance extraction, and registry tracking.
-- **Per-Ticket Context:** `docs/AI-Pipeline.md`, `docs/Decisions.md`.
-- **Files Touched:** `src/training/train_demand.py`, `src/training/train_duration.py`, `src/training/models.py`, `tests/test_model_training.py`.
+- **Per-Ticket Context:** `docs/AI-Pipeline.md`, `docs/Decisions.md` (ADR-017).
+- **Files Touched:** `src/training/train_demand.py`, `src/training/train_duration.py`, `tests/test_training_models.py`.
 - **Estimated Size:** ~300–350 lines.
 - **Depends On:** M3-3.
+
 
 ### M3-5: End-to-End Training Pipeline & CI Smoke Verification
 - **Scope / Acceptance Criteria:**

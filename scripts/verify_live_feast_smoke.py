@@ -40,6 +40,8 @@ from src.training.dataset import (
     train_val_split_by_time,
     validate_dataset_integrity,
 )
+from src.training.train_demand import train_demand_lightgbm
+from src.training.train_duration import train_duration_lightgbm
 
 
 def run_alembic_migrations(db_url: str) -> None:
@@ -726,7 +728,50 @@ def main() -> None:
     )
 
     print(
-        "\n=== Live Feast, MLflow & Baseline Model Verification: ALL 17 CHECKS PASSED ===",
+        "\n=== Step 18: Training Live LightGBM Demand & Duration Models (M3-4) ===",
+        flush=True,
+    )
+    t18 = time.perf_counter()
+    # 1. Train Demand LightGBM Model
+    demand_lgbm = train_demand_lightgbm(
+        train_df=demand_train,
+        val_df=demand_val,
+        params={"n_estimators": 10, "min_child_samples": 2},
+        baseline_mae=demand_eval["metrics"]["val_mae"],
+        experiment_name=DEMAND_EXPERIMENT_NAME,
+        run_name="smoke_test_lightgbm_demand",
+        log_to_mlflow=True,
+    )
+    assert demand_lgbm["run_id"] is not None
+    assert demand_lgbm["model"] is not None
+    assert "val_mae" in demand_lgbm["metrics"]
+    assert len(demand_lgbm["feature_importances"]) > 0
+
+    # 2. Train Duration LightGBM Model on log1p targets
+    corridor_lgbm = train_duration_lightgbm(
+        train_df=corridor_train,
+        val_df=corridor_val,
+        params={"n_estimators": 10, "min_child_samples": 2},
+        baseline_mae=corridor_eval["metrics"]["val_mae"],
+        experiment_name=DURATION_EXPERIMENT_NAME,
+        run_name="smoke_test_lightgbm_duration",
+        log_to_mlflow=True,
+    )
+    assert corridor_lgbm["run_id"] is not None
+    assert corridor_lgbm["model"] is not None
+    assert "val_mae" in corridor_lgbm["metrics"]
+    assert np.all(corridor_lgbm["predictions"] >= 60.0)
+    assert len(corridor_lgbm["feature_importances"]) > 0
+
+    print(
+        f"LightGBM models trained, evaluated, and logged to live MLflow in {time.perf_counter() - t18:.3f}s:\n"
+        f"  Demand Model:   MAE={demand_lgbm['metrics']['val_mae']:.4f}, Lift={demand_lgbm['lift_pct']:+.2f}% (Run ID: {demand_lgbm['run_id']})\n"
+        f"  Corridor Model: MAE={corridor_lgbm['metrics']['val_mae']:.2f}s, Lift={corridor_lgbm['lift_pct']:+.2f}% (Run ID: {corridor_lgbm['run_id']})",
+        flush=True,
+    )
+
+    print(
+        "\n=== Live Feast, MLflow, Baseline & LightGBM Model Verification: ALL 18 CHECKS PASSED ===",
         flush=True,
     )
 
