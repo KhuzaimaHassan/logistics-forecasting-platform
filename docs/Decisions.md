@@ -262,3 +262,28 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Clean, reproducible, point-in-time correct training datasets aligned with Feast's hourly offline feature grain, zero feature leakage, and realistic out-of-time validation metrics.
 
+---
+
+## ADR-017: Cyclical Harmonic Encodings & Log1p Target Transformation for Corridor Duration Regression
+
+**Context:** During baseline evaluation (M3-3), two data/modeling characteristics were discovered:
+1. **Hour & Day Boundary Discontinuity:** Integer `hour_of_day` (0–23) and `day_of_week` (0–6) treat 23:00 and 00:00 as maximally distant (distance 23) despite being adjacent in real time.
+2. **Right-Tail Duration Distortion:** Trip duration has an extreme heavy right-tail distribution ($p_{50}=698\text{s}$, $p_{99}=3,428\text{s}$, max $86,388\text{s}$) due to rare overnight unclosed-meter shift anomalies (~0.088% of trips). Standard $L_2$ regression on raw seconds generates gradient magnitudes $> 1.7 \times 10^5$, pulling tree leaf predictions upward and distorting normal 10–30 minute trip ETA predictions.
+
+**Decision:**
+1. **Continuous Cyclical Harmonic Encodings:**
+   - Add sine and cosine features: $\sin(2\pi h / 24)$, $\cos(2\pi h / 24)$, $\sin(2\pi d / 7)$, $\cos(2\pi d / 7)$.
+   - Preserves smooth cyclical continuity across midnight and week boundaries without arbitrary split boundaries.
+2. **Corridor Categorical Feature Extraction:**
+   - Parse `pickup_zone_id` and `dropoff_zone_id` from composite `corridor_id` (e.g. `161_236`) and treat them as categorical features in LightGBM, allowing tree partitions to learn zone-specific origin/destination bias.
+3. **Log1p Duration Target Transformation:**
+   - Train the corridor ETA model on log-transformed targets $y_{\text{log}} = \ln(1 + \text{duration\_sec})$.
+   - Invert predictions during evaluation and serving via $\hat{y} = \max(60.0, \exp(\hat{y}_{\text{log}}) - 1.0)$, respecting the 60s physical minimum trip duration floor.
+   - Compute all validation metrics (MAE, RMSE, WAPE, MedAE) in **original seconds** against ground truth $y_{\text{val}}$ for direct, unskewed comparison against baseline benchmarks.
+
+**Consequences:**
+- Variance-stabilized target distribution, eliminating outlier-induced gradient skew.
+- Inherent physical guarantee of positive duration predictions ($\hat{y} \ge 60.0\text{s}$).
+- Demonstrated $+39.09\%$ MAE reduction (278.35s vs 456.95s) on the 256k-row validation split.
+
+
