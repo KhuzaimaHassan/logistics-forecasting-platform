@@ -45,6 +45,78 @@ DURATION_FEATURE_COLS = [
 CATEGORICAL_FEATURES = ["pickup_zone_id", "dropoff_zone_id"]
 
 
+def _extract_corridor_entities(X: pd.DataFrame) -> Tuple[pd.Series, pd.Series]:
+    """Extract and categorize pickup and dropoff zone IDs from corridor_id."""
+    if "corridor_id" in X.columns:
+        corridor_parts = X["corridor_id"].astype(str).str.split("_", expand=True)
+        if corridor_parts.shape[1] >= 2:
+            return corridor_parts[0].astype("category"), corridor_parts[1].astype(
+                "category"
+            )
+    zeros = pd.Series(0, index=X.index).astype("category")
+    return zeros, zeros
+
+
+def _extract_temporal_harmonics(
+    X: pd.DataFrame,
+) -> Dict[str, pd.Series]:
+    """Compute temporal features and continuous cyclical harmonic encodings."""
+    if "event_timestamp" in X.columns:
+        ts = pd.to_datetime(X["event_timestamp"], utc=True)
+        hour = ts.dt.hour.astype(float)
+        dow = ts.dt.dayofweek.astype(float)
+        is_weekend = (ts.dt.dayofweek >= 5).astype(int)
+    else:
+        hour = (
+            X["hour_of_day"].astype(float)
+            if "hour_of_day" in X.columns
+            else pd.Series(0.0, index=X.index)
+        )
+        dow = (
+            X["day_of_week"].astype(float)
+            if "day_of_week" in X.columns
+            else pd.Series(0.0, index=X.index)
+        )
+        is_weekend = (
+            X["is_weekend"].astype(int)
+            if "is_weekend" in X.columns
+            else (dow >= 5).astype(int)
+        )
+
+    return {
+        "hour_of_day": hour,
+        "day_of_week": dow,
+        "is_weekend": is_weekend,
+        "sin_hour": np.sin(2 * np.pi * hour / 24.0),
+        "cos_hour": np.cos(2 * np.pi * hour / 24.0),
+        "sin_day_of_week": np.sin(2 * np.pi * dow / 7.0),
+        "cos_day_of_week": np.cos(2 * np.pi * dow / 7.0),
+    }
+
+
+def _impute_duration_numerical_features(X: pd.DataFrame) -> None:
+    """Impute numerical duration features and compute log moving average feature."""
+    if "avg_duration_last_1h" in X.columns:
+        X["avg_duration_last_1h"] = (
+            X["avg_duration_last_1h"].fillna(700.0).astype(float)
+        )
+    else:
+        X["avg_duration_last_1h"] = 700.0
+
+    X["log_avg_duration_last_1h"] = np.log1p(X["avg_duration_last_1h"])
+
+    if "avg_duration_last_15m" in X.columns:
+        X["avg_duration_last_15m"] = (
+            X["avg_duration_last_15m"].fillna(X["avg_duration_last_1h"]).astype(float)
+        )
+    if "distance_km" in X.columns:
+        X["distance_km"] = X["distance_km"].fillna(3.5).astype(float)
+    if "origin_zone_demand_pressure" in X.columns:
+        X["origin_zone_demand_pressure"] = (
+            X["origin_zone_demand_pressure"].fillna(0.0).astype(float)
+        )
+
+
 def prepare_duration_features(
     df: pd.DataFrame,
     target_col: str = "target_avg_duration_next_1h",
@@ -69,56 +141,15 @@ def prepare_duration_features(
 
     X = df.copy()
 
-    # Extract pickup and dropoff zone IDs from corridor_id (e.g., '161_236')
-    if "corridor_id" in X.columns:
-        corridor_parts = X["corridor_id"].astype(str).str.split("_", expand=True)
-        if corridor_parts.shape[1] >= 2:
-            X["pickup_zone_id"] = corridor_parts[0].astype("category")
-            X["dropoff_zone_id"] = corridor_parts[1].astype("category")
-        else:
-            X["pickup_zone_id"] = 0
-            X["dropoff_zone_id"] = 0
-            X["pickup_zone_id"] = X["pickup_zone_id"].astype("category")
-            X["dropoff_zone_id"] = X["dropoff_zone_id"].astype("category")
+    # 1. Categorical corridor entities
+    X["pickup_zone_id"], X["dropoff_zone_id"] = _extract_corridor_entities(X)
 
-    # Extract temporal components if event_timestamp is present
-    if "event_timestamp" in X.columns:
-        ts = pd.to_datetime(X["event_timestamp"], utc=True)
-        if "hour_of_day" not in X.columns:
-            X["hour_of_day"] = ts.dt.hour
-        if "day_of_week" not in X.columns:
-            X["day_of_week"] = ts.dt.dayofweek
-        if "is_weekend" not in X.columns:
-            X["is_weekend"] = (ts.dt.dayofweek >= 5).astype(int)
+    # 2. Temporal harmonics
+    for k, v in _extract_temporal_harmonics(X).items():
+        X[k] = v
 
-    # Cyclical harmonic encodings
-    hours = X["hour_of_day"].astype(float) if "hour_of_day" in X.columns else 0.0
-    dows = X["day_of_week"].astype(float) if "day_of_week" in X.columns else 0.0
-    X["sin_hour"] = np.sin(2 * np.pi * hours / 24.0)
-    X["cos_hour"] = np.cos(2 * np.pi * hours / 24.0)
-    X["sin_day_of_week"] = np.sin(2 * np.pi * dows / 7.0)
-    X["cos_day_of_week"] = np.cos(2 * np.pi * dows / 7.0)
-
-    # Numeric feature imputation
-    if "avg_duration_last_1h" in X.columns:
-        X["avg_duration_last_1h"] = (
-            X["avg_duration_last_1h"].fillna(700.0).astype(float)
-        )
-        X["log_avg_duration_last_1h"] = np.log1p(X["avg_duration_last_1h"])
-    else:
-        X["avg_duration_last_1h"] = 700.0
-        X["log_avg_duration_last_1h"] = np.log1p(700.0)
-
-    if "avg_duration_last_15m" in X.columns:
-        X["avg_duration_last_15m"] = (
-            X["avg_duration_last_15m"].fillna(X["avg_duration_last_1h"]).astype(float)
-        )
-    if "distance_km" in X.columns:
-        X["distance_km"] = X["distance_km"].fillna(3.5).astype(float)
-    if "origin_zone_demand_pressure" in X.columns:
-        X["origin_zone_demand_pressure"] = (
-            X["origin_zone_demand_pressure"].fillna(0.0).astype(float)
-        )
+    # 3. Numeric imputation and log features
+    _impute_duration_numerical_features(X)
 
     available_cols = [c for c in DURATION_FEATURE_COLS if c in X.columns]
     X_matrix = X[available_cols].copy()
