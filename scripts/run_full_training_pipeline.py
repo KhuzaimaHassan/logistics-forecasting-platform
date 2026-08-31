@@ -33,7 +33,6 @@ def main():
         corridor_parquet = os.path.join(tmp_dir, "corridor_duration_features.parquet")
         registry_db = os.path.join(tmp_dir, "feast_registry.db")
         mlflow_db = os.path.join(tmp_dir, "mlflow.db")
-        mlruns_dir = os.path.join(tmp_dir, "mlruns")
 
         os.environ["MLFLOW_TRACKING_URI"] = f"sqlite:///{mlflow_db}"
 

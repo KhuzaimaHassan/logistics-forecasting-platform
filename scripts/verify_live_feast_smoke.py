@@ -777,9 +777,9 @@ def main() -> None:
     )
     t19 = time.perf_counter()
     pipeline_summary = run_training_pipeline(
-        start_time=t_08,
-        end_time=t_15,
-        split_timestamp=t_12,
+        start_time=start_dt,
+        end_time=end_dt,
+        split_timestamp=split_dt,
         store=store,
         engine=engine,
         zone_ids=[161, 236],
@@ -789,6 +789,7 @@ def main() -> None:
         log_to_mlflow=True,
         promote_models=True,
     )
+
     assert pipeline_summary["status"] == "success"
     assert pipeline_summary["datasets"]["demand_train_rows"] > 0
     assert pipeline_summary["datasets"]["corridor_train_rows"] > 0
