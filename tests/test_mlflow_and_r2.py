@@ -177,3 +177,40 @@ def test_backup_artifacts_to_r2_task_unconfigured():
         res = backup_artifacts_to_r2_task.fn()
         assert res["status"] == "skipped"
         assert res["reason"] == "not_configured"
+
+
+def test_r2_list_objects_success():
+    """Test list_objects method with mocked boto3 client."""
+    from datetime import datetime, timezone
+
+    manager = R2BackupManager(
+        bucket_name="test-bucket",
+        endpoint_url="https://r2.test.com",
+        access_key_id="key123",
+        secret_access_key="sec123",
+    )
+
+    mock_client = MagicMock()
+    mock_client.list_objects_v2.return_value = {
+        "Contents": [
+            {
+                "Key": "mlruns-backup/model.pkl",
+                "Size": 1024,
+                "LastModified": datetime(2026, 8, 31, 12, 0, 0, tzinfo=timezone.utc),
+            }
+        ]
+    }
+
+    with patch.object(manager, "get_s3_client", return_value=mock_client):
+        objects = manager.list_objects("mlruns-backup")
+        assert len(objects) == 1
+        assert objects[0]["key"] == "mlruns-backup/model.pkl"
+        assert objects[0]["size"] == 1024
+
+
+def test_r2_list_objects_unconfigured():
+    """Test list_objects method returns empty list when unconfigured."""
+    with patch.object(R2BackupManager, "is_configured", return_value=False):
+        manager = R2BackupManager()
+        objects = manager.list_objects("mlruns-backup")
+        assert objects == []
