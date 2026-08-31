@@ -39,6 +39,108 @@ DEMAND_MODEL_NAME = "demand_lightgbm_model"
 DURATION_MODEL_NAME = "corridor_duration_lightgbm_model"
 
 
+def _find_or_create_model_version(
+    client: MlflowClient,
+    model_name: str,
+    candidate_run_id: str,
+) -> Optional[Any]:
+    """Find existing registered model version or register a new one from candidate run."""
+    try:
+        versions = client.search_model_versions(f"name='{model_name}'")
+    except Exception:
+        versions = []
+
+    for v in versions:
+        if v.run_id == candidate_run_id:
+            return v
+
+    if versions:
+        return sorted(versions, key=lambda x: int(x.version))[-1]
+
+    # Explicitly register model version from run artifact
+    logger.info(
+        "Registering model version for '%s' from run '%s'...",
+        model_name,
+        candidate_run_id,
+    )
+    try:
+        client.create_registered_model(model_name)
+    except Exception:
+        pass  # Model already exists
+
+    try:
+        return client.create_model_version(
+            name=model_name,
+            source=f"runs:/{candidate_run_id}/model",
+            run_id=candidate_run_id,
+        )
+    except Exception as reg_err:
+        logger.warning("Failed to register version for '%s': %s", model_name, reg_err)
+        return None
+
+
+def _transition_model_stage(
+    client: MlflowClient,
+    model_name: str,
+    target_version: Any,
+    candidate_mae: float,
+    baseline_mae: float,
+    outcome: Dict[str, Any],
+) -> None:
+    """Transition model version stage to Production (if improved) or Staging."""
+    version_num = target_version.version
+    if candidate_mae <= baseline_mae:
+        logger.info(
+            "Promoting %s v%s to Production (Candidate MAE=%.4f <= Baseline MAE=%.4f)...",
+            model_name,
+            version_num,
+            candidate_mae,
+            baseline_mae,
+        )
+        try:
+            client.transition_model_version_stage(
+                name=model_name,
+                version=version_num,
+                stage="Production",
+                archive_existing_versions=True,
+            )
+            outcome["stage"] = "Production"
+            outcome["promoted"] = True
+            outcome["reason"] = (
+                f"Outperformed baseline (MAE {candidate_mae:.4f} <= {baseline_mae:.4f})"
+            )
+        except Exception:
+            try:
+                client.set_registered_model_alias(
+                    name=model_name,
+                    alias="champion",
+                    version=version_num,
+                )
+                outcome["stage"] = "champion_alias"
+                outcome["promoted"] = True
+            except Exception as alias_err:
+                outcome["reason"] = f"Registry update failed: {alias_err}"
+    else:
+        logger.warning(
+            "Candidate %s v%s did not improve over baseline (Candidate MAE=%.4f > Baseline MAE=%.4f); moving to Staging.",
+            model_name,
+            version_num,
+            candidate_mae,
+            baseline_mae,
+        )
+        try:
+            client.transition_model_version_stage(
+                name=model_name,
+                version=version_num,
+                stage="Staging",
+                archive_existing_versions=False,
+            )
+            outcome["stage"] = "Staging"
+            outcome["reason"] = "Higher error than baseline"
+        except Exception:
+            outcome["stage"] = "None"
+
+
 def promote_model_to_production(
     client: MlflowClient,
     model_name: str,
@@ -67,43 +169,9 @@ def promote_model_to_production(
     }
 
     try:
-        try:
-            versions = client.search_model_versions(f"name='{model_name}'")
-        except Exception:
-            versions = []
-
-        target_version = None
-        for v in versions:
-            if v.run_id == candidate_run_id:
-                target_version = v
-                break
-
-        if target_version is None and versions:
-            # Fall back to latest version
-            target_version = sorted(versions, key=lambda x: int(x.version))[-1]
-
-        if target_version is None:
-            # Explicitly create registered model and model version from run artifact
-            logger.info(
-                "Registering model version for '%s' from run '%s'...",
-                model_name,
-                candidate_run_id,
-            )
-            try:
-                client.create_registered_model(model_name)
-            except Exception:
-                pass  # Model already exists
-            try:
-                target_version = client.create_model_version(
-                    name=model_name,
-                    source=f"runs:/{candidate_run_id}/model",
-                    run_id=candidate_run_id,
-                )
-            except Exception as reg_err:
-                logger.warning(
-                    "Failed to register version for '%s': %s", model_name, reg_err
-                )
-
+        target_version = _find_or_create_model_version(
+            client=client, model_name=model_name, candidate_run_id=candidate_run_id
+        )
         if target_version is None:
             logger.warning(
                 "No registered model version found or created for model '%s'.",
@@ -112,63 +180,14 @@ def promote_model_to_production(
             return outcome
 
         outcome["version"] = str(target_version.version)
-
-        # Check if candidate outperforms baseline
-        if candidate_mae <= baseline_mae:
-            logger.info(
-                "Promoting %s v%s to Production (Candidate MAE=%.4f <= Baseline MAE=%.4f)...",
-                model_name,
-                target_version.version,
-                candidate_mae,
-                baseline_mae,
-            )
-            try:
-                client.transition_model_version_stage(
-                    name=model_name,
-                    version=target_version.version,
-                    stage="Production",
-                    archive_existing_versions=True,
-                )
-                outcome["stage"] = "Production"
-                outcome["promoted"] = True
-                outcome["reason"] = (
-                    f"Outperformed baseline (MAE {candidate_mae:.4f} <= {baseline_mae:.4f})"
-                )
-            except Exception as stage_err:
-                logger.warning(
-                    "transition_model_version_stage failed (%s), setting alias 'champion'...",
-                    stage_err,
-                )
-                try:
-                    client.set_registered_model_alias(
-                        name=model_name,
-                        alias="champion",
-                        version=target_version.version,
-                    )
-                    outcome["stage"] = "champion_alias"
-                    outcome["promoted"] = True
-                except Exception as alias_err:
-                    outcome["reason"] = f"Registry update failed: {alias_err}"
-        else:
-            logger.warning(
-                "Candidate %s v%s did not improve over baseline (Candidate MAE=%.4f > Baseline MAE=%.4f); moving to Staging.",
-                model_name,
-                target_version.version,
-                candidate_mae,
-                baseline_mae,
-            )
-            try:
-                client.transition_model_version_stage(
-                    name=model_name,
-                    version=target_version.version,
-                    stage="Staging",
-                    archive_existing_versions=False,
-                )
-                outcome["stage"] = "Staging"
-                outcome["reason"] = "Higher error than baseline"
-            except Exception:
-                outcome["stage"] = "None"
-
+        _transition_model_stage(
+            client=client,
+            model_name=model_name,
+            target_version=target_version,
+            candidate_mae=candidate_mae,
+            baseline_mae=baseline_mae,
+            outcome=outcome,
+        )
     except Exception as exc:
         logger.error("Error during model promotion for '%s': %s", model_name, exc)
         outcome["reason"] = f"Exception: {exc}"
