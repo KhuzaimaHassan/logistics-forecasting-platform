@@ -36,6 +36,12 @@ Two prediction targets, trained and versioned independently, connected via the `
 - **Corridor Categorical Entities**: `pickup_zone_id` and `dropoff_zone_id` are parsed from `corridor_id` and treated as categorical features for tree gradient partition learning.
 - **Log1p Duration Target Transformation**: Given the log-normal distribution and right-tail meter anomalies, the corridor duration model trains on $\ln(1 + \text{duration})$, inverting predictions via $\hat{y} = \max(60.0, \exp(\hat{y}_{\log}) - 1.0)$ during evaluation and serving.
 
+### Residual Analysis & Known Model Characteristics (M3-5)
+Evaluation of validation residuals ($\hat{y} - y$) across 256k corridor-hours revealed two distinct, separate phenomena:
+1. **Outlier Tail Protection (>60 min, 1.06% of observations)**: The extreme tail averages 186.88 min (~3.1 hours) due to unclosed overnight taxi meter artifacts. The model predicts ~41.68 min (Mean Bias = -8,711.86s). This under-prediction is deliberate and desirable by design, preventing unclosed meter artifacts from skewing normal operational ETAs.
+2. **Log-Transform Compression Asymmetry on Normal Rides (30–60 min, 11.38% of observations)**: Across legitimate, non-outlier trips, there is a separate and growing under-prediction trend (5–15 min: +30.29s bias; 15–30 min: -70.93s bias; 30–60 min: -306.53s / -5.11 min bias). This is a known characteristic of log-space regression ($L_2$ loss on log targets optimizes the geometric mean/median rather than arithmetic mean in natural space, underestimating variance in longer trips). This is noted as an expected v1 modeling characteristic.
+
+
 
 ## 5. Training pipeline
 

@@ -40,6 +40,7 @@ from src.training.dataset import (
     train_val_split_by_time,
     validate_dataset_integrity,
 )
+from src.training.pipeline import run_training_pipeline
 from src.training.train_demand import train_demand_lightgbm
 from src.training.train_duration import train_duration_lightgbm
 
@@ -771,7 +772,50 @@ def main() -> None:
     )
 
     print(
-        "\n=== Live Feast, MLflow, Baseline & LightGBM Model Verification: ALL 18 CHECKS PASSED ===",
+        "\n=== Step 19: Orchestrating End-to-End Training Pipeline & Model Promotion (M3-5) ===",
+        flush=True,
+    )
+    t19 = time.perf_counter()
+    pipeline_summary = run_training_pipeline(
+        start_time=start_dt,
+        end_time=end_dt,
+        split_timestamp=corridor_split_dt,
+        store=store,
+        engine=engine,
+        zone_ids=[161, 236],
+        demand_params={"n_estimators": 5, "min_child_samples": 2},
+        duration_params={"n_estimators": 5, "min_child_samples": 2},
+        backup_to_r2=False,
+        log_to_mlflow=True,
+        promote_models=True,
+    )
+
+    assert pipeline_summary["status"] == "success"
+    assert pipeline_summary["datasets"]["demand_train_rows"] > 0
+    assert pipeline_summary["datasets"]["corridor_train_rows"] > 0
+    assert pipeline_summary["demand"]["promotion"]["version"] is not None
+    assert pipeline_summary["demand"]["promotion"]["stage"] in (
+        "Production",
+        "Staging",
+        "champion_alias",
+    )
+    assert pipeline_summary["duration"]["promotion"]["version"] is not None
+    assert pipeline_summary["duration"]["promotion"]["stage"] in (
+        "Production",
+        "Staging",
+        "champion_alias",
+    )
+
+    print(
+        f"End-to-End Training Pipeline orchestrated in {time.perf_counter() - t19:.3f}s:\n"
+        f"  Demand Model Promotion:   v{pipeline_summary['demand']['promotion']['version']} -> {pipeline_summary['demand']['promotion']['stage']}\n"
+        f"  Duration Model Promotion: v{pipeline_summary['duration']['promotion']['version']} -> {pipeline_summary['duration']['promotion']['stage']}\n"
+        f"  Elapsed Pipeline Time:    {pipeline_summary['elapsed_seconds']:.2f}s",
+        flush=True,
+    )
+
+    print(
+        "\n=== Live Feast, MLflow, Baselines, Models & Pipeline Verification: ALL 19 CHECKS PASSED ===",
         flush=True,
     )
 
