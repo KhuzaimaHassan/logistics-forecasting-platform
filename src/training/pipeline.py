@@ -67,7 +67,11 @@ def promote_model_to_production(
     }
 
     try:
-        versions = client.search_model_versions(f"name='{model_name}'")
+        try:
+            versions = client.search_model_versions(f"name='{model_name}'")
+        except Exception:
+            versions = []
+
         target_version = None
         for v in versions:
             if v.run_id == candidate_run_id:
@@ -79,8 +83,31 @@ def promote_model_to_production(
             target_version = sorted(versions, key=lambda x: int(x.version))[-1]
 
         if target_version is None:
+            # Explicitly create registered model and model version from run artifact
+            logger.info(
+                "Registering model version for '%s' from run '%s'...",
+                model_name,
+                candidate_run_id,
+            )
+            try:
+                client.create_registered_model(model_name)
+            except Exception:
+                pass  # Model already exists
+            try:
+                target_version = client.create_model_version(
+                    name=model_name,
+                    source=f"runs:/{candidate_run_id}/model",
+                    run_id=candidate_run_id,
+                )
+            except Exception as reg_err:
+                logger.warning(
+                    "Failed to register version for '%s': %s", model_name, reg_err
+                )
+
+        if target_version is None:
             logger.warning(
-                "No registered model version found for model '%s'.", model_name
+                "No registered model version found or created for model '%s'.",
+                model_name,
             )
             return outcome
 
