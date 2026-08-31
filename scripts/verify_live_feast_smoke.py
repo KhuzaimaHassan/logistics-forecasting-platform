@@ -779,7 +779,7 @@ def main() -> None:
     pipeline_summary = run_training_pipeline(
         start_time=start_dt,
         end_time=end_dt,
-        split_timestamp=split_dt,
+        split_timestamp=corridor_split_dt,
         store=store,
         engine=engine,
         zone_ids=[161, 236],
@@ -789,6 +789,7 @@ def main() -> None:
         log_to_mlflow=True,
         promote_models=True,
     )
+
 
     assert pipeline_summary["status"] == "success"
     assert pipeline_summary["datasets"]["demand_train_rows"] > 0
