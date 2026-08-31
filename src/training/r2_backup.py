@@ -189,6 +189,33 @@ class R2BackupManager:
         s3_key = f"{s3_prefix.strip('/')}/{path.name}"
         return self.upload_file(path, s3_key=s3_key)
 
+    def list_objects(self, s3_prefix: str = "") -> list[Dict[str, Any]]:
+        """List objects in the configured Cloudflare R2 bucket matching prefix."""
+        if not self.is_configured():
+            logger.warning("Cloudflare R2 is not configured; cannot list objects.")
+            return []
+
+        client = self.get_s3_client()
+        try:
+            response = client.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=s3_prefix.strip("/"),
+            )
+            contents = response.get("Contents", [])
+            return [
+                {
+                    "key": item["Key"],
+                    "size": item["Size"],
+                    "last_modified": item["LastModified"].isoformat(),
+                }
+                for item in contents
+            ]
+        except Exception as exc:
+            logger.error(
+                "Failed to list objects in bucket '%s': %s", self.bucket_name, exc
+            )
+            return []
+
 
 @task(name="backup-artifacts-to-r2", retries=2, retry_delay_seconds=10)
 def backup_artifacts_to_r2_task(
