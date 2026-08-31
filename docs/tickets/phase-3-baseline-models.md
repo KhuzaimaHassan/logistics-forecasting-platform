@@ -79,15 +79,16 @@ Implement baseline forecasting models and tabular ML pipelines (LightGBM / XGBoo
 - **Depends On:** M3-3.
 
 
-### M3-5: End-to-End Training Pipeline & CI Smoke Verification
+### M3-5: End-to-End Training Pipeline & CI Smoke Verification `[COMPLETED]`
 - **Scope / Acceptance Criteria:**
   - Implement top-level training orchestrator in `src/training/pipeline.py` executing the full workflow: dataset generation -> baseline benchmark -> LightGBM/XGBoost training -> MLflow logging & model registration -> R2 backup task.
   - Add end-to-end training integration test verifying that running the pipeline on sample data produces registered models and logged metrics with zero errors.
   - Update Docker Compose CI smoke checks to verify MLflow tracking connectivity and training pipeline health.
 - **Per-Ticket Context:** `docs/AI-Pipeline.md`, `docs/Deployment.md`.
-- **Files Touched:** `src/training/pipeline.py`, `src/training/__init__.py`, `tests/test_training_pipeline.py`.
+- **Files Touched:** `src/training/pipeline.py`, `tests/test_training_pipeline.py`, `scripts/verify_live_feast_smoke.py`, `scripts/run_full_training_pipeline.py`.
 - **Estimated Size:** ~150–200 lines.
 - **Depends On:** M3-4.
+
 
 ---
 
