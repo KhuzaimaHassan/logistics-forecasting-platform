@@ -99,25 +99,20 @@ services:
     restart: unless-stopped
     environment:
       MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-logistics}
-      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
-    command:
-      - mlflow
-      - server
-      - --backend-store-uri
-      - postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-logistics}
-      - --default-artifact-root
-      - /mlflow/artifacts
-      - --host
-      - 0.0.0.0
-      - --port
-      - "5000"
+      MLFLOW_ARTIFACTS_DESTINATION: /mlflow/artifacts
+    entrypoint:
+      - sh
+      - -c
+      - "pip install --no-cache-dir psycopg2-binary && mlflow server --backend-store-uri postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-logistics} --artifacts-destination /mlflow/artifacts --serve-artifacts --host 0.0.0.0 --port 5000"
     volumes:
+
       - mlflow_data:/mlflow
     networks:
       - logistics-net
     depends_on:
       postgres:
         condition: service_healthy
+
 
   prefect-worker:
     build:

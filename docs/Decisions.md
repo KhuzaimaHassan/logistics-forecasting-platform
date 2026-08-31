@@ -228,3 +228,62 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 **Consequences:**
 - Avoids 4x storage bloat (~196k zone rows and ~1.5M corridor rows per month) while maintaining complete schema and feature definition parity with online feature views.
 - **Training Sampling Constraint:** Training dataset generators (Phase 3) must sample observation timestamps at hour boundaries (`HH:00:00` UTC) to prevent sub-hour feature snapshot staleness during Feast point-in-time joins.
+
+---
+
+## ADR-016: Training dataset generation — Grid-based demand sampling, active-corridor duration sampling, and 7-day holdout time split
+
+**Context:** Phase 3 introduces model training pipelines for zone demand and corridor trip duration (ETA). We need to formalize:
+1. What determines the entity observation rows `(entity, event_timestamp)` passed to Feast's `store.get_historical_features(entity_df=...)`?
+2. How ground-truth targets are computed without data leakage?
+3. How train and validation splits are partitioned across time?
+
+**Decision:**
+1. **Demand Dataset Sampling Strategy (Full Spatial-Temporal Grid):**
+   - Sample every NYC taxi zone ($Z \in \{1 \dots 263\}$) at every hour boundary ($T \in \{\text{HH:00:00 UTC}\}$) over the effective training range.
+   - **Rationale:** Constructing a complete Cartesian grid $\text{Zone} \times \text{Hour}$ ($263 \times 576 = 151,488$ rows for Jan 8–31) explicitly preserves zero-demand observations in low-volume zones, eliminating survivorship bias where models only train on zones with active trips.
+2. **Corridor Duration Dataset Sampling Strategy (Active Corridor-Hours Grid, Pickup-Anchored Target Window):**
+   - Sample active corridor-hours $(C, T)$ where $\ge 1$ trip departed (i.e. `pickup_datetime` $\in [T, T+1\text{h})$) on corridor $C$.
+   - **Pickup-Anchored Target Alignment:** Both demand and duration targets are strictly pickup-anchored: $Y_{\text{demand}}$ counts pickups departing in $[T, T+1\text{h})$, and $Y_{\text{duration}}$ is the mean duration (in seconds) of trips departing in $[T, T+1\text{h})$, matching the serving semantics of `/predict/eta` in `API.md` (which forecasts expected duration for a trip starting at prediction time $T$).
+   - **Feature Gating Stays Separate:** Historical feature values at observation timestamp $T$ remain strictly anti-leakage gated per ADR-015: `zone_demand_features` gate on `pickup_datetime <= T`, while `corridor_duration_features` gate on completed trips with `dropoff_datetime <= T`.
+   - **Rationale:** A full Cartesian grid of $263 \times 263 = 69,169$ corridors $\times 576$ hours generates 39.8M rows where >95% are empty. Filtering to active corridor-hours bounds dataset cardinality (~100k–300k rows) while ensuring robust duration targets.
+   - **Target ($Y_{\text{duration}}$):** Mean trip duration in seconds for trips on corridor $C$ with `pickup_datetime` in $[T, T+1\text{h})$.
+
+3. **7-Day Lookback Buffer:**
+   - Reserve the first 7 days of available historical data (Jan 1–7, 2023) strictly as a lookback feature window. Training observations begin at `2023-01-08 00:00:00 UTC` so that `pickup_count_same_hour_last_week` is 100% observed without null imputation artifacts.
+4. **Time-Based Train / Validation Split:**
+   - **Train partition:** `2023-01-08 00:00:00` to `2023-01-24 23:59:59` UTC (17 days, ~70% of dataset).
+   - **Validation partition:** `2023-01-25 00:00:00` to `2023-01-31 23:59:59` UTC (7 full days = 1 complete weekly cycle, ~30% of dataset).
+   - **Rationale:** Strict chronological splitting prevents temporal data leakage inherent in random cross-validation. Evaluating on a full 7-day holdout guarantees balanced representation of all days of the week and intraday seasonality.
+
+**Alternatives considered:**
+- **Random K-Fold splitting:** Rejected. Randomly partitioning time-series rows leaks future seasonal patterns and autocorrelation into the training set, producing over-optimistic evaluation metrics that fail in live production.
+- **Sparse demand sampling (only hours with pickups > 0):** Rejected. Skews the model's loss landscape toward over-predicting demand in quiet residential or outer-borough zones during late night/early morning hours.
+
+**Consequences:** Clean, reproducible, point-in-time correct training datasets aligned with Feast's hourly offline feature grain, zero feature leakage, and realistic out-of-time validation metrics.
+
+---
+
+## ADR-017: Cyclical Harmonic Encodings & Log1p Target Transformation for Corridor Duration Regression
+
+**Context:** During baseline evaluation (M3-3), two data/modeling characteristics were discovered:
+1. **Hour & Day Boundary Discontinuity:** Integer `hour_of_day` (0–23) and `day_of_week` (0–6) treat 23:00 and 00:00 as maximally distant (distance 23) despite being adjacent in real time.
+2. **Right-Tail Duration Distortion:** Trip duration has an extreme heavy right-tail distribution ($p_{50}=698\text{s}$, $p_{99}=3,428\text{s}$, max $86,388\text{s}$) due to rare overnight unclosed-meter shift anomalies (~0.088% of trips). Standard $L_2$ regression on raw seconds generates gradient magnitudes $> 1.7 \times 10^5$, pulling tree leaf predictions upward and distorting normal 10–30 minute trip ETA predictions.
+
+**Decision:**
+1. **Continuous Cyclical Harmonic Encodings:**
+   - Add sine and cosine features: $\sin(2\pi h / 24)$, $\cos(2\pi h / 24)$, $\sin(2\pi d / 7)$, $\cos(2\pi d / 7)$.
+   - Preserves smooth cyclical continuity across midnight and week boundaries without arbitrary split boundaries.
+2. **Corridor Categorical Feature Extraction:**
+   - Parse `pickup_zone_id` and `dropoff_zone_id` from composite `corridor_id` (e.g. `161_236`) and treat them as categorical features in LightGBM, allowing tree partitions to learn zone-specific origin/destination bias.
+3. **Log1p Duration Target Transformation:**
+   - Train the corridor ETA model on log-transformed targets $y_{\text{log}} = \ln(1 + \text{duration\_sec})$.
+   - Invert predictions during evaluation and serving via $\hat{y} = \max(60.0, \exp(\hat{y}_{\text{log}}) - 1.0)$, respecting the 60s physical minimum trip duration floor.
+   - Compute all validation metrics (MAE, RMSE, WAPE, MedAE) in **original seconds** against ground truth $y_{\text{val}}$ for direct, unskewed comparison against baseline benchmarks.
+
+**Consequences:**
+- Variance-stabilized target distribution, eliminating outlier-induced gradient skew.
+- Inherent physical guarantee of positive duration predictions ($\hat{y} \ge 60.0\text{s}$).
+- Demonstrated $+39.09\%$ MAE reduction (278.35s vs 456.95s) on the 256k-row validation split.
+
+

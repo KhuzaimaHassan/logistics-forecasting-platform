@@ -3,6 +3,7 @@
 import time
 from datetime import datetime, timedelta, timezone
 
+import mlflow
 import numpy as np
 import pandas as pd
 import redis
@@ -11,6 +12,13 @@ from sqlalchemy import create_engine, text
 
 from alembic import command
 from src.common.config import get_settings
+from src.common.mlflow_utils import (
+    DEMAND_EXPERIMENT_NAME,
+    DURATION_EXPERIMENT_NAME,
+    get_mlflow_client,
+    get_or_create_experiment,
+    setup_mlflow,
+)
 from src.features.client import (
     FeastOnlineClient,
     get_corridor_duration_online_features,
@@ -20,6 +28,21 @@ from src.features.config import ensure_feast_schema, get_feature_store
 from src.features.materialize import materialize_features
 from src.features.offline_extractor import extract_and_load_offline_features
 from src.features.registry import apply_feature_definitions
+from src.training.baseline import (
+    evaluate_corridor_duration_baseline,
+    evaluate_demand_baseline,
+)
+from src.training.dataset import (
+    CORRIDOR_FEATURES,
+    DEMAND_FEATURES,
+    generate_corridor_training_dataset,
+    generate_demand_training_dataset,
+    train_val_split_by_time,
+    validate_dataset_integrity,
+)
+from src.training.pipeline import run_training_pipeline
+from src.training.train_demand import train_demand_lightgbm
+from src.training.train_duration import train_duration_lightgbm
 
 
 def run_alembic_migrations(db_url: str) -> None:
@@ -532,6 +555,267 @@ def main() -> None:
 
     print(
         "=== Live Feast Online Store Materialization & Retrieval Verification: ALL CHECKS PASSED ===",
+        flush=True,
+    )
+
+    # === Step 14: Live PostgreSQL-Backed MLflow Service Smoke Test (M3-1) ===
+    print(
+        "\n=== Step 14: Verifying Live MLflow Service & Logging Experiment Run ===",
+        flush=True,
+    )
+    mlflow_uri = get_settings().mlflow_tracking_uri
+    setup_mlflow(mlflow_uri)
+    client = get_mlflow_client(mlflow_uri)
+
+    exp_demand_id = get_or_create_experiment(DEMAND_EXPERIMENT_NAME, client=client)
+    exp_duration_id = get_or_create_experiment(DURATION_EXPERIMENT_NAME, client=client)
+    print(
+        f"Live MLflow Experiment '{DEMAND_EXPERIMENT_NAME}' ID: {exp_demand_id}",
+        flush=True,
+    )
+    print(
+        f"Live MLflow Experiment '{DURATION_EXPERIMENT_NAME}' ID: {exp_duration_id}",
+        flush=True,
+    )
+
+    run_name = f"ci_smoke_run_{int(time.time())}"
+    with mlflow.start_run(experiment_id=exp_demand_id, run_name=run_name) as active_run:
+        mlflow.log_param("pipeline_stage", "m3-1-smoke-test")
+        mlflow.log_param("model_family", "seasonal_naive")
+        mlflow.log_metric("baseline_val_mae", 4.12)
+        mlflow.log_metric("baseline_val_rmse", 7.89)
+        mlflow.set_tag("test_type", "live_docker_compose_smoke")
+        active_run_id = active_run.info.run_id
+
+    fetched_run = client.get_run(active_run_id)
+    assert fetched_run is not None, "Failed to retrieve run from live MLflow service"
+    assert (
+        fetched_run.info.status == "FINISHED"
+    ), f"Expected FINISHED run status, got {fetched_run.info.status}"
+    assert fetched_run.data.params["pipeline_stage"] == "m3-1-smoke-test"
+    assert fetched_run.data.metrics["baseline_val_mae"] == 4.12
+    print(
+        f"Successfully logged and verified live MLflow Run:\n"
+        f"  Run ID:        {fetched_run.info.run_id}\n"
+        f"  Experiment ID: {fetched_run.info.experiment_id}\n"
+        f"  Status:        {fetched_run.info.status}\n"
+        f"  Params:        {fetched_run.data.params}\n"
+        f"  Metrics:       {fetched_run.data.metrics}\n"
+        f"  Artifact URI:  {fetched_run.info.artifact_uri}",
+        flush=True,
+    )
+
+    print(
+        "\n=== Step 15: Generating Live Demand Training Dataset & Chronological Split (M3-2) ===",
+        flush=True,
+    )
+    t15 = time.perf_counter()
+    demand_dataset = generate_demand_training_dataset(
+        store=store,
+        engine=engine,
+        start_time=start_dt,
+        end_time=end_dt,
+        zone_ids=[161, 236, 142],
+        features=DEMAND_FEATURES,
+    )
+    assert len(demand_dataset) == 3 * 3, f"Expected 9 rows, got {len(demand_dataset)}"
+    assert "target_pickup_count_next_1h" in demand_dataset.columns
+
+    # Verify integrity and anti-leakage
+    demand_check = validate_dataset_integrity(
+        demand_dataset,
+        required_features=["pickup_count_last_1h", "pickup_count_last_15m"],
+        target_col="target_pickup_count_next_1h",
+    )
+    assert demand_check["status"] == "passed"
+
+    # Chronological train/val split test
+    split_dt = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    demand_train, demand_val = train_val_split_by_time(
+        demand_dataset, split_timestamp=split_dt
+    )
+    assert len(demand_train) == 6  # Hours 10, 11 (3 zones * 2 = 6)
+    assert len(demand_val) == 3  # Hour 12 (3 zones * 1 = 3)
+    assert demand_train["event_timestamp"].max() < pd.Timestamp(split_dt)
+    assert demand_val["event_timestamp"].min() >= pd.Timestamp(split_dt)
+
+    print(
+        f"Demand training dataset generated in {time.perf_counter() - t15:.3f}s:\n"
+        f"  Total Rows:     {len(demand_dataset)} across zones [161, 236, 142]\n"
+        f"  Target Range:   min={demand_check['target_min']}, max={demand_check['target_max']}, mean={demand_check['target_mean']:.2f}\n"
+        f"  Train/Val Split: Train={len(demand_train)} rows, Val={len(demand_val)} rows (Zero Leakage: {demand_train['event_timestamp'].max()} < {demand_val['event_timestamp'].min()})\n"
+        f"  Sample Record (Zone 161 @ 11:00):\n"
+        f"    Target (trips departing in [11:00, 12:00)): {demand_dataset[(demand_dataset['zone_id'] == 161) & (demand_dataset['event_timestamp'] == t_11)]['target_pickup_count_next_1h'].iloc[0]}\n"
+        f"    Feast Feature (pickup_count_last_1h @ T<=11:00): {demand_dataset[(demand_dataset['zone_id'] == 161) & (demand_dataset['event_timestamp'] == t_11)]['pickup_count_last_1h'].iloc[0]}",
+        flush=True,
+    )
+
+    print(
+        "\n=== Step 16: Generating Live Corridor Duration Training Dataset & Verification (M3-2) ===",
+        flush=True,
+    )
+    t16 = time.perf_counter()
+    corridor_dataset = generate_corridor_training_dataset(
+        store=store,
+        engine=engine,
+        start_time=start_dt,
+        end_time=end_dt,
+        features=CORRIDOR_FEATURES,
+    )
+    assert not corridor_dataset.empty, "Corridor training dataset is empty"
+    assert "target_avg_duration_next_1h" in corridor_dataset.columns
+    assert "target_trip_count_next_1h" in corridor_dataset.columns
+
+    corridor_check = validate_dataset_integrity(
+        corridor_dataset,
+        required_features=["avg_duration_last_1h", "distance_km"],
+        target_col="target_avg_duration_next_1h",
+    )
+    assert corridor_check["status"] == "passed"
+
+    corridor_split_dt = datetime(2023, 1, 1, 11, 0, 0, tzinfo=timezone.utc)
+    corridor_train, corridor_val = train_val_split_by_time(
+        corridor_dataset, split_timestamp=corridor_split_dt, enforce_non_empty=True
+    )
+    assert len(corridor_train) + len(corridor_val) == len(corridor_dataset)
+    assert len(corridor_train) > 0
+    assert len(corridor_val) > 0
+    assert corridor_train["event_timestamp"].max() < pd.Timestamp(corridor_split_dt)
+    assert corridor_val["event_timestamp"].min() >= pd.Timestamp(corridor_split_dt)
+
+    print(
+        f"Corridor duration training dataset generated in {time.perf_counter() - t16:.3f}s:\n"
+        f"  Total Active Observations: {len(corridor_dataset)}\n"
+        f"  Target Duration Range:     min={corridor_check['target_min']:.1f}s, max={corridor_check['target_max']:.1f}s, mean={corridor_check['target_mean']:.1f}s\n"
+        f"  Train/Val Split:           Train={len(corridor_train)} rows, Val={len(corridor_val)} rows (Zero Leakage: {corridor_train['event_timestamp'].max()} < {corridor_val['event_timestamp'].min()})\n"
+        f"  Sample Record (Corridor 161_236 @ 11:00):\n"
+        f"    Target Duration (departing in [11:00, 12:00)): {corridor_dataset[(corridor_dataset['corridor_id'] == '161_236') & (corridor_dataset['event_timestamp'] == t_11)]['target_avg_duration_next_1h'].iloc[0]:.1f}s\n"
+        f"    Feast Feature (avg_duration_last_1h @ T<=11:00): {corridor_dataset[(corridor_dataset['corridor_id'] == '161_236') & (corridor_dataset['event_timestamp'] == t_11)]['avg_duration_last_1h'].iloc[0]:.1f}s",
+        flush=True,
+    )
+
+    print(
+        "\n=== Step 17: Evaluating Live Seasonal-Naive Baselines & Logging to MLflow (M3-3) ===",
+        flush=True,
+    )
+    t17 = time.perf_counter()
+    # 1. Demand Seasonal-Naive Baseline
+    demand_eval = evaluate_demand_baseline(
+        val_df=demand_val,
+        experiment_name=DEMAND_EXPERIMENT_NAME,
+        run_name="smoke_test_seasonal_naive_demand",
+        log_to_mlflow=True,
+    )
+    assert demand_eval["run_id"] is not None
+    assert "val_mae" in demand_eval["metrics"]
+    assert demand_eval["metrics"]["val_mae"] >= 0.0
+
+    # 2. Corridor Duration Baseline
+    corridor_eval = evaluate_corridor_duration_baseline(
+        val_df=corridor_val,
+        experiment_name=DURATION_EXPERIMENT_NAME,
+        run_name="smoke_test_moving_avg_duration",
+        log_to_mlflow=True,
+    )
+    assert corridor_eval["run_id"] is not None
+    assert "val_mae" in corridor_eval["metrics"]
+    assert corridor_eval["metrics"]["val_mae"] >= 0.0
+
+    print(
+        f"Seasonal-Naive Baselines evaluated and logged to live MLflow in {time.perf_counter() - t17:.3f}s:\n"
+        f"  Demand Baseline:   MAE={demand_eval['metrics']['val_mae']:.4f}, WAPE={demand_eval['metrics']['val_wape']:.2f}% (Run ID: {demand_eval['run_id']})\n"
+        f"  Corridor Baseline: MAE={corridor_eval['metrics']['val_mae']:.2f}s, WAPE={corridor_eval['metrics']['val_wape']:.2f}% (Run ID: {corridor_eval['run_id']})",
+        flush=True,
+    )
+
+    print(
+        "\n=== Step 18: Training Live LightGBM Demand & Duration Models (M3-4) ===",
+        flush=True,
+    )
+    t18 = time.perf_counter()
+    # 1. Train Demand LightGBM Model
+    demand_lgbm = train_demand_lightgbm(
+        train_df=demand_train,
+        val_df=demand_val,
+        params={"n_estimators": 10, "min_child_samples": 2},
+        baseline_mae=demand_eval["metrics"]["val_mae"],
+        experiment_name=DEMAND_EXPERIMENT_NAME,
+        run_name="smoke_test_lightgbm_demand",
+        log_to_mlflow=True,
+    )
+    assert demand_lgbm["run_id"] is not None
+    assert demand_lgbm["model"] is not None
+    assert "val_mae" in demand_lgbm["metrics"]
+    assert len(demand_lgbm["feature_importances"]) > 0
+
+    # 2. Train Duration LightGBM Model on log1p targets
+    corridor_lgbm = train_duration_lightgbm(
+        train_df=corridor_train,
+        val_df=corridor_val,
+        params={"n_estimators": 10, "min_child_samples": 2},
+        baseline_mae=corridor_eval["metrics"]["val_mae"],
+        experiment_name=DURATION_EXPERIMENT_NAME,
+        run_name="smoke_test_lightgbm_duration",
+        log_to_mlflow=True,
+    )
+    assert corridor_lgbm["run_id"] is not None
+    assert corridor_lgbm["model"] is not None
+    assert "val_mae" in corridor_lgbm["metrics"]
+    assert np.all(corridor_lgbm["predictions"] >= 60.0)
+    assert len(corridor_lgbm["feature_importances"]) > 0
+
+    print(
+        f"LightGBM models trained, evaluated, and logged to live MLflow in {time.perf_counter() - t18:.3f}s:\n"
+        f"  Demand Model:   MAE={demand_lgbm['metrics']['val_mae']:.4f}, Lift={demand_lgbm['lift_pct']:+.2f}% (Run ID: {demand_lgbm['run_id']})\n"
+        f"  Corridor Model: MAE={corridor_lgbm['metrics']['val_mae']:.2f}s, Lift={corridor_lgbm['lift_pct']:+.2f}% (Run ID: {corridor_lgbm['run_id']})",
+        flush=True,
+    )
+
+    print(
+        "\n=== Step 19: Orchestrating End-to-End Training Pipeline & Model Promotion (M3-5) ===",
+        flush=True,
+    )
+    t19 = time.perf_counter()
+    pipeline_summary = run_training_pipeline(
+        start_time=start_dt,
+        end_time=end_dt,
+        split_timestamp=corridor_split_dt,
+        store=store,
+        engine=engine,
+        zone_ids=[161, 236],
+        demand_params={"n_estimators": 5, "min_child_samples": 2},
+        duration_params={"n_estimators": 5, "min_child_samples": 2},
+        backup_to_r2=False,
+        log_to_mlflow=True,
+        promote_models=True,
+    )
+
+    assert pipeline_summary["status"] == "success"
+    assert pipeline_summary["datasets"]["demand_train_rows"] > 0
+    assert pipeline_summary["datasets"]["corridor_train_rows"] > 0
+    assert pipeline_summary["demand"]["promotion"]["version"] is not None
+    assert pipeline_summary["demand"]["promotion"]["stage"] in (
+        "Production",
+        "Staging",
+        "champion_alias",
+    )
+    assert pipeline_summary["duration"]["promotion"]["version"] is not None
+    assert pipeline_summary["duration"]["promotion"]["stage"] in (
+        "Production",
+        "Staging",
+        "champion_alias",
+    )
+
+    print(
+        f"End-to-End Training Pipeline orchestrated in {time.perf_counter() - t19:.3f}s:\n"
+        f"  Demand Model Promotion:   v{pipeline_summary['demand']['promotion']['version']} -> {pipeline_summary['demand']['promotion']['stage']}\n"
+        f"  Duration Model Promotion: v{pipeline_summary['duration']['promotion']['version']} -> {pipeline_summary['duration']['promotion']['stage']}\n"
+        f"  Elapsed Pipeline Time:    {pipeline_summary['elapsed_seconds']:.2f}s",
+        flush=True,
+    )
+
+    print(
+        "\n=== Live Feast, MLflow, Baselines, Models & Pipeline Verification: ALL 19 CHECKS PASSED ===",
         flush=True,
     )
 

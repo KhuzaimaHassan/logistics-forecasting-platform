@@ -49,6 +49,14 @@ class Settings(BaseSettings):
         default="http://localhost:5000", alias="MLFLOW_TRACKING_URI"
     )
 
+    # Cloudflare R2 (Model Artifact & Database Backup - ADR-007)
+    r2_bucket_name: Optional[str] = Field(default=None, alias="R2_BUCKET_NAME")
+    r2_endpoint_url: Optional[str] = Field(default=None, alias="R2_ENDPOINT_URL")
+    r2_access_key_id: Optional[str] = Field(default=None, alias="R2_ACCESS_KEY_ID")
+    r2_secret_access_key: Optional[str] = Field(
+        default=None, alias="R2_SECRET_ACCESS_KEY"
+    )
+
     @property
     def database_url(self) -> str:
         """Construct the PostgreSQL SQLAlchemy connection URL."""
