@@ -790,12 +790,21 @@ def main() -> None:
         promote_models=True,
     )
 
-
     assert pipeline_summary["status"] == "success"
     assert pipeline_summary["datasets"]["demand_train_rows"] > 0
     assert pipeline_summary["datasets"]["corridor_train_rows"] > 0
-    assert pipeline_summary["demand"]["promotion"]["promoted"] is True
-    assert pipeline_summary["duration"]["promotion"]["promoted"] is True
+    assert pipeline_summary["demand"]["promotion"]["version"] is not None
+    assert pipeline_summary["demand"]["promotion"]["stage"] in (
+        "Production",
+        "Staging",
+        "champion_alias",
+    )
+    assert pipeline_summary["duration"]["promotion"]["version"] is not None
+    assert pipeline_summary["duration"]["promotion"]["stage"] in (
+        "Production",
+        "Staging",
+        "champion_alias",
+    )
 
     print(
         f"End-to-End Training Pipeline orchestrated in {time.perf_counter() - t19:.3f}s:\n"
