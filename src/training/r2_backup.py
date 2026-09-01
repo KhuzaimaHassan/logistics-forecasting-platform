@@ -27,18 +27,24 @@ class R2BackupManager:
     ) -> None:
         settings = get_settings()
         self.bucket_name = (
-            bucket_name or os.getenv("R2_BUCKET_NAME") or settings.r2_bucket_name
+            bucket_name
+            if bucket_name is not None
+            else (os.getenv("R2_BUCKET_NAME") or settings.r2_bucket_name)
         )
         self.endpoint_url = (
-            endpoint_url or os.getenv("R2_ENDPOINT_URL") or settings.r2_endpoint_url
+            endpoint_url
+            if endpoint_url is not None
+            else (os.getenv("R2_ENDPOINT_URL") or settings.r2_endpoint_url)
         )
         self.access_key_id = (
-            access_key_id or os.getenv("R2_ACCESS_KEY_ID") or settings.r2_access_key_id
+            access_key_id
+            if access_key_id is not None
+            else (os.getenv("R2_ACCESS_KEY_ID") or settings.r2_access_key_id)
         )
         self.secret_access_key = (
             secret_access_key
-            or os.getenv("R2_SECRET_ACCESS_KEY")
-            or settings.r2_secret_access_key
+            if secret_access_key is not None
+            else (os.getenv("R2_SECRET_ACCESS_KEY") or settings.r2_secret_access_key)
         )
         self._s3_client = None
 
