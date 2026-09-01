@@ -92,7 +92,8 @@ Architecture Decision Record (ADR) log. Each entry: context, decision, alternati
 
 **Decision:** MLflow artifacts stored on VM block storage for active development; periodic backup to Cloudflare R2 (10GB free-forever tier) once the training pipeline stabilizes.
 
-**Consequences:** Some risk window before backups are wired up (tracked as a Roadmap/Phase 3 follow-up task, not a blocker for early development).
+**Consequences:** Some risk window before backups are wired up (tracked as a Roadmap/Phase 3 follow-up task, not a blocker for early development). Verified 2026-09-01 — live upload of 262 real MLflow artifacts (10.82MB) to Cloudflare R2, confirmed via list_objects_v2. ADR-007 closed.
+
 
 ---
 
