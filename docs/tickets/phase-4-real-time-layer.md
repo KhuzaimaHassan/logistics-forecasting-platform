@@ -1,4 +1,4 @@
-﻿# Ticket Breakdown — Phase 4: Real-Time Layer
+# Ticket Breakdown — Phase 4: Real-Time Layer
 
 ## Epic Summary
 Implement the streaming data infrastructure for real-time demand and ETA forecasting in NYC taxi zones and corridors. Deploy and configure Redpanda topics with partitioned event streams, implement a configurable historical TLC trip replay producer to simulate realistic live order flow, implement resilient polling producers for external NYC live feeds (NYC Open Data traffic speed, MTA GTFS-RT transit delay proxy, and OpenWeatherMap), build an at-least-once streaming consumer in Python that cleans, validates, and writes streaming events into PostgreSQL (warehouse.trips, warehouse.traffic_snapshots, warehouse.weather_snapshots), and implement real-time Feast online store updates via Feast Push API (store.push()) with periodic incremental materialization reconciliation (ADR-018).
@@ -67,33 +67,34 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
   - Unit tests verifying deserialization, validation errors, dead-letter routing, and database insert operations.
 - **Per-Ticket Context:** docs/ETL-Streaming.md, docs/Database.md.
 - **Files Touched:** src/transform/stream_consumer.py, src/transform/schemas.py, 	ests/test_stream_consumer.py.
-- **Estimated Size:** ~350 lines.
 - **Depends On:** M4-1, M4-2.
 
 ### M4-4: Feast Online Store Streaming Push & Reconciliation Flow (ADR-018)
 - **Scope / Acceptance Criteria:**
-  - Implement Feast real-time push update path in src/features/push_sources.py & src/transform/stream_consumer.py:
-    - Define Feast PushFeatureView / PushSource for zone_demand_features_push (or direct entity vector updates).
-    - Stream consumer pushes latest streaming feature updates directly into Redis online store via store.push(..., to=PushMode.ONLINE).
-    - Verify sub-second retrieval of updated feature values via store.get_online_features(...).
-  - Implement Prefect streaming reconciliation materialization flow in src/orchestration/flows/realtime_reconciliation_flow.py:
-    - Triggers store.materialize_incremental() on a tightened cadence to sync offline aggregations into Redis.
+  - Implement Feast real-time push update path in `src/features/push_sources.py` & `src/transform/stream_consumer.py`:
+    - Define dedicated Feast `PushFeatureView` / `PushSource` namespace (e.g. `zone_demand_features_push`) so streaming pushes do not conflict with batch hourly views.
+    - Stream consumer pushes latest streaming feature updates directly into Redis online store via `store.push(..., to=PushMode.ONLINE)`.
+    - Verify sub-second retrieval of updated feature values via `store.get_online_features(...)`.
+  - Implement Prefect streaming reconciliation flow in `src/orchestration/flows/realtime_reconciliation_flow.py`:
+    - **Reconciliation Staleness Resolution:** Triggers an incremental offline feature extraction step (`offline_extractor.py` on sliding lookback window $[T - \text{lookback}, T]$) against `warehouse.trips` **prior** to invoking `store.materialize_incremental()`. This guarantees newly-ingested live/replay trips are reflected in offline aggregation tables, preventing `materialize_incremental()` from overwriting fresh pushed values with stale offline data.
   - Integration tests verifying that published stream events immediately update Redis feature vectors and match subsequent materialization states.
-- **Per-Ticket Context:** docs/Feature-Store.md, docs/Decisions.md (ADR-018).
-- **Files Touched:** src/features/push_sources.py, src/orchestration/flows/realtime_reconciliation_flow.py, 	ests/test_realtime_features.py.
+- **Per-Ticket Context:** `docs/Feature-Store.md`, `docs/Decisions.md` (ADR-018).
+- **Files Touched:** `src/features/push_sources.py`, `src/orchestration/flows/realtime_reconciliation_flow.py`, `tests/test_realtime_features.py`.
 - **Estimated Size:** ~250 lines.
 - **Depends On:** M4-3.
 
 ### M4-5: End-to-End Real-Time Pipeline Integration & CI Smoke Verification
 - **Scope / Acceptance Criteria:**
-  - Implement end-to-end integration test and live smoke verification script in scripts/verify_streaming_live_smoke.py:
+  - Implement end-to-end integration test and live smoke verification script in `scripts/verify_streaming_live_smoke.py`:
     - Spins up Redpanda, Postgres, Redis, and runs replay producer + live feed producers + stream consumer.
     - Produces a burst of 100 historical trip events and live traffic snapshots.
-    - Asserts stream consumer processes records, populates warehouse.trips, and routes zero records to dead-letter.
+    - Asserts stream consumer processes records, populates `warehouse.trips`, and routes zero records to dead-letter on happy path.
+    - **Dead-Letter Observability Assertion:** Explicitly verifies dead-letter routing by producing a deliberate malformed record and executing a real count/read query against `trip.events.deadletter` or `warehouse.deadletter_events`, proving bad records are isolated rather than silently dropped.
     - Asserts Feast online store receives pushed features and returns valid non-null feature vectors for active zones.
-  - Wire live streaming smoke verification into CI workflow (.github/workflows/docker-smoke.yml / erify_live_feast_smoke.py).
-  - Update docs/Roadmap.md marking Phase 4 as complete.
-- **Per-Ticket Context:** docs/Architecture.md, docs/Roadmap.md.
-- **Files Touched:** scripts/verify_streaming_live_smoke.py, scripts/verify_live_feast_smoke.py, .github/workflows/docker-smoke.yml, docs/Roadmap.md.
+  - Wire live streaming smoke verification into CI workflow (`.github/workflows/docker-smoke.yml` / `verify_live_feast_smoke.py`).
+  - Update `docs/Roadmap.md` marking Phase 4 as complete.
+- **Per-Ticket Context:** `docs/Architecture.md`, `docs/Roadmap.md`.
+- **Files Touched:** `scripts/verify_streaming_live_smoke.py`, `scripts/verify_live_feast_smoke.py`, `.github/workflows/docker-smoke.yml`, `docs/Roadmap.md`.
 - **Estimated Size:** ~250 lines.
 - **Depends On:** M4-1, M4-2, M4-3, M4-4.
+
