@@ -59,11 +59,14 @@ See `.github/ISSUE_TEMPLATE/milestone.md` — every milestone tracking issue use
 | `PREFECT_API_URL` | Prefect Cloud workspace API endpoint |
 | `GROQ_API_KEY` | Agent tests/CI (if any live-call tests exist) |
 | `GEMINI_API_KEY` | Agent tests/CI |
-| `MTA_API_KEY` | Streaming producer (not needed in CI, but documented here for completeness) |
+| `MTA_API_KEY` | Streaming producer (MTA GTFS-RT feed) |
+| `NYC_TRAFFIC_APP_TOKEN` | Streaming producer (NYC Open Data / Socrata traffic speed) |
+| `OPENWEATHERMAP_API_KEY` | Streaming producer (OpenWeatherMap live weather) |
 | `R2_BUCKET_NAME` | Cloudflare R2 artifact backup (ADR-007) |
 | `R2_ENDPOINT_URL` | Cloudflare R2 S3 API endpoint URL (ADR-007) |
 | `R2_ACCESS_KEY_ID` | Cloudflare R2 S3 access key ID (ADR-007) |
 | `R2_SECRET_ACCESS_KEY` | Cloudflare R2 S3 secret access key (ADR-007) |
+
 
 
 Actual values live in GitHub repo secrets, never committed — see Security.md.

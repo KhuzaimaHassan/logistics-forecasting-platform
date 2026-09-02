@@ -2491,6 +2491,7 @@ dev = [
 ]
 extract = [
     { name = "feast" },
+    { name = "kafka-python-ng" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas" },
@@ -2572,6 +2573,7 @@ requires-dist = [
     { name = "feast", marker = "extra == 'training'", specifier = ">=0.37.0" },
     { name = "feast", marker = "extra == 'transform'", specifier = ">=0.37.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
+    { name = "kafka-python-ng", marker = "extra == 'extract'", specifier = ">=2.2.0" },
     { name = "kafka-python-ng", marker = "extra == 'transform'", specifier = ">=2.2.0" },
     { name = "langchain-core", marker = "extra == 'serving'", specifier = ">=0.1.30" },
     { name = "langgraph", marker = "extra == 'serving'", specifier = ">=0.0.30" },
