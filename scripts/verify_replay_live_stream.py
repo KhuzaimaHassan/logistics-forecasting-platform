@@ -1,4 +1,4 @@
-﻿"""Live verification script for Redpanda topic setup and historical trip replay producer.
+"""Live verification script for Redpanda topic setup and historical trip replay producer.
 
 Demonstrates:
 1. Topic creation on live Redpanda broker (trip.events, traffic.snapshots, etc.).
@@ -8,14 +8,9 @@ Demonstrates:
 
 import logging
 import os
-import sys
 import time
-from datetime import datetime, timezone
 from uuid import uuid4
 
-import pandas as pd
-
-from src.common.config import get_settings
 from src.common.kafka_utils import (
     DEFAULT_TOPIC_CONFIGS,
     TOPIC_TRIP_EVENTS,
@@ -26,12 +21,13 @@ from src.common.kafka_utils import (
 )
 from src.extract.replay_producer import HistoricalReplayProducer
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger("verify_replay_live")
 
 
 def main() -> None:
-    settings = get_settings()
     broker = os.getenv("REDPANDA_BROKER", "localhost:9092")
     logger.info("Connecting to live Redpanda broker at: %s", broker)
 
@@ -45,7 +41,9 @@ def main() -> None:
     admin.close()
     print(f"Current Redpanda Topics on Broker: {sorted(topics)}")
     for topic_name in DEFAULT_TOPIC_CONFIGS:
-        assert topic_name in topics, f"Expected topic '{topic_name}' not found in broker!"
+        assert (
+            topic_name in topics
+        ), f"Expected topic '{topic_name}' not found in broker!"
     print(f"Newly created topics in this run: {created}")
 
     # 2. Prepare sample real trips
@@ -72,13 +70,20 @@ def main() -> None:
     sample_size = 25
     if parquet_path:
         print(f"Reading {sample_size} real trips from Parquet: {parquet_path}")
-        iterator = list(producer.fetch_trips_from_parquet(parquet_path, limit=sample_size))
+        iterator = list(
+            producer.fetch_trips_from_parquet(parquet_path, limit=sample_size)
+        )
     else:
         try:
-            print(f"Attempting to read {sample_size} real trips from PostgreSQL warehouse.trips...")
+            print(
+                f"Attempting to read {sample_size} real trips from PostgreSQL warehouse.trips..."
+            )
             iterator = list(producer.fetch_trips_from_db(limit=sample_size))
         except Exception as e:
-            logger.warning("PostgreSQL read failed (%s), creating synthetic representative batch...", e)
+            logger.warning(
+                "PostgreSQL read failed (%s), creating synthetic representative batch...",
+                e,
+            )
             iterator = [
                 {
                     "trip_id": 1000 + i,
@@ -106,8 +111,12 @@ def main() -> None:
     print("=" * 70)
     pub_summary = producer.replay_stream(iter(iterator))
     print(f"Producer Publish Summary: {pub_summary}")
-    assert pub_summary["records_published"] == len(iterator), "Mismatch in published count!"
-    assert pub_summary["publish_errors"] == 0, f"Encountered {pub_summary['publish_errors']} publish errors!"
+    assert pub_summary["records_published"] == len(
+        iterator
+    ), "Mismatch in published count!"
+    assert (
+        pub_summary["publish_errors"] == 0
+    ), f"Encountered {pub_summary['publish_errors']} publish errors!"
     producer.close()
 
     # 4. Consume and verify back from Redpanda
@@ -136,25 +145,36 @@ def main() -> None:
 
     consumer.close()
 
-    print(f"\nSuccessfully consumed {len(consumed_messages)} messages from '{TOPIC_TRIP_EVENTS}'.\n")
+    print(
+        f"\nSuccessfully consumed {len(consumed_messages)} messages from '{TOPIC_TRIP_EVENTS}'.\n"
+    )
     print("Sample Consumed Messages (First 5):")
     print("-" * 70)
     for idx, msg in enumerate(consumed_messages[:5]):
         val = msg.value
-        print(f"[{idx+1}] Partition: {msg.partition} | Offset: {msg.offset} | Key: {msg.key}")
+        print(
+            f"[{idx+1}] Partition: {msg.partition} | Offset: {msg.offset} | Key: {msg.key}"
+        )
         print(f"    Trip ID:          {val.get('trip_id')}")
         print(f"    Vendor / Cab:     {val.get('vendor_id')} / {val.get('cab_type')}")
-        print(f"    Corridor:         Zone {val.get('pickup_zone_id')} -> Zone {val.get('dropoff_zone_id')}")
+        print(
+            f"    Corridor:         Zone {val.get('pickup_zone_id')} -> Zone {val.get('dropoff_zone_id')}"
+        )
         print(f"    Pickup (UTC):     {val.get('pickup_datetime')}")
         print(f"    Dropoff (UTC):    {val.get('dropoff_datetime')}")
-        print(f"    Duration / Dist:  {val.get('trip_duration_seconds')}s / {val.get('trip_distance_km')}km")
-        print(f"    Fare / Total:      / ")
+        print(
+            f"    Duration / Dist:  {val.get('trip_duration_seconds')}s / {val.get('trip_distance_km')}km"
+        )
+        print(
+            f"    Fare / Total:     ${val.get('fare_amount')} / ${val.get('total_amount')}"
+        )
         print(f"    Source / Rep-At:  {val.get('source')} / {val.get('replayed_at')}")
+
         print("-" * 70)
 
-    assert len(consumed_messages) >= len(iterator), (
-        f"Expected to consume at least {len(iterator)} messages, got {len(consumed_messages)}"
-    )
+    assert len(consumed_messages) >= len(
+        iterator
+    ), f"Expected to consume at least {len(iterator)} messages, got {len(consumed_messages)}"
 
     print("\n" + "=" * 70)
     print("LIVE REDPANDA REPLAY PRODUCER VERIFICATION: PASSED (100% PROVEN)")
