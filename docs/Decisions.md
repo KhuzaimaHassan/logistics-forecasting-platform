@@ -287,4 +287,30 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Inherent physical guarantee of positive duration predictions ($\hat{y} \ge 60.0\text{s}$).
 - Demonstrated $+39.09\%$ MAE reduction (278.35s vs 456.95s) on the 256k-row validation split.
 
+---
+
+## ADR-018: Real-Time Online Feature Store Updates — Feast Push API with Tightened Incremental Materialization Reconciliation
+
+**Context:** In Phase 4, the real-time layer introduces streaming trip events and external data feeds (traffic, transit, weather) over Redpanda. Online inference endpoints (`/predict/demand`, `/predict/eta` in Phase 5) require up-to-date feature values in the Redis online store. We must decide how streaming events update the online feature store: direct Feast push API (`store.push()`) vs. tightened batch materialization (`materialize_incremental()`) schedule.
+
+**Decision:**
+1. **Sub-Second Streaming Push Path (Feast Push API):**
+   - The stream consumer validates incoming events, updates short-window aggregations in memory/Redis, and immediately pushes updated feature vectors into the Redis online store via Feast's Push API (`store.push(feature_view_name, df, to=PushMode.ONLINE)`).
+   - This provides instantaneous sub-second feature freshness for online inference endpoints without waiting for batch processing intervals.
+2. **Batch Reconciliation Path (Scheduled Incremental Materialization):**
+   - A scheduled Prefect flow runs `store.materialize_incremental()` on a regular cadence (e.g. every 1–5 minutes) from the PostgreSQL offline tables (`warehouse.zone_demand_features_hourly`, `warehouse.corridor_duration_features_hourly`).
+   - This reconciles long-range lag features (e.g., 7-day seasonal comparisons `pickup_count_same_hour_last_week`) and corrects any out-of-order or delayed streaming events against the authoritative warehouse tables.
+3. **At-Least-Once Delivery & Idempotency:**
+   - The stream consumer commits Redpanda consumer offsets only after both the PostgreSQL write (`warehouse.trips`) and the Redis feature push succeed.
+   - Deduplication is guaranteed at the database layer using deterministic 64-bit BigInteger `trip_id` (`ON CONFLICT (trip_id) DO NOTHING`).
+
+**Alternatives considered:**
+- **Pure Push Only (No Materialization Reconciliation):** Requires keeping extensive multi-day rolling state in stream consumer memory to calculate cold 7-day lag features, risking state loss and memory bloat on container restarts.
+- **Pure Materialization Only (Tightened Schedule):** Creates an unavoidable 1–5 minute latency delay before new trip completions are visible in Redis, making the online store lag behind fast-moving demand spikes.
+
+**Consequences:**
+- Sub-second feature freshness for real-time model inference.
+- Guaranteed long-term feature consistency and resilience against streaming worker restarts through regular batch reconciliation.
+
+
 
