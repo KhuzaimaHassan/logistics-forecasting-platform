@@ -85,9 +85,9 @@ services:
       - "0"
       - --check=false
       - --kafka-addr
-      - PLAINTEXT://0.0.0.0:9092
+      - PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
       - --advertise-kafka-addr
-      - PLAINTEXT://redpanda:9092
+      - PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
     volumes:
       - redpanda_data:/var/lib/redpanda/data
     networks:
@@ -105,7 +105,6 @@ services:
       - -c
       - "pip install --no-cache-dir psycopg2-binary && mlflow server --backend-store-uri postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-logistics} --artifacts-destination /mlflow/artifacts --serve-artifacts --host 0.0.0.0 --port 5000"
     volumes:
-
       - mlflow_data:/mlflow
     networks:
       - logistics-net
@@ -143,7 +142,7 @@ services:
     container_name: stream-producer
     restart: unless-stopped
     environment:
-      REDPANDA_BROKER: ${REDPANDA_BROKER:-redpanda:9092}
+      REDPANDA_BROKER: ${REDPANDA_BROKER:-redpanda:29092}
       MTA_API_KEY: ${MTA_API_KEY:-}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY:-}
     networks:
@@ -158,7 +157,7 @@ services:
     container_name: stream-consumer
     restart: unless-stopped
     environment:
-      REDPANDA_BROKER: ${REDPANDA_BROKER:-redpanda:9092}
+      REDPANDA_BROKER: ${REDPANDA_BROKER:-redpanda:29092}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:-logistics}

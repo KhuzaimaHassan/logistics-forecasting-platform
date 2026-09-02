@@ -44,11 +44,13 @@ features = [
 ]
 
 extract = [
+    "kafka-python-ng>=2.2.0",
     "feast>=0.37.0",
     "pyarrow>=15.0.0",
     "pandas>=2.2.0",
     "numpy>=1.26.0",
 ]
+
 transform = [
     "kafka-python-ng>=2.2.0",
     "feast>=0.37.0",

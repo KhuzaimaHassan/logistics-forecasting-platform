@@ -297,12 +297,14 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 1. **Sub-Second Streaming Push Path (Feast Push API):**
    - The stream consumer validates incoming events, updates short-window aggregations in memory/Redis, and immediately pushes updated feature vectors into the Redis online store via Feast's Push API (`store.push(feature_view_name, df, to=PushMode.ONLINE)`).
    - This provides instantaneous sub-second feature freshness for online inference endpoints without waiting for batch processing intervals.
-2. **Batch Reconciliation Path (Scheduled Incremental Materialization):**
-   - A scheduled Prefect flow runs `store.materialize_incremental()` on a regular cadence (e.g. every 1–5 minutes) from the PostgreSQL offline tables (`warehouse.zone_demand_features_hourly`, `warehouse.corridor_duration_features_hourly`).
-   - This reconciles long-range lag features (e.g., 7-day seasonal comparisons `pickup_count_same_hour_last_week`) and corrects any out-of-order or delayed streaming events against the authoritative warehouse tables.
+2. **Batch Reconciliation Path (Scheduled Incremental Extraction & Materialization):**
+   - A scheduled Prefect flow (`realtime_reconciliation_flow.py`) executes an incremental offline aggregation step (`src/features/offline_extractor.py` on the recent sliding window $[T - \text{lookback}, T]$) against `warehouse.trips` **prior** to invoking `store.materialize_incremental()`.
+   - This ensures newly-ingested live/replay trips are properly aggregated into `warehouse.zone_demand_features_hourly` and `warehouse.corridor_duration_features_hourly`, preventing `materialize_incremental()` from overwriting fresh pushed values with stale offline data.
+   - Separate Feast Feature View namespaces (e.g. `zone_demand_features_push` for streaming push metrics and `zone_demand_features_hourly` for deep lag features) ensure streaming and batch features coexist cleanly in the Redis online store.
 3. **At-Least-Once Delivery & Idempotency:**
    - The stream consumer commits Redpanda consumer offsets only after both the PostgreSQL write (`warehouse.trips`) and the Redis feature push succeed.
    - Deduplication is guaranteed at the database layer using deterministic 64-bit BigInteger `trip_id` (`ON CONFLICT (trip_id) DO NOTHING`).
+
 
 **Alternatives considered:**
 - **Pure Push Only (No Materialization Reconciliation):** Requires keeping extensive multi-day rolling state in stream consumer memory to calculate cold 7-day lag features, risking state loss and memory bloat on container restarts.
