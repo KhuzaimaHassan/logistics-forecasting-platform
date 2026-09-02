@@ -6,4 +6,8 @@ services:
   mlflow:
     ports:
       - "5000:5000"
+  redpanda:
+    ports:
+      - "9092:9092"
+
 

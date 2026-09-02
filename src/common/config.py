@@ -38,6 +38,9 @@ class Settings(BaseSettings):
 
     # External APIs
     mta_api_key: Optional[str] = Field(default=None, alias="MTA_API_KEY")
+    nyc_traffic_app_token: Optional[str] = Field(
+        default=None, alias="NYC_TRAFFIC_APP_TOKEN"
+    )
     openweathermap_api_key: Optional[str] = Field(
         default=None, alias="OPENWEATHERMAP_API_KEY"
     )
