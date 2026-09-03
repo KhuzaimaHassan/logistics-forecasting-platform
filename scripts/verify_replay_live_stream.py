@@ -27,6 +27,55 @@ logging.basicConfig(
 logger = logging.getLogger("verify_replay_live")
 
 
+def _prepare_sample_trips(
+    producer: HistoricalReplayProducer, sample_size: int = 25
+) -> tuple[list[dict], str]:
+    """Prepare a batch of trip records from Parquet, PostgreSQL, or synthetic fallback."""
+    parquet_candidates = [
+        "data/raw/yellow_tripdata_2023-01.parquet",
+        "tests/data/sample_trips.parquet",
+    ]
+    for p in parquet_candidates:
+        if os.path.exists(p):
+            return (
+                list(producer.fetch_trips_from_parquet(p, limit=sample_size)),
+                f"PARQUET FILE ({p})",
+            )
+
+    try:
+        db_trips = list(producer.fetch_trips_from_db(limit=sample_size))
+        if db_trips:
+            return (
+                db_trips,
+                f"LIVE POSTGRESQL (warehouse.trips, {len(db_trips)} rows fetched)",
+            )
+        logger.info("warehouse.trips returned 0 rows. Using synthetic fallback data.")
+    except Exception as exc:
+        logger.warning(
+            "PostgreSQL read failed (%s). Using synthetic fallback data.", exc
+        )
+
+    synthetic_trips = [
+        {
+            "trip_id": 1000 + i,
+            "vendor_id": 1 if i % 2 == 0 else 2,
+            "cab_type": "yellow",
+            "pickup_zone_id": 161 + (i % 10),
+            "dropoff_zone_id": 236 + (i % 5),
+            "pickup_datetime": f"2023-01-15T10:{i:02d}:00+00:00",
+            "dropoff_datetime": f"2023-01-15T10:{i+15:02d}:30+00:00",
+            "trip_duration_seconds": 930,
+            "passenger_count": 1 + (i % 3),
+            "trip_distance_km": round(2.5 + i * 0.4, 2),
+            "fare_amount": round(12.5 + i * 1.5, 2),
+            "tip_amount": round(2.0 + i * 0.25, 2),
+            "total_amount": round(16.5 + i * 1.75, 2),
+        }
+        for i in range(sample_size)
+    ]
+    return synthetic_trips, "SYNTHETIC FALLBACK (25 generated trips)"
+
+
 def main() -> None:
     broker = os.getenv("REDPANDA_BROKER", "localhost:9092")
     logger.info("Connecting to live Redpanda broker at: %s", broker)
@@ -57,56 +106,12 @@ def main() -> None:
         rewrite_timestamps=True,
     )
 
-    parquet_candidates = [
-        "data/raw/yellow_tripdata_2023-01.parquet",
-        "tests/data/sample_trips.parquet",
-    ]
-    parquet_path = None
-    for p in parquet_candidates:
-        if os.path.exists(p):
-            parquet_path = p
-            break
-
-    sample_size = 25
-    if parquet_path:
-        print(f"Reading {sample_size} real trips from Parquet: {parquet_path}")
-        iterator = list(
-            producer.fetch_trips_from_parquet(parquet_path, limit=sample_size)
-        )
-    else:
-        try:
-            print(
-                f"Attempting to read {sample_size} real trips from PostgreSQL warehouse.trips..."
-            )
-            iterator = list(producer.fetch_trips_from_db(limit=sample_size))
-        except Exception as e:
-            logger.warning(
-                "PostgreSQL read failed (%s), creating synthetic representative batch...",
-                e,
-            )
-            iterator = [
-                {
-                    "trip_id": 1000 + i,
-                    "vendor_id": 1 if i % 2 == 0 else 2,
-                    "cab_type": "yellow",
-                    "pickup_zone_id": 161 + (i % 10),
-                    "dropoff_zone_id": 236 + (i % 5),
-                    "pickup_datetime": f"2023-01-15T10:{i:02d}:00+00:00",
-                    "dropoff_datetime": f"2023-01-15T10:{i+15:02d}:30+00:00",
-                    "trip_duration_seconds": 930,
-                    "passenger_count": 1 + (i % 3),
-                    "trip_distance_km": round(2.5 + i * 0.4, 2),
-                    "fare_amount": round(12.5 + i * 1.5, 2),
-                    "tip_amount": round(2.0 + i * 0.25, 2),
-                    "total_amount": round(16.5 + i * 1.75, 2),
-                }
-                for i in range(sample_size)
-            ]
-
-    print(f"Prepared {len(iterator)} real trip records to publish.")
+    iterator, data_source_desc = _prepare_sample_trips(producer, sample_size=25)
+    print(f"[{data_source_desc}] Prepared {len(iterator)} records to publish.")
 
     # 3. Publish to Redpanda
     print("\n" + "=" * 70)
+
     print("STEP 3: PUBLISHING REAL TRIP EVENTS TO 'trip.events'")
     print("=" * 70)
     pub_summary = producer.replay_stream(iter(iterator))
