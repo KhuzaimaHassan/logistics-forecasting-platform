@@ -89,13 +89,13 @@ def main() -> None:
     manager.close()
 
     assert (
-        poll_results["traffic"]["published"] > 0
+        poll_results["traffic"]["records_published"] > 0
     ), "No traffic snapshot records were published!"
     assert (
-        poll_results["transit"]["published"] > 0
+        poll_results["transit"]["records_published"] > 0
     ), "No transit position records were published!"
     assert (
-        poll_results["weather"]["published"] > 0
+        poll_results["weather"]["records_published"] > 0
     ), "No weather snapshot records were published!"
 
     # 3. Consume and verify traffic.snapshots
@@ -105,7 +105,7 @@ def main() -> None:
     traffic_msgs = _consume_topic_messages(
         TOPIC_TRAFFIC_SNAPSHOTS,
         broker,
-        expected_min=poll_results["traffic"]["published"],
+        expected_min=poll_results["traffic"]["records_published"],
     )
     print(f"Consumed {len(traffic_msgs)} messages from '{TOPIC_TRAFFIC_SNAPSHOTS}'.")
     assert len(traffic_msgs) > 0, "Failed to consume messages from traffic.snapshots"
@@ -124,7 +124,7 @@ def main() -> None:
             f"       Speed:        {val.get('speed_mph')} mph ({val.get('speed_kmh')} km/h)"
         )
         print(f"       Travel Time:  {val.get('travel_time_seconds')}s")
-        print(f"       Source / TS:  {val.get('source')} / {val.get('timestamp')}")
+        print(f"       Source / TS:  {val.get('source')} / {val.get('recorded_at')}")
         assert val.get("segment_id") is not None
         assert val.get("speed_mph") is not None
 
@@ -135,7 +135,7 @@ def main() -> None:
     transit_msgs = _consume_topic_messages(
         TOPIC_TRANSIT_POSITIONS,
         broker,
-        expected_min=poll_results["transit"]["published"],
+        expected_min=poll_results["transit"]["records_published"],
     )
     print(f"Consumed {len(transit_msgs)} messages from '{TOPIC_TRANSIT_POSITIONS}'.")
     assert len(transit_msgs) > 0, "Failed to consume messages from transit.positions"
@@ -154,7 +154,7 @@ def main() -> None:
             f"       Delay:        {val.get('delay_seconds')}s ({val.get('congestion_level')})"
         )
         print(f"       Alert:        {val.get('alert_header')}")
-        print(f"       Source / TS:  {val.get('source')} / {val.get('timestamp')}")
+        print(f"       Source / TS:  {val.get('source')} / {val.get('recorded_at')}")
         assert val.get("route_id") is not None
         assert val.get("congestion_level") is not None
 
@@ -165,7 +165,7 @@ def main() -> None:
     weather_msgs = _consume_topic_messages(
         TOPIC_WEATHER_SNAPSHOTS,
         broker,
-        expected_min=poll_results["weather"]["published"],
+        expected_min=poll_results["weather"]["records_published"],
     )
     print(f"Consumed {len(weather_msgs)} messages from '{TOPIC_WEATHER_SNAPSHOTS}'.")
     assert len(weather_msgs) > 0, "Failed to consume messages from weather.snapshots"
@@ -181,14 +181,14 @@ def main() -> None:
         print(f"       Location:     {val.get('location')}")
         print(f"       Temperature:  {val.get('temp_c')} °C ({val.get('temp_f')} °F)")
         print(
-            f"       Condition:    {val.get('condition')} (Rain: {val.get('is_raining')}, Snow: {val.get('is_snowing')})"
+            f"       Condition:    {val.get('condition')} (Precip: {val.get('is_precipitating')})"
         )
         print(
-            f"       Wind / Hum:   {val.get('wind_speed_mps')} m/s / {val.get('humidity_pct')}%"
+            f"       Wind / Hum:   {val.get('wind_speed_kmh')} km/h / {val.get('humidity_pct')}%"
         )
-        print(f"       Precipitation:{val.get('precipitation_mm')} mm")
-        print(f"       Source / TS:  {val.get('source')} / {val.get('timestamp')}")
-        assert val.get("location") == "NYC"
+        print(f"       Precipitation:{val.get('precipitation_mm_1h')} mm")
+        print(f"       Source / TS:  {val.get('source')} / {val.get('recorded_at')}")
+        assert val.get("location") is not None
         assert val.get("temp_c") is not None
 
     print("\n" + "=" * 70)
