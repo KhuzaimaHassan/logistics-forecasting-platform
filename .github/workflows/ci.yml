@@ -133,6 +133,11 @@ jobs:
         run: |
           uv run python -u scripts/verify_replay_live_stream.py
 
+      - name: Verify Live Redpanda External Feeds Streaming (Traffic, Transit, Weather)
+        env:
+          REDPANDA_BROKER: localhost:9092
+        run: |
+          uv run python -u scripts/verify_live_feeds_stream.py
 
       - name: Inspect container logs
         if: always()
