@@ -39,15 +39,17 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
 ### M4-2: Live External Feed Polling Producers (Traffic, Transit, Weather)
 - **Scope / Acceptance Criteria:**
   - Implement resilient polling producers in src/extract/live_feed_producers.py:
-    - **NYC Traffic Speed Producer**: Polls NYC Open Data Socrata API (https://data.cityofnewyork.us/resource/i4gi-tjb9.json), extracts segment speed / travel time, maps coordinates to nearest taxi zone, and publishes to 	raffic.snapshots.
-    - **MTA GTFS-RT Transit Producer**: Polls MTA GTFS-RT feed (or fallback REST transit alerts endpoint), extracts delay/congestion proxies, and publishes to 	ransit.positions.
+    - **NYC Traffic Speed Producer**: Polls NYC Open Data Socrata API (https://data.cityofnewyork.us/resource/i4gi-tjb9.json), extracts segment speed / travel time, maps coordinates to nearest taxi zone, and publishes to traffic.snapshots.
+    - **MTA GTFS-RT Transit Producer**: Polls MTA GTFS-RT feed (or fallback REST transit alerts endpoint), extracts delay/congestion proxies, and publishes to transit.positions.
     - **OpenWeatherMap Producer**: Polls NYC current weather (temperature, precipitation rate, rain/snow flags), and publishes to weather.snapshots.
   - Resilience & Config Discipline:
     - Dedicated polling schedules with exponential backoff and jitter.
     - Graceful no-op / synthetic fallback mode when external API keys (MTA_API_KEY, OPENWEATHERMAP_API_KEY, NYC_TRAFFIC_APP_TOKEN) are unconfigured, preventing pipeline crashes.
   - Unit tests with mocked HTTP responses verifying payload parsing, schema validation, and error handling.
+- **Verification Note & Tracked Fast-Follow:**
+  - `transit.positions` and `weather.snapshots` are currently proven only via synthetic fallback — `MTA_API_KEY` and `OPENWEATHERMAP_API_KEY` were never obtained. Real-data proof for these two feeds is a fast-follow, same pattern as ADR-007's R2 credentialing (tracked in #93).
 - **Per-Ticket Context:** docs/Data-Sources.md, docs/ETL-Streaming.md.
-- **Files Touched:** src/extract/live_feed_producers.py, 	ests/test_live_feed_producers.py.
+- **Files Touched:** src/extract/live_feed_producers.py, tests/test_live_feed_producers.py, scripts/verify_live_feeds_stream.py.
 - **Estimated Size:** ~300 lines.
 - **Depends On:** M4-1.
 
@@ -97,4 +99,15 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
 - **Files Touched:** `scripts/verify_streaming_live_smoke.py`, `scripts/verify_live_feast_smoke.py`, `.github/workflows/docker-smoke.yml`, `docs/Roadmap.md`.
 - **Estimated Size:** ~250 lines.
 - **Depends On:** M4-1, M4-2, M4-3, M4-4.
+
+---
+
+## Tracked Fast-Follows
+
+### M4-2-FF: Real-Data Proof for MTA & OpenWeather Live Feeds (#93)
+- **Scope / Acceptance Criteria:**
+  - `transit.positions` and `weather.snapshots` are currently proven only via synthetic fallback — `MTA_API_KEY` and `OPENWEATHERMAP_API_KEY` were never obtained.
+  - Real-data proof for these two feeds is a fast-follow, same pattern as ADR-007's R2 credentialing.
+  - When API keys are provisioned in `.env` / CI secrets, execute `scripts/verify_live_feeds_stream.py` to assert live responses (`source: 'mta_live'`, `source: 'openweathermap_live'`).
+
 
