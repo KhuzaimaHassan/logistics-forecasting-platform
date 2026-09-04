@@ -23,7 +23,7 @@
 Two responsibilities, one process:
 
 1. **Historical replay** — reads already-loaded TLC trip records and republishes them onto Redpanda at (configurable) real-time pace, keyed by original pickup timestamp offset from "now." This simulates a live order stream using genuinely real trip patterns rather than synthetic data.
-2. **Live polling** — polls MTA GTFS-RT (~30s), NYC traffic-speed API (~30-60s), and OpenWeatherMap (~10min) on independent schedules, publishing each to its own topic.
+2. **Live polling** — polls MTA subway alerts API (~30-60s), NYC traffic-speed Socrata API (~30-60s), and OpenWeatherMap (~10min) on independent schedules, publishing each to its own topic.
 
 ## 3. Redpanda topics
 
@@ -31,7 +31,7 @@ Two responsibilities, one process:
 |---|---|---|---|
 | `trip.events` | Replay producer | pickup/dropoff zone, timestamps, distance | Simulated live order flow |
 | `traffic.snapshots` | Live poller | segment ID, avg speed, timestamp | Real live data |
-| `transit.positions` | Live poller | vehicle ID, route, position, timestamp | Real live data (congestion proxy) |
+| `transit.positions` | Live poller | route ID, delay seconds, congestion level, timestamp | Real live data (transit alert delay/congestion proxy) |
 | `weather.snapshots` | Live poller | temp, precipitation, timestamp | Real live data, optional |
 
 Single-node Redpanda broker (see Decisions.md ADR-003), 4 topics, low partition count (1-3) — deliberately small-scale, matching a personal-project traffic profile, not over-provisioned.

@@ -314,5 +314,23 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Sub-second feature freshness for real-time model inference.
 - Guaranteed long-term feature consistency and resilience against streaming worker restarts through regular batch reconciliation.
 
+---
+
+## ADR-019: MTA Transit Congestion Proxy — Subway Alerts JSON vs. Protobuf Vehicle Positions
+
+**Context:** In Phase 4 (M4-2), external streaming feeds are ingested to provide live contextual signals for road traffic and corridor trip duration (ETA) forecasting. Transit data was specified as a congestion proxy (transit bunching/delays correlate with roadway congestion). The MTA developer portal exposes both raw GTFS-Realtime Protocol Buffer (Protobuf) feeds for vehicle coordinates/trip updates and a REST JSON feed for subway service alerts and line status (`/camsys%2Fsubway-alerts.json`).
+
+**Decision:** Ingest the MTA Subway Alerts REST JSON endpoint directly (`https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json`) rather than compiling and decoding raw GTFS-RT Protobuf vehicle position binaries.
+1. **Direct Signal Alignment:** The ETA forecasting model needs line-level transit delays and congestion severity (`delay_seconds`, `congestion_level`, `current_status`), which the alerts JSON feed supplies directly per subway line (`route_id`).
+2. **Operational Simplicity & Dependency Hygiene:** Avoids introducing `gtfs-realtime-bindings` or custom Protobuf compilation pipelines (`google.protobuf` stubs) and complex coordinate-to-schedule reverse-matching algorithms on the single-host VM.
+3. **Topic Payload Contract:** The stream consumer and Redpanda topic `transit.positions` carry normalized transit delay and congestion state (`route_id`, `stop_id`, `delay_seconds`, `congestion_level`, `recorded_at`).
+
+**Alternatives considered:**
+- **Raw GTFS-RT Protobuf Vehicle Positions (`gtfs-realtime.proto`):** Provides raw train coordinate points and stop sequence IDs. Requires adding compiled Protobuf bindings, decoding binary streams every 30s, and maintaining static GTFS schedule tables to infer train delays from coordinate timestamps — substantial compute and dependency complexity for an indirect congestion proxy when direct traffic speed readings (`traffic.snapshots` from Socrata) already provide primary roadway speed data.
+- **Dropping Transit Feed Entirely:** Transit delay status provides useful multimodal congestion context during subway signal disruptions that cause surface road spillover.
+
+**Consequences:** Clean, maintainable, lightweight JSON ingestion with zero Protobuf compiler dependencies. Payload accurately delivers line-level delay and congestion severity directly to `transit.positions` and `warehouse.transit_snapshots`.
+
+
 
 

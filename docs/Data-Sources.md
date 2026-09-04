@@ -8,11 +8,11 @@
 - **Used for:** Training data for both demand (aggregate pickups per zone/hour) and duration/ETA (dropoff_time - pickup_time) models. Also the source for the streaming *replay* (see ETL-Streaming.md).
 - **Reference data:** NYC also publishes a static Taxi Zone Lookup table (zone ID → borough/zone name/geometry) — needed to join zone IDs to anything human-readable or map-plottable.
 
-## 2. MTA GTFS-Realtime feeds (live, streaming)
+## 2. MTA Subway Alerts & Service Status Feeds (live, streaming)
 
-- **What:** Live vehicle position feeds for NYC subway/bus.
-- **Access:** Free API key via MTA developer portal. Protobuf format, refreshed roughly every 30 seconds.
-- **Used for:** A live congestion proxy — transit delay/bunching correlates with road congestion, which is a real feature for the ETA model. Also serves as a genuine "live system integration" component distinct from the replayed historical stream.
+- **What:** Live subway service alerts and line-level delay status proxies.
+- **Access:** Free API key (`x-api-key`) via MTA developer portal. JSON endpoint (`https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json`), refreshed roughly every 30–60 seconds.
+- **Used for:** A live transit congestion proxy — transit delays and service alerts correlate with corridor road congestion, providing a real-time signal for the ETA duration model (see ADR-019 for the architectural decision to ingest alerts JSON directly instead of compiling raw GTFS-RT Protobuf vehicle position feeds). Also serves as a genuine live external system integration component distinct from the replayed TLC historical stream.
 
 ## 3. NYC Open Data — Real-Time Traffic Speed Data (live, streaming)
 
