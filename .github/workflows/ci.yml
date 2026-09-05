@@ -138,7 +138,6 @@ jobs:
           REDPANDA_BROKER: localhost:9092
         run: |
           uv run python -u scripts/verify_live_feeds_stream.py
-
       - name: Verify Live Redpanda Stream Consumer & PostgreSQL Ingestion
         env:
           REDPANDA_BROKER: localhost:9092
