@@ -14,6 +14,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    PrimaryKeyConstraint,
     String,
     Text,
     func,
@@ -265,3 +266,76 @@ class CorridorDurationFeaturesHourly(Base):
     distance_km: float = Column(Float, nullable=False, default=0.0)
     origin_zone_demand_pressure: int = Column(BigInteger, nullable=False, default=0)
     avg_traffic_speed_current: Optional[float] = Column(Float, nullable=True)
+
+
+class TrafficSnapshot(Base):
+    """Real-time NYC road segment traffic speed observations."""
+
+    __tablename__ = "traffic_snapshots"
+    __table_args__ = (
+        PrimaryKeyConstraint("segment_id", "recorded_at", name="pk_traffic_snapshots"),
+        Index("ix_traffic_snapshots_recorded_at", "recorded_at"),
+        {"schema": "warehouse"},
+    )
+
+    segment_id: str = Column(String(50), primary_key=True)
+    recorded_at: datetime = Column(DateTime(timezone=True), primary_key=True)
+    speed_mph: float = Column(Float, nullable=False)
+    speed_kmh: float = Column(Float, nullable=False)
+    travel_time_seconds: int = Column(Integer, nullable=False, default=0)
+    borough: Optional[str] = Column(String(50), nullable=True)
+    link_name: Optional[str] = Column(String(255), nullable=True)
+    source: str = Column(String(50), nullable=False)
+    created_at: datetime = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class WeatherSnapshot(Base):
+    """Real-time NYC meteorological observations deduplicated by minute-bucket."""
+
+    __tablename__ = "weather_snapshots"
+    __table_args__ = (
+        PrimaryKeyConstraint("time_bucket", name="pk_weather_snapshots"),
+        Index("ix_weather_snapshots_recorded_at", "recorded_at"),
+        {"schema": "warehouse"},
+    )
+
+    time_bucket: datetime = Column(DateTime(timezone=True), primary_key=True)
+    recorded_at: datetime = Column(DateTime(timezone=True), nullable=False)
+    temp_c: float = Column(Float, nullable=False)
+    feels_like_c: Optional[float] = Column(Float, nullable=True)
+    humidity_pct: Optional[int] = Column(Integer, nullable=True)
+    wind_speed_kmh: Optional[float] = Column(Float, nullable=True)
+    precipitation_mm_1h: float = Column(Float, nullable=False, default=0.0)
+    is_precipitating: bool = Column(Boolean, nullable=False, default=False)
+    condition_main: Optional[str] = Column(String(50), nullable=True)
+    condition_description: Optional[str] = Column(String(100), nullable=True)
+    source: str = Column(String(50), nullable=False)
+    created_at: datetime = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class TransitSnapshot(Base):
+    """Real-time MTA subway line status and delay proxies."""
+
+    __tablename__ = "transit_snapshots"
+    __table_args__ = (
+        PrimaryKeyConstraint("route_id", "recorded_at", name="pk_transit_snapshots"),
+        Index("ix_transit_snapshots_recorded_at", "recorded_at"),
+        {"schema": "warehouse"},
+    )
+
+    route_id: str = Column(String(50), primary_key=True)
+    recorded_at: datetime = Column(DateTime(timezone=True), primary_key=True)
+    trip_id: Optional[str] = Column(String(100), nullable=True)
+    vehicle_id: Optional[str] = Column(String(100), nullable=True)
+    current_status: Optional[str] = Column(String(50), nullable=True)
+    stop_id: Optional[str] = Column(String(50), nullable=True)
+    delay_seconds: int = Column(Integer, nullable=False, default=0)
+    congestion_level: str = Column(String(50), nullable=False, default="NORMAL")
+    source: str = Column(String(50), nullable=False)
+    created_at: datetime = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

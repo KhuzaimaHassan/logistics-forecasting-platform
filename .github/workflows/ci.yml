@@ -138,6 +138,16 @@ jobs:
           REDPANDA_BROKER: localhost:9092
         run: |
           uv run python -u scripts/verify_live_feeds_stream.py
+      - name: Verify Live Redpanda Stream Consumer & PostgreSQL Ingestion
+        env:
+          REDPANDA_BROKER: localhost:9092
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+        run: |
+          uv run python -u scripts/verify_stream_consumer_smoke.py
 
       - name: Inspect container logs
         if: always()
