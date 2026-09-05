@@ -380,3 +380,93 @@ def test_consumer_deadletter_routing(mock_ensure, test_engine):
 
     # Verify consumer committed offset even on deadletter
     mock_consumer.commit.assert_called_once()
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_consumer_deadletter_routing_all_snapshot_types(mock_ensure, test_engine):
+    """Consumer routes malformed traffic, transit, and weather messages to deadletter with real failure reasons."""
+    mock_consumer = MagicMock()
+    mock_producer = MagicMock()
+
+    # 1. Malformed Traffic message: speed 150.0 mph exceeds 100.0 limit
+    traffic_msg = MagicMock()
+    traffic_msg.topic = TOPIC_TRAFFIC_SNAPSHOTS
+    traffic_msg.partition = 0
+    traffic_msg.offset = 101
+    traffic_msg.key = b"bad-traffic"
+    traffic_msg.value = {
+        "segment_id": "seg_123",
+        "speed_mph": 150.0,
+        "travel_time_seconds": 120,
+        "recorded_at": "2026-09-05T12:00:00Z",
+    }
+
+    # 2. Malformed Transit message: invalid congestion enum
+    transit_msg = MagicMock()
+    transit_msg.topic = TOPIC_TRANSIT_POSITIONS
+    transit_msg.partition = 0
+    transit_msg.offset = 102
+    transit_msg.key = b"bad-transit"
+    transit_msg.value = {
+        "route_id": "L",
+        "delay_seconds": 300,
+        "congestion_level": "SEVERE_GRIDLOCK",
+        "recorded_at": "2026-09-05T12:00:00Z",
+    }
+
+    # 3. Malformed Weather message: temp 75.0 C exceeds 55.0 C bound
+    weather_msg = MagicMock()
+    weather_msg.topic = TOPIC_WEATHER_SNAPSHOTS
+    weather_msg.partition = 0
+    weather_msg.offset = 103
+    weather_msg.key = b"bad-weather"
+    weather_msg.value = {
+        "temp_c": 75.0,
+        "recorded_at": "2026-09-05T12:00:00Z",
+    }
+
+    mock_consumer.poll.return_value = {
+        MagicMock(): [traffic_msg, transit_msg, weather_msg]
+    }
+
+    consumer_service = StreamConsumerService(
+        consumer=mock_consumer,
+        producer=mock_producer,
+        engine=test_engine,
+        broker="localhost:9092",
+    )
+
+    results = consumer_service.consume_batch(max_messages=3, timeout_seconds=1.0)
+    assert results["deadlettered"] == 3
+    assert results["processed"] == 0
+
+    # Verify all 3 rejections were routed to deadletter topic with accurate topic & error reasons
+    assert mock_producer.send.call_count == 3
+    calls = mock_producer.send.call_args_list
+
+    # Call 1: Traffic
+    c1_topic = calls[0].kwargs["topic"]
+    c1_val = calls[0].kwargs["value"]
+    assert c1_topic == TOPIC_TRIP_DEADLETTER
+    assert c1_val["topic"] == TOPIC_TRAFFIC_SNAPSHOTS
+    assert "speed_mph" in c1_val["error_reason"]
+    assert c1_val["offset"] == 101
+
+    # Call 2: Transit
+    c2_topic = calls[1].kwargs["topic"]
+    c2_val = calls[1].kwargs["value"]
+    assert c2_topic == TOPIC_TRIP_DEADLETTER
+    assert c2_val["topic"] == TOPIC_TRANSIT_POSITIONS
+    assert "congestion_level" in c2_val["error_reason"]
+    assert c2_val["offset"] == 102
+
+    # Call 3: Weather
+    c3_topic = calls[2].kwargs["topic"]
+    c3_val = calls[2].kwargs["value"]
+    assert c3_topic == TOPIC_TRIP_DEADLETTER
+    assert c3_val["topic"] == TOPIC_WEATHER_SNAPSHOTS
+    assert "temp_c" in c3_val["error_reason"]
+    assert c3_val["offset"] == 103
+
+    # Offsets committed for all messages
+    assert mock_consumer.commit.call_count == 3
