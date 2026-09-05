@@ -83,7 +83,7 @@ def seed_taxi_zones_if_empty(engine) -> None:
 def main() -> None:
     settings = get_settings()
     broker = os.getenv("REDPANDA_BROKER", settings.redpanda_broker)
-    db_url = settings.get_database_url(async_driver=False)
+    db_url = settings.database_url
 
     print("=" * 80)
     print("STARTING REAL-TIME STREAM CONSUMER LIVE VERIFICATION")
