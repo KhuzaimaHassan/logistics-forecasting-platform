@@ -104,9 +104,10 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
     - **Reconciliation Staleness Resolution:** Triggers an incremental offline feature extraction step (`offline_extractor.py` on sliding lookback window $[T - \text{lookback}, T]$) against `warehouse.trips` **prior** to invoking `store.materialize_incremental()`. This guarantees newly-ingested live/replay trips are reflected in offline aggregation tables, preventing `materialize_incremental()` from overwriting fresh pushed values with stale offline data.
   - Integration tests verifying that published stream events immediately update Redis feature vectors and match subsequent materialization states.
 - **Per-Ticket Context:** `docs/Feature-Store.md`, `docs/Decisions.md` (ADR-018).
-- **Files Touched:** `src/features/push_sources.py`, `src/orchestration/flows/realtime_reconciliation_flow.py`, `tests/test_realtime_features.py`.
-- **Estimated Size:** ~250 lines.
+- **Files Touched:** `src/features/push_sources.py`, `src/features/views.py`, `src/features/client.py`, `src/transform/stream_consumer.py`, `src/orchestration/flows/realtime_reconciliation_flow.py`, `tests/test_realtime_features.py`.
+- **Estimated Size:** ~450 lines.
 - **Depends On:** M4-3.
+- **Status:** Complete. Dedicated Feast `PushSource` and `FeatureView` definitions registered in `src/features/push_sources.py`. `FeastOnlineClient` supports hybrid coalescing (`use_push_features=True`) with transparent fallback to batch features. `StreamFeatureAggregator` computes 15m/1h sliding deques preserving offline extractor invariants; `StreamConsumerService` performs best-effort online store pushes with guaranteed partition commit continuity. Prefect two-stage `realtime_reconciliation_flow.py` extracts recent trips prior to incremental Redis materialization. Validated across 21 unit/integration tests in `test_realtime_features.py`, `test_online_features.py`, and `test_stream_consumer.py`.
 
 ### M4-5: End-to-End Real-Time Pipeline Integration & CI Smoke Verification
 - **Scope / Acceptance Criteria:**
