@@ -340,6 +340,19 @@ def main() -> None:
     print("Idempotence asserted: Zero duplicates created.")
 
     # Step 4: Malformed Messages & Dead-Letter Routing Verification
+    verify_deadletter_routing(
+        broker=broker,
+        consumer_service=consumer_service,
+        snapshot_consumer=snapshot_consumer,
+    )
+
+
+def verify_deadletter_routing(
+    broker: str,
+    consumer_service: StreamConsumerService,
+    snapshot_consumer: StreamConsumerService,
+) -> None:
+    """Publish malformed events across all 4 stream topics and assert observable deadletter routing."""
     print("\n" + "=" * 80)
     print("STEP 4: VERIFYING DELIBERATE MALFORMED DATA & DEAD-LETTER ROUTING")
     print("=" * 80)
@@ -372,26 +385,67 @@ def main() -> None:
         "source": "replay",
     }
     producer.send(TOPIC_TRIP_EVENTS, value=bad_trip_zone)
-    producer.flush()
-    print("Published 2 deliberately malformed trip events to 'trip.events'.")
 
-    # Use consumer_service which has already committed offsets past all valid trips
-    total_deadlettered = 0
+    # 3) Outlier traffic speed (150.0 mph exceeds 100.0 mph limit)
+    bad_traffic_speed = {
+        "segment_id": "seg_anomaly_99",
+        "speed_mph": 150.0,
+        "travel_time_seconds": 60,
+        "recorded_at": "2026-09-05T14:10:00+00:00",
+        "source": "socrata_live",
+    }
+    producer.send(TOPIC_TRAFFIC_SNAPSHOTS, value=bad_traffic_speed)
+
+    # 4) Invalid transit congestion enum ("SEVERE_GRIDLOCK" not in schema)
+    bad_transit_congestion = {
+        "route_id": "L",
+        "delay_seconds": 300,
+        "congestion_level": "SEVERE_GRIDLOCK",
+        "recorded_at": "2026-09-05T14:10:00+00:00",
+        "source": "mta_gtfs_live",
+    }
+    producer.send(TOPIC_TRANSIT_POSITIONS, value=bad_transit_congestion)
+
+    # 5) Outlier weather temperature (75.0 C exceeds 55.0 C bound)
+    bad_weather_temp = {
+        "temp_c": 75.0,
+        "recorded_at": "2026-09-05T14:10:00+00:00",
+        "source": "openweathermap_live",
+    }
+    producer.send(TOPIC_WEATHER_SNAPSHOTS, value=bad_weather_temp)
+    producer.flush()
+    print(
+        "Published 5 deliberately malformed events across all 4 stream topics (trips, traffic, transit, weather)."
+    )
+
+    # Consume malformed trips with consumer_service (already past valid trips on trip.events)
+    trip_deadlettered = 0
     start_poll = time.time()
-    while time.time() - start_poll < 10.0 and total_deadlettered < 2:
+    while time.time() - start_poll < 10.0 and trip_deadlettered < 2:
         dl_res = consumer_service.consume_batch(max_messages=5, timeout_seconds=2.0)
-        total_deadlettered += dl_res["deadlettered"]
+        trip_deadlettered += dl_res["deadlettered"]
         print(
-            f"Consumer processed batch: {dl_res} (cumulative deadlettered: {total_deadlettered})"
+            f"Consumer (Trips) processed batch: {dl_res} (cumulative trip deadlettered: {trip_deadlettered})"
         )
 
+    # Consume malformed snapshots with snapshot_consumer (already past valid snapshots on snapshot topics)
+    snapshot_deadlettered = 0
+    start_poll = time.time()
+    while time.time() - start_poll < 10.0 and snapshot_deadlettered < 3:
+        dl_res = snapshot_consumer.consume_batch(max_messages=5, timeout_seconds=2.0)
+        snapshot_deadlettered += dl_res["deadlettered"]
+        print(
+            f"Consumer (Snapshots) processed batch: {dl_res} (cumulative snapshot deadlettered: {snapshot_deadlettered})"
+        )
+
+    total_deadlettered = trip_deadlettered + snapshot_deadlettered
     assert (
-        total_deadlettered >= 2
-    ), f"Expected at least 2 deadlettered records, got {total_deadlettered}"
+        total_deadlettered >= 5
+    ), f"Expected at least 5 deadlettered records, got {total_deadlettered} (trips: {trip_deadlettered}, snapshots: {snapshot_deadlettered})"
 
     # Read back directly from trip.events.deadletter topic
     print(
-        "\nReading back quarantined records directly from 'trip.events.deadletter'..."
+        f"\nReading back quarantined records directly from '{TOPIC_TRIP_DEADLETTER}'..."
     )
     raw_dl_consumer = get_kafka_consumer(
         TOPIC_TRIP_DEADLETTER,
@@ -403,10 +457,19 @@ def main() -> None:
     )
 
     deadletter_records = []
+    required_topics = {
+        TOPIC_TRIP_EVENTS,
+        TOPIC_TRAFFIC_SNAPSHOTS,
+        TOPIC_TRANSIT_POSITIONS,
+        TOPIC_WEATHER_SNAPSHOTS,
+    }
     start_poll = time.time()
     for msg in raw_dl_consumer:
         deadletter_records.append(msg)
-        if len(deadletter_records) >= 2 or (time.time() - start_poll > 5):
+        topics_quarantined = {m.value.get("topic") for m in deadletter_records}
+        if required_topics.issubset(topics_quarantined) or (
+            time.time() - start_poll > 10
+        ):
             break
     raw_dl_consumer.close()
 
@@ -423,20 +486,44 @@ def main() -> None:
         print(f"  Raw Payload:   {json.dumps(val.get('raw_payload'))}")
 
     assert (
-        len(deadletter_records) >= 2
-    ), f"Expected at least 2 deadletter records, got {len(deadletter_records)}"
+        len(deadletter_records) >= 5
+    ), f"Expected at least 5 deadletter records, got {len(deadletter_records)}"
     reasons = [m.value.get("error_reason", "") for m in deadletter_records]
+    topics_quarantined = {m.value.get("topic") for m in deadletter_records}
+
     has_duration_err = any("duration" in r.lower() or "60" in r for r in reasons)
     has_zone_err = any("999" in r for r in reasons)
+    has_traffic_err = any("speed_mph" in r or "100" in r for r in reasons)
+    has_transit_err = any("congestion_level" in r for r in reasons)
+    has_weather_err = any("temp_c" in r or "55" in r for r in reasons)
+
     assert has_duration_err, f"Expected duration error in deadletter reasons: {reasons}"
     assert has_zone_err, f"Expected zone error in deadletter reasons: {reasons}"
+    assert (
+        has_traffic_err
+    ), f"Expected traffic speed error in deadletter reasons: {reasons}"
+    assert (
+        has_transit_err
+    ), f"Expected transit congestion error in deadletter reasons: {reasons}"
+    assert (
+        has_weather_err
+    ), f"Expected weather temperature error in deadletter reasons: {reasons}"
+
+    assert TOPIC_TRIP_EVENTS in topics_quarantined
+    assert TOPIC_TRAFFIC_SNAPSHOTS in topics_quarantined
+    assert TOPIC_TRANSIT_POSITIONS in topics_quarantined
+    assert TOPIC_WEATHER_SNAPSHOTS in topics_quarantined
 
     print("\n" + "=" * 80)
     print("ALL REAL-TIME STREAM CONSUMER VERIFICATIONS PASSED (100% PROVEN)")
     print("  - TLC Trip Replay -> Postgres warehouse.trips: PROVEN")
     print("  - External Feeds -> Postgres warehouse.*_snapshots: PROVEN")
     print("  - ON CONFLICT DO NOTHING Idempotence: PROVEN")
-    print("  - Observable Deadletter Routing (duration & zone validation): PROVEN")
+    print("  - Observable Deadletter Routing for all 4 feeds: PROVEN")
+    print("    * trip.events (duration & taxi zone validation)")
+    print("    * traffic.snapshots (speed bounds 0-100mph)")
+    print("    * transit.positions (congestion level enum)")
+    print("    * weather.snapshots (temperature bounds -35 to 55C)")
     print("=" * 80)
 
 
