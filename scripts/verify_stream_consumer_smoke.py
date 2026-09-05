@@ -457,10 +457,19 @@ def verify_deadletter_routing(
     )
 
     deadletter_records = []
+    required_topics = {
+        TOPIC_TRIP_EVENTS,
+        TOPIC_TRAFFIC_SNAPSHOTS,
+        TOPIC_TRANSIT_POSITIONS,
+        TOPIC_WEATHER_SNAPSHOTS,
+    }
     start_poll = time.time()
     for msg in raw_dl_consumer:
         deadletter_records.append(msg)
-        if len(deadletter_records) >= 5 or (time.time() - start_poll > 10):
+        topics_quarantined = {m.value.get("topic") for m in deadletter_records}
+        if required_topics.issubset(topics_quarantined) or (
+            time.time() - start_poll > 10
+        ):
             break
     raw_dl_consumer.close()
 
