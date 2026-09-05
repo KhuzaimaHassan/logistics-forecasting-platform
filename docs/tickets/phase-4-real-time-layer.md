@@ -54,21 +54,44 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
 - **Depends On:** M4-1.
 
 ### M4-3: Stream Consumer, Real-Time Validation & PostgreSQL Ingestion
+- **Cleaning & Validation Specification (Reused vs. Newly Defined):**
+  - **Reused Rules from `batch_transformer.py` (Trip Events on `trip.events`)**:
+    - `trip_duration_seconds`: $60\text{s} \le \text{duration} \le 86,400\text{s}$ (1 minute to 24 hours).
+    - `trip_distance_miles`: $0.01\text{ mi} \le \text{distance} \le 300.0\text{ mi}$ ($0.016\text{ km} \le \text{distance\_km} \le 482.8\text{ km}$).
+    - `passenger_count`: $1 \le \text{passengers} \le 9$ (if provided; nullable).
+    - `average_speed_mph`: $\le 100.0\text{ mph}$ (computed from distance / duration).
+    - `fare_amount`, `total_amount`, `tip_amount`: $\ge 0.0$ (non-negative).
+    - `pickup_zone_id`, `dropoff_zone_id`: Valid NYC taxi zone IDs in $[1, 265]$.
+    - `trip_id`: Deterministic positive 60-bit BigInteger generated via `generate_deterministic_trip_id`.
+  - **Newly Defined Plausibility Rules (Traffic, Transit, Weather Feeds)**:
+    - **Traffic (`traffic.snapshots`)**:
+      - `speed_mph`: $0.0 \le \text{speed\_mph} \le 100.0\text{ mph}$ ($0.0 \le \text{speed\_kmh} \le 160.93\text{ km/h}$). Speeds $< 0$ or $> 100\text{ mph}$ are rejected as sensor anomalies.
+      - `travel_time_seconds`: $0 \le \text{travel\_time\_seconds} \le 7,200\text{s}$ (max 2 hours per road segment).
+      - `segment_id`: Non-empty string.
+      - `recorded_at`: Valid ISO-8601 UTC timestamp within $[\text{now} - 30\text{d}, \text{now} + 24\text{h}]$.
+    - **Transit (`transit.positions`)**:
+      - `route_id`: Non-empty string (e.g. subway route `1`, `A`, `L`, `NYCT`).
+      - `delay_seconds`: $0 \le \text{delay\_seconds} \le 86,400\text{s}$ (non-negative, max 24 hours).
+      - `congestion_level`: Must match valid enum `{"NORMAL", "MODERATE", "HEAVY_DELAY", "UNKNOWN"}`.
+      - `recorded_at`: Valid ISO-8601 UTC timestamp within $[\text{now} - 30\text{d}, \text{now} + 24\text{h}]$.
+    - **Weather (`weather.snapshots`)**:
+      - `temp_c`: $-35.0^\circ\text{C} \le \text{temp\_c} \le 55.0^\circ\text{C}$ ($-31^\circ\text{F}$ to $131^\circ\text{F}$, NYC meteorological extreme bounds).
+      - `precipitation_mm_1h`: $0.0 \le \text{precipitation\_mm\_1h} \le 300.0\text{ mm}$ (non-negative, max cloudburst rate).
+      - `wind_speed_kmh`: $0.0 \le \text{wind\_speed\_kmh} \le 250.0\text{ km/h}$ (non-negative, hurricane bounds).
+      - `recorded_at`: Valid ISO-8601 UTC timestamp within $[\text{now} - 30\text{d}, \text{now} + 24\text{h}]$.
 - **Scope / Acceptance Criteria:**
-  - Implement stream consumer service in src/transform/stream_consumer.py:
-    - Subscribes to 	rip.events, 	raffic.snapshots, 	ransit.positions, weather.snapshots.
-    - Validates incoming payloads using Pydantic schemas.
-    - Applies real-time cleaning & normalization rules:
-      - UTC timestamp conversion.
-      - Taxi zone ID validation against warehouse.taxi_zones (1–263).
-      - Outlier filtering (\text{s} \le \text{duration} \le 86,400\text{s}$,  < \text{distance} \le 300\text{mi}$, etc.).
-    - Generates deterministic 64-bit 	rip_id and writes validated records to PostgreSQL warehouse.trips (source='replay' or 'live') with idempotent ON CONFLICT (trip_id) DO NOTHING.
-    - Writes traffic and weather snapshots to warehouse.traffic_snapshots and warehouse.weather_snapshots.
-    - Routes unparseable/poison records to 	rip.events.deadletter with failure reason metadata.
-    - Implements at-least-once delivery (commits Redpanda consumer offset only after successful DB transaction).
-  - Unit tests verifying deserialization, validation errors, dead-letter routing, and database insert operations.
-- **Per-Ticket Context:** docs/ETL-Streaming.md, docs/Database.md.
-- **Files Touched:** src/transform/stream_consumer.py, src/transform/schemas.py, 	ests/test_stream_consumer.py.
+  - Implement Pydantic validation schemas in `src/transform/schemas.py` for all 4 stream topics (`TripEventPayload`, `TrafficSnapshotPayload`, `TransitPositionPayload`, `WeatherSnapshotPayload`) and dead-letter payloads (`DeadletterPayload`).
+  - Implement stream consumer service in `src/transform/stream_consumer.py`:
+    - Subscribes to `trip.events`, `traffic.snapshots`, `transit.positions`, `weather.snapshots`.
+    - Validates incoming payloads with Pydantic; cleans and normalizes timestamps to UTC.
+    - Reuses `generate_deterministic_trip_id` from `src/transform/batch_transformer.py` for trip records.
+    - Writes valid records to PostgreSQL `warehouse.trips` (`source='replay'` or `'live'`), `warehouse.traffic_snapshots`, `warehouse.weather_snapshots`, `warehouse.transit_snapshots` with idempotent `ON CONFLICT DO NOTHING`.
+    - Routes validation and deserialization failures directly to Redpanda topic `trip.events.deadletter` with detailed error reason, raw payload, and timestamp.
+    - Enforces at-least-once delivery: commits consumer group offsets only after the PostgreSQL transaction succeeds.
+  - Unit tests in `tests/test_stream_consumer.py` verifying deserialization, schema validation rules, dead-letter routing, and DB upsert logic.
+- **Per-Ticket Context:** `docs/ETL-Streaming.md`, `docs/Database.md`, `docs/Decisions.md` (ADR-018, ADR-019).
+- **Files Touched:** `src/transform/stream_consumer.py`, `src/transform/schemas.py`, `src/common/models.py`, `tests/test_stream_consumer.py`, `scripts/verify_stream_consumer_smoke.py`.
+- **Estimated Size:** ~350 lines.
 - **Depends On:** M4-1, M4-2.
 
 ### M4-4: Feast Online Store Streaming Push & Reconciliation Flow (ADR-018)

@@ -161,6 +161,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:-logistics}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       REDIS_HOST: ${REDIS_HOST:-redis}
     networks:
       - logistics-net
@@ -179,6 +180,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:-logistics}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       REDIS_HOST: ${REDIS_HOST:-redis}
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
