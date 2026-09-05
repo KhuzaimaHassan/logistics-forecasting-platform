@@ -162,13 +162,21 @@ corridor_duration_feature_view = FeatureView(
 )
 
 
-def get_all_feature_views() -> List[FeatureView]:
+def get_all_feature_views(include_push: bool = False) -> List[FeatureView]:
     """Return all production FeatureView definitions configured for the platform.
 
+    Args:
+        include_push: If True, include streaming push feature views (ADR-018).
+
     Returns:
-        List of FeatureView objects [zone_demand_feature_view, corridor_duration_feature_view].
+        List of FeatureView objects.
     """
-    return [zone_demand_feature_view, corridor_duration_feature_view]
+    views = [zone_demand_feature_view, corridor_duration_feature_view]
+    if include_push:
+        from src.features.push_sources import get_push_feature_views
+
+        views.extend(get_push_feature_views())
+    return views
 
 
 # ---------------------------------------------------------------------------

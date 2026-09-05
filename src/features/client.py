@@ -29,6 +29,17 @@ ZONE_DEMAND_FEATURE_NAMES = [
     "zone_demand_features:is_precipitating",
 ]
 
+ZONE_DEMAND_PUSH_FEATURE_NAMES = [
+    "zone_demand_features_push:pickup_count_last_15m",
+    "zone_demand_features_push:pickup_count_last_1h",
+    "zone_demand_features_push:hour_of_day",
+    "zone_demand_features_push:day_of_week",
+    "zone_demand_features_push:is_weekend",
+    "zone_demand_features_push:is_holiday",
+    "zone_demand_features_push:avg_temp_last_1h",
+    "zone_demand_features_push:is_precipitating",
+]
+
 CORRIDOR_DURATION_FEATURE_NAMES = [
     "corridor_duration_features:avg_duration_last_15m",
     "corridor_duration_features:avg_duration_last_1h",
@@ -36,6 +47,39 @@ CORRIDOR_DURATION_FEATURE_NAMES = [
     "corridor_duration_features:origin_zone_demand_pressure",
     "corridor_duration_features:avg_traffic_speed_current",
 ]
+
+CORRIDOR_DURATION_PUSH_FEATURE_NAMES = [
+    "corridor_duration_features_push:avg_duration_last_15m",
+    "corridor_duration_features_push:avg_duration_last_1h",
+    "corridor_duration_features_push:avg_traffic_speed_current",
+    "corridor_duration_features_push:origin_zone_demand_pressure",
+]
+
+
+def _coalesce_feature(
+    data: Dict[str, List[Any]],
+    idx: int,
+    field: str,
+    push_view: Optional[str],
+    batch_view: str,
+    is_full: bool,
+) -> Any:
+    """Retrieve pushed value if present, falling back to batch value."""
+    if not is_full:
+        vals = data.get(field)
+        return vals[idx] if vals is not None else None
+
+    if push_view:
+        push_key = f"{push_view}__{field}"
+        push_vals = data.get(push_key)
+        if push_vals is not None and push_vals[idx] is not None:
+            return push_vals[idx]
+
+    batch_key = f"{batch_view}__{field}"
+    batch_vals = data.get(batch_key)
+    if batch_vals is not None:
+        return batch_vals[idx]
+    return None
 
 
 @dataclass(frozen=True)
@@ -124,9 +168,63 @@ class FeastOnlineClient:
         """Underlying Feast FeatureStore instance."""
         return self._store
 
+    def _fetch_zone_features(
+        self,
+        entity_rows: List[Dict[str, Any]],
+        use_push_features: bool,
+    ) -> tuple[Dict[str, List[Any]], bool]:
+        """Fetch raw zone feature dictionary from Feast store."""
+        if use_push_features:
+            try:
+                features_to_query = (
+                    ZONE_DEMAND_FEATURE_NAMES + ZONE_DEMAND_PUSH_FEATURE_NAMES
+                )
+                response = self._store.get_online_features(
+                    features=features_to_query,
+                    entity_rows=entity_rows,
+                    full_feature_names=True,
+                )
+                return response.to_dict(), True
+            except Exception as exc:
+                logger.debug("Falling back to batch-only zone features: %s", exc)
+
+        response = self._store.get_online_features(
+            features=ZONE_DEMAND_FEATURE_NAMES,
+            entity_rows=entity_rows,
+        )
+        return response.to_dict(), False
+
+    def _fetch_corridor_features(
+        self,
+        entity_rows: List[Dict[str, Any]],
+        use_push_features: bool,
+    ) -> tuple[Dict[str, List[Any]], bool]:
+        """Fetch raw corridor feature dictionary from Feast store."""
+        if use_push_features:
+            try:
+                features_to_query = (
+                    CORRIDOR_DURATION_FEATURE_NAMES
+                    + CORRIDOR_DURATION_PUSH_FEATURE_NAMES
+                )
+                response = self._store.get_online_features(
+                    features=features_to_query,
+                    entity_rows=entity_rows,
+                    full_feature_names=True,
+                )
+                return response.to_dict(), True
+            except Exception as exc:
+                logger.debug("Falling back to batch-only corridor features: %s", exc)
+
+        response = self._store.get_online_features(
+            features=CORRIDOR_DURATION_FEATURE_NAMES,
+            entity_rows=entity_rows,
+        )
+        return response.to_dict(), False
+
     def get_zone_demand_features(
         self,
         zone_ids: Union[int, List[int]],
+        use_push_features: bool = True,
     ) -> List[ZoneDemandOnlineFeatures]:
         """Retrieve latest zone demand features for one or more zone IDs from online store.
 
@@ -136,6 +234,7 @@ class FeastOnlineClient:
 
         Args:
             zone_ids: Single integer zone ID or list of zone IDs.
+            use_push_features: If True, query streaming push features and coalesce with batch.
 
         Returns:
             List of ZoneDemandOnlineFeatures matching the order of input zone_ids.
@@ -147,27 +246,93 @@ class FeastOnlineClient:
             return []
 
         entity_rows = [{"zone_id": zid} for zid in ids_list]
-        response = self._store.get_online_features(
-            features=ZONE_DEMAND_FEATURE_NAMES,
-            entity_rows=entity_rows,
-        )
-        data = response.to_dict()
+        data, is_full = self._fetch_zone_features(entity_rows, use_push_features)
 
         results: List[ZoneDemandOnlineFeatures] = []
         n_entities = len(ids_list)
         for i in range(n_entities):
             zid = ids_list[i]
 
-            val_15m = data["pickup_count_last_15m"][i]
-            val_1h = data["pickup_count_last_1h"][i]
-            val_24h = data["pickup_count_last_24h"][i]
-            val_last_week = data["pickup_count_same_hour_last_week"][i]
-            hour_of_day = data["hour_of_day"][i]
-            day_of_week = data["day_of_week"][i]
-            is_weekend = data["is_weekend"][i]
-            is_holiday = data["is_holiday"][i]
-            avg_temp = data["avg_temp_last_1h"][i]
-            is_precip = data["is_precipitating"][i]
+            val_15m = _coalesce_feature(
+                data,
+                i,
+                "pickup_count_last_15m",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
+            val_1h = _coalesce_feature(
+                data,
+                i,
+                "pickup_count_last_1h",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
+            val_24h = _coalesce_feature(
+                data,
+                i,
+                "pickup_count_last_24h",
+                None,
+                "zone_demand_features",
+                is_full,
+            )
+            val_last_week = _coalesce_feature(
+                data,
+                i,
+                "pickup_count_same_hour_last_week",
+                None,
+                "zone_demand_features",
+                is_full,
+            )
+            hour_of_day = _coalesce_feature(
+                data,
+                i,
+                "hour_of_day",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
+            day_of_week = _coalesce_feature(
+                data,
+                i,
+                "day_of_week",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
+            is_weekend = _coalesce_feature(
+                data,
+                i,
+                "is_weekend",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
+            is_holiday = _coalesce_feature(
+                data,
+                i,
+                "is_holiday",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
+            avg_temp = _coalesce_feature(
+                data,
+                i,
+                "avg_temp_last_1h",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
+            is_precip = _coalesce_feature(
+                data,
+                i,
+                "is_precipitating",
+                "zone_demand_features_push",
+                "zone_demand_features",
+                is_full,
+            )
 
             # Cache hit check: any non-None feature returned
             cache_hit = not (
@@ -206,6 +371,7 @@ class FeastOnlineClient:
     def get_corridor_duration_features(
         self,
         corridor_ids: Union[str, List[str]],
+        use_push_features: bool = True,
     ) -> List[CorridorDurationOnlineFeatures]:
         """Retrieve latest corridor duration features for one or more corridor IDs.
 
@@ -215,6 +381,7 @@ class FeastOnlineClient:
 
         Args:
             corridor_ids: Single string corridor ID (e.g. '161_236') or list of corridor IDs.
+            use_push_features: If True, query streaming push features and coalesce with batch.
 
         Returns:
             List of CorridorDurationOnlineFeatures matching the order of input corridor_ids.
@@ -226,22 +393,53 @@ class FeastOnlineClient:
             return []
 
         entity_rows = [{"corridor_id": cid} for cid in ids_list]
-        response = self._store.get_online_features(
-            features=CORRIDOR_DURATION_FEATURE_NAMES,
-            entity_rows=entity_rows,
-        )
-        data = response.to_dict()
+        data, is_full = self._fetch_corridor_features(entity_rows, use_push_features)
 
         results: List[CorridorDurationOnlineFeatures] = []
         n_entities = len(ids_list)
         for i in range(n_entities):
             cid = ids_list[i]
 
-            avg_15m = data["avg_duration_last_15m"][i]
-            avg_1h = data["avg_duration_last_1h"][i]
-            dist_km = data["distance_km"][i]
-            demand_pressure = data["origin_zone_demand_pressure"][i]
-            speed_current = data["avg_traffic_speed_current"][i]
+            avg_15m = _coalesce_feature(
+                data,
+                i,
+                "avg_duration_last_15m",
+                "corridor_duration_features_push",
+                "corridor_duration_features",
+                is_full,
+            )
+            avg_1h = _coalesce_feature(
+                data,
+                i,
+                "avg_duration_last_1h",
+                "corridor_duration_features_push",
+                "corridor_duration_features",
+                is_full,
+            )
+            dist_km = _coalesce_feature(
+                data,
+                i,
+                "distance_km",
+                None,
+                "corridor_duration_features",
+                is_full,
+            )
+            demand_pressure = _coalesce_feature(
+                data,
+                i,
+                "origin_zone_demand_pressure",
+                "corridor_duration_features_push",
+                "corridor_duration_features",
+                is_full,
+            )
+            speed_current = _coalesce_feature(
+                data,
+                i,
+                "avg_traffic_speed_current",
+                "corridor_duration_features_push",
+                "corridor_duration_features",
+                is_full,
+            )
 
             cache_hit = not (
                 avg_15m is None
@@ -276,6 +474,7 @@ class FeastOnlineClient:
         self,
         pickup_zone_id: int,
         dropoff_zone_id: int,
+        use_push_features: bool = True,
     ) -> PredictionOnlineFeatures:
         """Fetch all required features for a trip duration / demand prediction query.
 
@@ -284,13 +483,20 @@ class FeastOnlineClient:
         Args:
             pickup_zone_id: Origin taxi zone ID.
             dropoff_zone_id: Destination taxi zone ID.
+            use_push_features: If True, coalesce streaming push features with batch features.
 
         Returns:
             PredictionOnlineFeatures with combined feature payloads and cache status.
         """
         cid = build_corridor_id(pickup_zone_id, dropoff_zone_id)
-        zones = self.get_zone_demand_features([pickup_zone_id, dropoff_zone_id])
-        corridors = self.get_corridor_duration_features([cid])
+        zones = self.get_zone_demand_features(
+            [pickup_zone_id, dropoff_zone_id],
+            use_push_features=use_push_features,
+        )
+        corridors = self.get_corridor_duration_features(
+            [cid],
+            use_push_features=use_push_features,
+        )
 
         origin_demand = zones[0]
         destination_demand = zones[1]
@@ -338,17 +544,21 @@ def get_zone_demand_online_features(
     zone_ids: Union[int, List[int]],
     client: Optional[FeastOnlineClient] = None,
     store: Optional[FeatureStore] = None,
+    use_push_features: bool = True,
 ) -> List[ZoneDemandOnlineFeatures]:
     """Top-level convenience function to fetch zone demand online features."""
     c = client or (get_online_client(store=store) if store else get_online_client())
-    return c.get_zone_demand_features(zone_ids)
+    return c.get_zone_demand_features(zone_ids, use_push_features=use_push_features)
 
 
 def get_corridor_duration_online_features(
     corridor_ids: Union[str, List[str]],
     client: Optional[FeastOnlineClient] = None,
     store: Optional[FeatureStore] = None,
+    use_push_features: bool = True,
 ) -> List[CorridorDurationOnlineFeatures]:
     """Top-level convenience function to fetch corridor duration online features."""
     c = client or (get_online_client(store=store) if store else get_online_client())
-    return c.get_corridor_duration_features(corridor_ids)
+    return c.get_corridor_duration_features(
+        corridor_ids, use_push_features=use_push_features
+    )

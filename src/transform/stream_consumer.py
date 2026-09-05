@@ -20,9 +20,13 @@ import argparse
 import logging
 import signal
 import time
-from datetime import datetime, timezone
+from collections import deque
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import pandas as pd
+from feast import FeatureStore
+from feast.data_source import PushMode
 from kafka import KafkaConsumer, KafkaProducer
 from pydantic import ValidationError
 from sqlalchemy.engine import Engine
@@ -48,6 +52,7 @@ from src.common.models import (
     WarehouseTrip,
     WeatherSnapshot,
 )
+from src.features.offline_extractor import is_us_holiday
 from src.transform.batch_transformer import (
     VALID_ZONE_IDS as DEFAULT_ZONE_IDS,
 )
@@ -117,6 +122,157 @@ def execute_idempotent_insert(
         session.merge(obj)
 
 
+class StreamFeatureAggregator:
+    """In-memory sliding-window aggregator for sub-second streaming feature pushes.
+
+    Cross-reference: src/features/offline_extractor.py
+    Maintains identical temporal invariants:
+    - 15-minute rolling window: [T - 15m, T] with pickup_datetime <= T
+    - 1-hour rolling window: [T - 1h, T] with pickup_datetime <= T
+    - US holiday tagging via src.features.offline_extractor.is_us_holiday
+    """
+
+    def __init__(self) -> None:
+        self.zone_pickups: Dict[int, deque] = {}
+        self.corridor_durations: Dict[str, deque] = {}
+        self.latest_temp_c: Optional[float] = None
+        self.latest_is_precip: Optional[bool] = None
+        self.segment_speeds: Dict[int, float] = {}
+        self.latest_avg_speed_kmh: Optional[float] = None
+
+    def update_weather(
+        self, temp_c: Optional[float], is_precipitating: Optional[bool]
+    ) -> None:
+        """Update latest observed weather signals."""
+        if temp_c is not None:
+            self.latest_temp_c = float(temp_c)
+        if is_precipitating is not None:
+            self.latest_is_precip = bool(is_precipitating)
+
+    def update_traffic(self, segment_id: int, speed_kmh: Optional[float]) -> None:
+        """Update latest observed traffic speed signals."""
+        if speed_kmh is not None:
+            self.segment_speeds[segment_id] = float(speed_kmh)
+            if self.segment_speeds:
+                self.latest_avg_speed_kmh = sum(self.segment_speeds.values()) / len(
+                    self.segment_speeds
+                )
+
+    def record_trip(
+        self,
+        pickup_zone_id: int,
+        dropoff_zone_id: int,
+        pickup_datetime: datetime,
+        dropoff_datetime: datetime,
+        trip_duration_seconds: float,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Record trip event, update rolling windows, and return push DataFrames.
+
+        Cross-reference: src/features/offline_extractor.py
+        Strictly adheres to:
+        - [T - 15m, T] and [T - 1h, T] bounds for pickup counts
+        - [T - 15m, T] and [T - 1h, T] bounds for corridor trip durations
+        """
+        now_utc = datetime.now(timezone.utc)
+        pu_dt = (
+            pickup_datetime
+            if pickup_datetime.tzinfo
+            else pickup_datetime.replace(tzinfo=timezone.utc)
+        )
+        do_dt = (
+            dropoff_datetime
+            if dropoff_datetime.tzinfo
+            else dropoff_datetime.replace(tzinfo=timezone.utc)
+        )
+
+        # 1. Zone pickup rolling counts
+        if pickup_zone_id not in self.zone_pickups:
+            self.zone_pickups[pickup_zone_id] = deque()
+        q = self.zone_pickups[pickup_zone_id]
+        q.append(pu_dt)
+
+        cutoff_1h = pu_dt - timedelta(hours=1)
+        cutoff_15m = pu_dt - timedelta(minutes=15)
+        while q and q[0] < cutoff_1h:
+            q.popleft()
+
+        pickup_count_1h = len(q)
+        pickup_count_15m = sum(1 for t in q if t >= cutoff_15m)
+
+        hour_of_day = pu_dt.hour
+        day_of_week = pu_dt.weekday()
+        is_weekend = day_of_week in (5, 6)
+        is_holiday = is_us_holiday(pu_dt.date())
+
+        zone_df = pd.DataFrame(
+            [
+                {
+                    "zone_id": pickup_zone_id,
+                    "pickup_datetime": pu_dt,
+                    "created_at": now_utc,
+                    "pickup_count_last_15m": pickup_count_15m,
+                    "pickup_count_last_1h": pickup_count_1h,
+                    "hour_of_day": hour_of_day,
+                    "day_of_week": day_of_week,
+                    "is_weekend": is_weekend,
+                    "is_holiday": is_holiday,
+                    "avg_temp_last_1h": (
+                        float(self.latest_temp_c)
+                        if self.latest_temp_c is not None
+                        else 15.0
+                    ),
+                    "is_precipitating": (
+                        bool(self.latest_is_precip)
+                        if self.latest_is_precip is not None
+                        else False
+                    ),
+                }
+            ]
+        )
+
+        # 2. Corridor duration rolling averages
+        corridor_id = f"{pickup_zone_id}_{dropoff_zone_id}"
+        if corridor_id not in self.corridor_durations:
+            self.corridor_durations[corridor_id] = deque()
+        cq = self.corridor_durations[corridor_id]
+        cq.append((do_dt, float(trip_duration_seconds)))
+
+        c_cutoff_1h = do_dt - timedelta(hours=1)
+        c_cutoff_15m = do_dt - timedelta(minutes=15)
+        while cq and cq[0][0] < c_cutoff_1h:
+            cq.popleft()
+
+        recent_15m = [dur for dt, dur in cq if dt >= c_cutoff_15m]
+        avg_dur_15m = (
+            sum(recent_15m) / len(recent_15m)
+            if recent_15m
+            else float(trip_duration_seconds)
+        )
+        avg_dur_1h = (
+            sum(dur for _, dur in cq) / len(cq) if cq else float(trip_duration_seconds)
+        )
+
+        corridor_df = pd.DataFrame(
+            [
+                {
+                    "corridor_id": corridor_id,
+                    "dropoff_datetime": do_dt,
+                    "created_at": now_utc,
+                    "avg_duration_last_15m": float(avg_dur_15m),
+                    "avg_duration_last_1h": float(avg_dur_1h),
+                    "avg_traffic_speed_current": (
+                        float(self.latest_avg_speed_kmh)
+                        if self.latest_avg_speed_kmh is not None
+                        else 25.0
+                    ),
+                    "origin_zone_demand_pressure": int(pickup_count_1h),
+                }
+            ]
+        )
+
+        return zone_df, corridor_df
+
+
 class StreamConsumerService:
     """Consumes, validates, cleans, and stores streaming data with deadletter routing."""
 
@@ -129,6 +285,8 @@ class StreamConsumerService:
         group_id: str = "logistics_stream_consumer",
         topics: Optional[List[str]] = None,
         deadletter_topic: str = TOPIC_TRIP_DEADLETTER,
+        feature_store: Optional[FeatureStore] = None,
+        enable_feature_push: bool = True,
     ) -> None:
         self.settings = get_settings()
         self.broker = broker or self.settings.redpanda_broker
@@ -143,6 +301,9 @@ class StreamConsumerService:
 
         self.engine = engine or get_engine()
         self.producer = producer or get_kafka_producer(broker=self.broker)
+        self.feature_store = feature_store
+        self.enable_feature_push = enable_feature_push
+        self.aggregator = StreamFeatureAggregator()
 
         # Cache valid taxi zone IDs from warehouse.taxi_zones
         with Session(bind=self.engine) as init_session:
@@ -332,23 +493,58 @@ class StreamConsumerService:
 
     def process_record(
         self, topic: str, payload: Any, session: Session
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """Dispatch record to appropriate topic validator and DB insert logic."""
         if not isinstance(payload, dict):
             raise ValueError(f"Payload must be a JSON object/dict, got {type(payload)}")
 
+        db_record: Optional[Dict[str, Any]] = None
         if topic == TOPIC_TRIP_EVENTS:
-            self.process_trip_event(payload, session)
+            db_record = self.process_trip_event(payload, session)
         elif topic == TOPIC_TRAFFIC_SNAPSHOTS:
-            self.process_traffic_snapshot(payload, session)
+            db_record = self.process_traffic_snapshot(payload, session)
         elif topic == TOPIC_TRANSIT_POSITIONS:
-            self.process_transit_snapshot(payload, session)
+            db_record = self.process_transit_snapshot(payload, session)
         elif topic == TOPIC_WEATHER_SNAPSHOTS:
-            self.process_weather_snapshot(payload, session)
+            db_record = self.process_weather_snapshot(payload, session)
         else:
             raise ValueError(f"Unrecognized stream topic: {topic}")
 
-        return True, None
+        return True, db_record
+
+    def _push_features(self, topic: str, record: Dict[str, Any]) -> None:
+        """Push streaming features to Feast online store (best-effort)."""
+        try:
+            if topic == TOPIC_TRIP_EVENTS:
+                zone_df, corridor_df = self.aggregator.record_trip(
+                    pickup_zone_id=int(record["pickup_zone_id"]),
+                    dropoff_zone_id=int(record["dropoff_zone_id"]),
+                    pickup_datetime=record["pickup_datetime"],
+                    dropoff_datetime=record["dropoff_datetime"],
+                    trip_duration_seconds=float(record["trip_duration_seconds"]),
+                )
+                self.feature_store.push(
+                    "zone_demand_push_source", zone_df, to=PushMode.ONLINE
+                )
+                self.feature_store.push(
+                    "corridor_duration_push_source", corridor_df, to=PushMode.ONLINE
+                )
+            elif topic == TOPIC_WEATHER_SNAPSHOTS:
+                self.aggregator.update_weather(
+                    temp_c=record.get("temp_c"),
+                    is_precipitating=record.get("is_precipitating"),
+                )
+            elif topic == TOPIC_TRAFFIC_SNAPSHOTS:
+                self.aggregator.update_traffic(
+                    segment_id=int(record["segment_id"]),
+                    speed_kmh=record.get("speed_kmh"),
+                )
+        except Exception as exc:
+            logger.warning(
+                "Feast feature push failed for topic '%s' (reconciliation will catch up): %s",
+                topic,
+                exc,
+            )
 
     def _process_single_message(self, msg: Any, counts: Dict[str, int]) -> None:
         """Process a single Kafka message, updating DB or routing to deadletter."""
@@ -357,7 +553,7 @@ class StreamConsumerService:
 
         with Session(bind=self.engine) as session:
             try:
-                self.process_record(topic, payload, session)
+                _, db_record = self.process_record(topic, payload, session)
                 session.commit()
                 counts["processed"] += 1
                 if topic == TOPIC_TRIP_EVENTS:
@@ -368,6 +564,13 @@ class StreamConsumerService:
                     counts["transit"] += 1
                 elif topic == TOPIC_WEATHER_SNAPSHOTS:
                     counts["weather"] += 1
+
+                if (
+                    self.enable_feature_push
+                    and self.feature_store is not None
+                    and db_record
+                ):
+                    self._push_features(topic, db_record)
             except (ValidationError, ValueError, Exception) as exc:
                 session.rollback()
                 counts["deadlettered"] += 1
