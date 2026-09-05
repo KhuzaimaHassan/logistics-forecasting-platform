@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from src.common.config import get_settings
 from src.common.db import get_engine
 from src.common.kafka_utils import (
+    DEFAULT_TOPIC_CONFIGS,
     TOPIC_TRAFFIC_SNAPSHOTS,
     TOPIC_TRANSIT_POSITIONS,
     TOPIC_TRIP_DEADLETTER,
@@ -148,7 +149,13 @@ class StreamConsumerService:
             self.valid_zone_ids = load_valid_zone_ids(init_session)
 
         # Ensure topics exist in Redpanda
-        ensure_topics_exist(self.topics + [self.deadletter_topic], broker=self.broker)
+        topic_configs = {
+            t: DEFAULT_TOPIC_CONFIGS.get(
+                t, {"num_partitions": 1, "replication_factor": 1}
+            )
+            for t in (self.topics + [self.deadletter_topic])
+        }
+        ensure_topics_exist(broker=self.broker, topic_configs=topic_configs)
 
         self.consumer = consumer or get_kafka_consumer(
             *self.topics,
