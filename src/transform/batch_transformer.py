@@ -50,19 +50,31 @@ class TransformationReport:
 
 def generate_deterministic_trip_id(row: Any) -> int:
     """Generate a deterministic positive 60-bit BigInteger trip_id from a composite trip key."""
-    vendor_id = getattr(row, "vendor_id", 0)
-    pickup_dt = getattr(
-        row, "tpep_pickup_datetime", getattr(row, "pickup_datetime", "")
-    )
-    dropoff_dt = getattr(
-        row, "tpep_dropoff_datetime", getattr(row, "dropoff_datetime", "")
-    )
-    pu_id = getattr(row, "PULocationID", getattr(row, "pickup_zone_id", 0))
-    do_id = getattr(row, "DOLocationID", getattr(row, "dropoff_zone_id", 0))
-    fare = float(getattr(row, "fare_amount", 0.0) or 0.0)
-    dist = float(
-        getattr(row, "trip_distance", getattr(row, "trip_distance_miles", 0.0)) or 0.0
-    )
+    if isinstance(row, dict):
+        vendor_id = row.get("vendor_id", 0)
+        pickup_dt = row.get("tpep_pickup_datetime") or row.get("pickup_datetime", "")
+        dropoff_dt = row.get("tpep_dropoff_datetime") or row.get("dropoff_datetime", "")
+        pu_id = row.get("PULocationID") or row.get("pickup_zone_id", 0)
+        do_id = row.get("DOLocationID") or row.get("dropoff_zone_id", 0)
+        fare = float(row.get("fare_amount", 0.0) or 0.0)
+        dist = float(
+            row.get("trip_distance") or row.get("trip_distance_miles", 0.0) or 0.0
+        )
+    else:
+        vendor_id = getattr(row, "vendor_id", 0)
+        pickup_dt = getattr(
+            row, "tpep_pickup_datetime", getattr(row, "pickup_datetime", "")
+        )
+        dropoff_dt = getattr(
+            row, "tpep_dropoff_datetime", getattr(row, "dropoff_datetime", "")
+        )
+        pu_id = getattr(row, "PULocationID", getattr(row, "pickup_zone_id", 0))
+        do_id = getattr(row, "DOLocationID", getattr(row, "dropoff_zone_id", 0))
+        fare = float(getattr(row, "fare_amount", 0.0) or 0.0)
+        dist = float(
+            getattr(row, "trip_distance", getattr(row, "trip_distance_miles", 0.0))
+            or 0.0
+        )
 
     composite_key = (
         f"{vendor_id}|{pickup_dt}|{dropoff_dt}|{pu_id}|{do_id}|{fare:.2f}|{dist:.2f}"
