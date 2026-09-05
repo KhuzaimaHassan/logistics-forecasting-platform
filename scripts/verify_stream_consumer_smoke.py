@@ -340,6 +340,19 @@ def main() -> None:
     print("Idempotence asserted: Zero duplicates created.")
 
     # Step 4: Malformed Messages & Dead-Letter Routing Verification
+    verify_deadletter_routing(
+        broker=broker,
+        consumer_service=consumer_service,
+        snapshot_consumer=snapshot_consumer,
+    )
+
+
+def verify_deadletter_routing(
+    broker: str,
+    consumer_service: StreamConsumerService,
+    snapshot_consumer: StreamConsumerService,
+) -> None:
+    """Publish malformed events across all 4 stream topics and assert observable deadletter routing."""
     print("\n" + "=" * 80)
     print("STEP 4: VERIFYING DELIBERATE MALFORMED DATA & DEAD-LETTER ROUTING")
     print("=" * 80)
@@ -405,19 +418,30 @@ def main() -> None:
         "Published 5 deliberately malformed events across all 4 stream topics (trips, traffic, transit, weather)."
     )
 
-    # Use consumer_service which has already committed offsets past all valid events
-    total_deadlettered = 0
+    # Consume malformed trips with consumer_service (already past valid trips on trip.events)
+    trip_deadlettered = 0
     start_poll = time.time()
-    while time.time() - start_poll < 15.0 and total_deadlettered < 5:
-        dl_res = consumer_service.consume_batch(max_messages=10, timeout_seconds=2.0)
-        total_deadlettered += dl_res["deadlettered"]
+    while time.time() - start_poll < 10.0 and trip_deadlettered < 2:
+        dl_res = consumer_service.consume_batch(max_messages=5, timeout_seconds=2.0)
+        trip_deadlettered += dl_res["deadlettered"]
         print(
-            f"Consumer processed batch: {dl_res} (cumulative deadlettered: {total_deadlettered})"
+            f"Consumer (Trips) processed batch: {dl_res} (cumulative trip deadlettered: {trip_deadlettered})"
         )
 
+    # Consume malformed snapshots with snapshot_consumer (already past valid snapshots on snapshot topics)
+    snapshot_deadlettered = 0
+    start_poll = time.time()
+    while time.time() - start_poll < 10.0 and snapshot_deadlettered < 3:
+        dl_res = snapshot_consumer.consume_batch(max_messages=5, timeout_seconds=2.0)
+        snapshot_deadlettered += dl_res["deadlettered"]
+        print(
+            f"Consumer (Snapshots) processed batch: {dl_res} (cumulative snapshot deadlettered: {snapshot_deadlettered})"
+        )
+
+    total_deadlettered = trip_deadlettered + snapshot_deadlettered
     assert (
         total_deadlettered >= 5
-    ), f"Expected at least 5 deadlettered records, got {total_deadlettered}"
+    ), f"Expected at least 5 deadlettered records, got {total_deadlettered} (trips: {trip_deadlettered}, snapshots: {snapshot_deadlettered})"
 
     # Read back directly from trip.events.deadletter topic
     print(
