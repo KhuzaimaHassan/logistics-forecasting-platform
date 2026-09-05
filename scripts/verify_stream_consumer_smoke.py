@@ -375,17 +375,19 @@ def main() -> None:
     producer.flush()
     print("Published 2 deliberately malformed trip events to 'trip.events'.")
 
-    deadletter_consumer = StreamConsumerService(
-        broker=broker,
-        engine=engine,
-        group_id=f"smoke-deadletter-test-{uuid4().hex[:8]}",
-        topics=[TOPIC_TRIP_EVENTS],
-    )
-    dl_res = deadletter_consumer.consume_batch(max_messages=2, timeout_seconds=5.0)
-    print(f"Consumer processed batch: {dl_res}")
+    # Use consumer_service which has already committed offsets past all valid trips
+    total_deadlettered = 0
+    start_poll = time.time()
+    while time.time() - start_poll < 10.0 and total_deadlettered < 2:
+        dl_res = consumer_service.consume_batch(max_messages=5, timeout_seconds=2.0)
+        total_deadlettered += dl_res["deadlettered"]
+        print(
+            f"Consumer processed batch: {dl_res} (cumulative deadlettered: {total_deadlettered})"
+        )
+
     assert (
-        dl_res["deadlettered"] >= 2
-    ), f"Expected at least 2 deadlettered records, got {dl_res['deadlettered']}"
+        total_deadlettered >= 2
+    ), f"Expected at least 2 deadlettered records, got {total_deadlettered}"
 
     # Read back directly from trip.events.deadletter topic
     print(
