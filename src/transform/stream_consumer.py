@@ -301,8 +301,22 @@ class StreamConsumerService:
 
         self.engine = engine or get_engine()
         self.producer = producer or get_kafka_producer(broker=self.broker)
-        self.feature_store = feature_store
         self.enable_feature_push = enable_feature_push
+        if feature_store is not None:
+            self.feature_store = feature_store
+        elif self.enable_feature_push:
+            try:
+                from src.features.config import get_feature_store
+
+                self.feature_store = get_feature_store()
+            except Exception as exc:
+                logger.warning(
+                    "Could not initialize Feast FeatureStore for stream push: %s",
+                    exc,
+                )
+                self.feature_store = None
+        else:
+            self.feature_store = None
         self.aggregator = StreamFeatureAggregator()
 
         # Cache valid taxi zone IDs from warehouse.taxi_zones

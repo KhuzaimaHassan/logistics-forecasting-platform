@@ -120,9 +120,10 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
   - Wire live streaming smoke verification into CI workflow (`.github/workflows/docker-smoke.yml` / `verify_live_feast_smoke.py`).
   - Update `docs/Roadmap.md` marking Phase 4 as complete.
 - **Per-Ticket Context:** `docs/Architecture.md`, `docs/Roadmap.md`.
-- **Files Touched:** `scripts/verify_streaming_live_smoke.py`, `scripts/verify_live_feast_smoke.py`, `.github/workflows/docker-smoke.yml`, `docs/Roadmap.md`.
-- **Estimated Size:** ~250 lines.
+- **Files Touched:** `scripts/verify_streaming_live_smoke.py`, `src/features/registry.py`, `src/transform/stream_consumer.py`, `.github/workflows/ci.yml`, `docs/Roadmap.md`, `docs/tickets/phase-4-real-time-layer.md`.
+- **Estimated Size:** ~450 lines.
 - **Depends On:** M4-1, M4-2, M4-3, M4-4.
+- **Status:** Complete. Implemented end-to-end integration and smoke verification script `scripts/verify_streaming_live_smoke.py` with 7 comprehensive stages: infrastructure bootstrap & Feast push view registration (`include_push=True`), 100-trip historical replay burst, external live feeds burst, stream consumer ingestion to PostgreSQL (zero happy-path deadlettering), Feast online store feature retrieval with sub-second latency (<1s), deadletter quarantine observability verifying unmapped zone routing to `trip.events.deadletter`, and best-effort push failure resilience with Prefect `realtime_reconciliation_flow` online store catch-up proof. Integrated into `.github/workflows/ci.yml`. Phase 4 is 100% complete and verified.
 
 ---
 
@@ -133,5 +134,14 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
   - `transit.positions` and `weather.snapshots` are currently proven only via synthetic fallback — `MTA_API_KEY` and `OPENWEATHERMAP_API_KEY` were never obtained.
   - Real-data proof for these two feeds is a fast-follow, same pattern as ADR-007's R2 credentialing.
   - When API keys are provisioned in `.env` / CI secrets, execute `scripts/verify_live_feeds_stream.py` to assert live responses (`source: 'mta_live'`, `source: 'openweathermap_live'`).
+
+---
+
+## Tracked Drift Risks
+
+### DRIFT-001: Rolling Window Invariant Dual Maintenance (offline_extractor.py vs stream_consumer.py)
+- **Description:** `StreamFeatureAggregator` in `src/transform/stream_consumer.py` imports and reuses `is_us_holiday` directly from `src.features.offline_extractor`. However, due to the fundamentally different execution models ($O(1)$ amortized sliding window updates per streaming message vs vectorized DataFrame filtering over hourly grid checkpoints), the rolling window aggregation math ($[T - 15\text{m}, T]$ and $[T - 1\text{h}, T]$) is an independent in-memory sliding-deque reimplementation.
+- **Mitigation / Audit Requirement:** Any future change to ADR-015/016 windowing bounds, temporal cutoffs, or feature aggregations must be audited and updated across **both** `src/features/offline_extractor.py` and `src/transform/stream_consumer.py` to prevent silent drift between offline training features and online streaming features.
+
 
 
