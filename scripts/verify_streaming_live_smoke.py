@@ -138,7 +138,7 @@ def build_burst_trip_records(count: int = 100) -> List[Dict[str, Any]]:
     """Construct valid trip dictionaries within sliding 15m/1h window."""
     now_utc = datetime.now(timezone.utc)
     trips: List[Dict[str, Any]] = []
-    zone_pairs = [(161, 236), (236, 142), (142, 161)]
+    zone_pairs = [(161, 236), (236, 161)]
 
     for i in range(count):
         pu_zone, do_zone = zone_pairs[i % len(zone_pairs)]
@@ -217,11 +217,10 @@ def verify_stage3_external_feeds_burst(broker: str) -> int:
 
 def verify_stage4_consumer_ingestion(
     engine: Engine,
-    broker: str,
-    store: Any,
+    consumer: StreamConsumerService,
     expected_trips: int,
     expected_snapshots: int,
-) -> StreamConsumerService:
+) -> None:
     """Stage 4: Real-Time Stream Consumer ingests records to PostgreSQL."""
     print("\n" + "=" * 80)
     print("STAGE 4: STREAM CONSUMER PROCESSING & POSTGRESQL INGESTION")
@@ -235,27 +234,44 @@ def verify_stage4_consumer_ingestion(
             or 0
         )
 
-    consumer = StreamConsumerService(
-        broker=broker,
-        engine=engine,
-        group_id=f"smoke-live-{uuid4().hex[:8]}",
-        feature_store=store,
-        enable_feature_push=True,
-    )
-
     total_expected = expected_trips + expected_snapshots
-    batch_res = consumer.consume_batch(
-        max_messages=total_expected, timeout_seconds=15.0
-    )
-    print(f"Consumer batch ingestion results: {batch_res}")
+    accumulated = {
+        "processed": 0,
+        "deadlettered": 0,
+        "trips": 0,
+        "traffic": 0,
+        "transit": 0,
+        "weather": 0,
+    }
+    timeout_seconds = 25.0
+    start_time = time.time()
+    while time.time() - start_time < timeout_seconds:
+        remaining = total_expected - (
+            accumulated["processed"] + accumulated["deadlettered"]
+        )
+        if remaining <= 0:
+            break
+        batch_res = consumer.consume_batch(max_messages=remaining, timeout_seconds=2.0)
+        for k in accumulated:
+            accumulated[k] += batch_res.get(k, 0)
+        if (
+            accumulated["trips"] >= expected_trips
+            and (
+                accumulated["traffic"] + accumulated["transit"] + accumulated["weather"]
+            )
+            >= expected_snapshots
+        ):
+            break
+
+    print(f"Consumer batch ingestion results: {accumulated}")
 
     assert (
-        batch_res["trips"] == expected_trips
-    ), f"Expected {expected_trips} trips, got {batch_res['trips']}"
+        accumulated["trips"] == expected_trips
+    ), f"Expected {expected_trips} trips, got {accumulated['trips']}"
     assert (
-        batch_res["deadlettered"] == 0
-    ), f"Expected 0 deadlettered on happy path, got {batch_res['deadlettered']}"
-    assert batch_res["processed"] >= total_expected
+        accumulated["deadlettered"] == 0
+    ), f"Expected 0 deadlettered on happy path, got {accumulated['deadlettered']}"
+    assert accumulated["processed"] >= total_expected
 
     with engine.connect() as conn:
         new_trips = (
@@ -295,7 +311,6 @@ def verify_stage4_consumer_ingestion(
         f"PostgreSQL Ingestion Verified: warehouse.trips delta=+{new_trips - init_trips}, "
         f"traffic={traffic_rows}, weather={weather_rows}, transit={transit_rows}."
     )
-    return consumer
 
 
 def verify_stage5_feast_online_push(store: Any) -> None:
@@ -344,7 +359,9 @@ def verify_stage5_feast_online_push(store: Any) -> None:
     print("Feast Online Store Feature Push verified with sub-second retrieval.")
 
 
-def verify_stage6_deadletter_quarantine(broker: str, engine: Engine) -> None:
+def verify_stage6_deadletter_quarantine(
+    broker: str, consumer: StreamConsumerService
+) -> None:
     """Stage 6: Verify poison pill quarantine to 'trip.events.deadletter'."""
     print("\n" + "=" * 80)
     print("STAGE 6: DEAD-LETTER OBSERVABILITY & QUARANTINE VERIFICATION")
@@ -371,13 +388,6 @@ def verify_stage6_deadletter_quarantine(broker: str, engine: Engine) -> None:
     producer.close()
     print("Published poison message with invalid pickup_zone_id=999999.")
 
-    consumer = StreamConsumerService(
-        broker=broker,
-        engine=engine,
-        group_id=f"smoke-deadletter-{uuid4().hex[:8]}",
-        topics=[TOPIC_TRIP_EVENTS],
-        enable_feature_push=False,
-    )
     dl_res = consumer.consume_batch(max_messages=1, timeout_seconds=5.0)
     print(f"Consumer poison ingestion result: {dl_res}")
     assert (
@@ -418,6 +428,7 @@ def verify_stage7_push_resilience_and_reconciliation(
     engine: Engine,
     broker: str,
     store: Any,
+    consumer: StreamConsumerService,
 ) -> None:
     """Stage 7: Push outage resilience and Prefect reconciliation catch-up."""
     print("\n" + "=" * 80)
@@ -462,21 +473,21 @@ def verify_stage7_push_resilience_and_reconciliation(
     replay_producer.close()
     print("Published 10 trips during simulated push outage.")
 
-    consumer = StreamConsumerService(
-        broker=broker,
-        engine=engine,
-        group_id=f"smoke-resilience-{uuid4().hex[:8]}",
-        topics=[TOPIC_TRIP_EVENTS],
-        feature_store=store,
-        enable_feature_push=True,
-    )
-    res_batch = consumer.consume_batch(max_messages=10, timeout_seconds=10.0)
-    print(f"Consumer batch during outage: {res_batch}")
+    accumulated_res = {"processed": 0, "deadlettered": 0, "trips": 0}
+    start_time = time.time()
+    while time.time() - start_time < 15.0 and accumulated_res["processed"] < 10:
+        res_batch = consumer.consume_batch(
+            max_messages=10 - accumulated_res["processed"], timeout_seconds=2.0
+        )
+        for k in ["processed", "deadlettered", "trips"]:
+            accumulated_res[k] += res_batch.get(k, 0)
+
+    print(f"Consumer batch during outage: {accumulated_res}")
 
     # Consumer commits offset and continues; zero deadlettering
-    assert res_batch["processed"] == 10
+    assert accumulated_res["processed"] == 10
     assert (
-        res_batch["deadlettered"] == 0
+        accumulated_res["deadlettered"] == 0
     ), "Push failure should be best-effort and must not dead-letter valid trips!"
     assert store.push.called, "store.push should have been attempted"
 
@@ -500,6 +511,9 @@ def verify_stage7_push_resilience_and_reconciliation(
     print(
         f"Pre-reconciliation Zone 142 online features: {pre_reconcile[0].model_dump()}"
     )
+    assert (
+        pre_reconcile[0].pickup_count_last_15m == 0
+    ), f"Expected 0 pushed pickups for zone 142 due to push outage, got {pre_reconcile[0].pickup_count_last_15m}"
 
     # 4. Run Prefect realtime_reconciliation_flow to catch up Redis from Postgres
     print("Executing Prefect realtime_reconciliation_flow...")
@@ -519,6 +533,10 @@ def verify_stage7_push_resilience_and_reconciliation(
         f"Post-reconciliation Zone 142 online features: {post_reconcile[0].model_dump()}"
     )
     assert post_reconcile[0].zone_id == 142
+    assert (
+        post_reconcile[0].pickup_count_last_1h > 0
+        or post_reconcile[0].pickup_count_last_15m > 0
+    ), f"Expected positive pickup count after reconciliation, got {post_reconcile[0].model_dump()}"
     print(
         "Push outage resilience and Prefect reconciliation catch-up verified (100% PROVEN)."
     )
@@ -540,32 +558,51 @@ def main() -> None:
     # Stage 1: Bootstrap
     store, engine = verify_stage1_bootstrap(db_url, broker, redis_url)
 
-    # Stage 2: Replay burst
-    trips = build_burst_trip_records(count=100)
-    expected_trips = verify_stage2_replay_burst(broker, trips)
-
-    # Stage 3: Live external feeds burst
-    expected_snapshots = verify_stage3_external_feeds_burst(broker)
-
-    # Stage 4: Consumer processing & PostgreSQL ingestion
-    verify_stage4_consumer_ingestion(
-        engine=engine,
+    # Initialize consumer service and seek to end to ensure isolation from prior CI test runs
+    consumer = StreamConsumerService(
         broker=broker,
-        store=store,
-        expected_trips=expected_trips,
-        expected_snapshots=expected_snapshots,
+        engine=engine,
+        group_id=f"smoke-live-{uuid4().hex[:8]}",
+        feature_store=store,
+        enable_feature_push=True,
     )
+    start_seek = time.time()
+    while not consumer.consumer.assignment() and time.time() - start_seek < 5.0:
+        consumer.consumer.poll(timeout_ms=200)
+    assigned = consumer.consumer.assignment()
+    if assigned:
+        consumer.consumer.seek_to_end(*assigned)
+        consumer.consumer.commit()
+        print(f"Consumer assigned and seeked to end on partitions: {assigned}")
 
-    # Stage 5: Feast online store push verification
-    verify_stage5_feast_online_push(store=store)
+    try:
+        # Stage 2: Replay burst
+        trips = build_burst_trip_records(count=100)
+        expected_trips = verify_stage2_replay_burst(broker, trips)
 
-    # Stage 6: Deadletter observability & quarantine
-    verify_stage6_deadletter_quarantine(broker=broker, engine=engine)
+        # Stage 3: Live external feeds burst
+        expected_snapshots = verify_stage3_external_feeds_burst(broker)
 
-    # Stage 7: Push outage resilience & Prefect reconciliation catch-up
-    verify_stage7_push_resilience_and_reconciliation(
-        engine=engine, broker=broker, store=store
-    )
+        # Stage 4: Consumer processing & PostgreSQL ingestion
+        verify_stage4_consumer_ingestion(
+            engine=engine,
+            consumer=consumer,
+            expected_trips=expected_trips,
+            expected_snapshots=expected_snapshots,
+        )
+
+        # Stage 5: Feast online store push verification
+        verify_stage5_feast_online_push(store=store)
+
+        # Stage 6: Deadletter observability & quarantine
+        verify_stage6_deadletter_quarantine(broker=broker, consumer=consumer)
+
+        # Stage 7: Push outage resilience & Prefect reconciliation catch-up
+        verify_stage7_push_resilience_and_reconciliation(
+            engine=engine, broker=broker, store=store, consumer=consumer
+        )
+    finally:
+        consumer.close()
 
     print("\n" + "=" * 80)
     print("ALL 7 END-TO-END REAL-TIME PIPELINE VERIFICATIONS PASSED (100% PROVEN)")

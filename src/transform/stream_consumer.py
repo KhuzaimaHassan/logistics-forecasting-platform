@@ -624,8 +624,6 @@ class StreamConsumerService:
 
             records_dict = self.consumer.poll(timeout_ms=1000, max_records=batch_size)
             if not records_dict:
-                if max_messages and total_handled > 0:
-                    break
                 continue
 
             for messages in records_dict.values():
@@ -637,6 +635,11 @@ class StreamConsumerService:
                         >= max_messages
                     ):
                         break
+                if (
+                    max_messages
+                    and (counts["processed"] + counts["deadlettered"]) >= max_messages
+                ):
+                    break
 
         return counts
 
@@ -664,6 +667,13 @@ class StreamConsumerService:
                 time.sleep(1.0)
 
         logger.info("StreamConsumerService shutdown complete.")
+
+    def close(self) -> None:
+        """Close Kafka consumer and producer resources."""
+        if hasattr(self, "consumer") and self.consumer:
+            self.consumer.close()
+        if hasattr(self, "producer") and self.producer:
+            self.producer.close()
 
 
 def main() -> None:
