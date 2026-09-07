@@ -20,6 +20,7 @@ def apply_feature_definitions(
     views: Optional[List[FeatureView]] = None,
     repo_path: Optional[Union[str, Path]] = None,
     use_sqlite_fallback: bool = False,
+    include_push: bool = False,
 ) -> FeatureStore:
     """Programmatically register entities and feature views into the Feast SQL registry.
 
@@ -29,6 +30,7 @@ def apply_feature_definitions(
         views: List of Feast FeatureView objects to apply. Defaults to platform views if None.
         repo_path: Optional repository path if store is not provided.
         use_sqlite_fallback: Fallback flag if instantiating default store.
+        include_push: If True, include streaming push feature views (ADR-018).
 
     Returns:
         The updated FeatureStore instance.
@@ -45,7 +47,9 @@ def apply_feature_definitions(
         )
 
     target_entities = entities if entities is not None else get_all_entities()
-    target_views = views if views is not None else get_all_feature_views()
+    target_views = (
+        views if views is not None else get_all_feature_views(include_push=include_push)
+    )
 
     objects_to_apply = []
     if target_entities:
@@ -80,6 +84,11 @@ def main() -> None:
         action="store_true",
         help="Use SQLite fallback for local testing without PostgreSQL.",
     )
+    parser.add_argument(
+        "--include-push",
+        action="store_true",
+        help="Include streaming push feature views when applying definitions.",
+    )
 
     args = parser.parse_args()
 
@@ -106,7 +115,7 @@ def main() -> None:
             print(f"Registered Feature Views ({len(views)}): {[v.name for v in views]}")
         elif args.action == "apply":
             print(f"Applying definitions in {args.repo_path} to Feast registry...")
-            apply_feature_definitions(store=store)
+            apply_feature_definitions(store=store, include_push=args.include_push)
             entities = store.list_entities()
             views = store.list_feature_views()
             print(f"Registry updated for project '{store.project}'.")

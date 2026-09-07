@@ -149,6 +149,18 @@ jobs:
         run: |
           uv run python -u scripts/verify_stream_consumer_smoke.py
 
+      - name: Verify Live End-to-End Real-Time Pipeline Integration Smoke (M4-5)
+        env:
+          REDPANDA_BROKER: localhost:9092
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uv run python -u scripts/verify_streaming_live_smoke.py
+
       - name: Inspect container logs
         if: always()
         run: |
