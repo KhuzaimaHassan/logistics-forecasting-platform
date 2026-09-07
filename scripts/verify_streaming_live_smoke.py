@@ -22,6 +22,7 @@ from uuid import uuid4
 
 import redis
 from alembic.config import Config
+from kafka import OffsetAndMetadata
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
@@ -571,9 +572,16 @@ def main() -> None:
         consumer.consumer.poll(timeout_ms=200)
     assigned = consumer.consumer.assignment()
     if assigned:
-        consumer.consumer.seek_to_end(*assigned)
-        consumer.consumer.commit()
-        print(f"Consumer assigned and seeked to end on partitions: {assigned}")
+        end_offsets = consumer.consumer.end_offsets(list(assigned))
+        for tp, offset in end_offsets.items():
+            consumer.consumer.seek(tp, offset)
+        offsets_to_commit = {
+            tp: OffsetAndMetadata(offset, None) for tp, offset in end_offsets.items()
+        }
+        consumer.consumer.commit(offsets_to_commit)
+        print(
+            f"Consumer assigned and explicitly positioned at end offsets: {end_offsets}"
+        )
 
     try:
         # Stage 2: Replay burst
