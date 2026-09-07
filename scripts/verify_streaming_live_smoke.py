@@ -221,19 +221,12 @@ def verify_stage4_consumer_ingestion(
     consumer: StreamConsumerService,
     expected_trips: int,
     expected_snapshots: int,
+    init_trips: int,
 ) -> None:
     """Stage 4: Real-Time Stream Consumer ingests records to PostgreSQL."""
     print("\n" + "=" * 80)
     print("STAGE 4: STREAM CONSUMER PROCESSING & POSTGRESQL INGESTION")
     print("=" * 80)
-
-    with engine.connect() as conn:
-        init_trips = (
-            conn.execute(
-                text("SELECT COUNT(*) FROM warehouse.trips WHERE source = 'replay';")
-            ).scalar()
-            or 0
-        )
 
     total_expected = expected_trips + expected_snapshots
     accumulated = {
@@ -584,6 +577,17 @@ def main() -> None:
         )
 
     try:
+        # Pre-burst baseline count of warehouse.trips
+        with engine.connect() as conn:
+            init_trips = (
+                conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM warehouse.trips WHERE source = 'replay';"
+                    )
+                ).scalar()
+                or 0
+            )
+
         # Stage 2: Replay burst
         trips = build_burst_trip_records(count=100)
         expected_trips = verify_stage2_replay_burst(broker, trips)
@@ -597,6 +601,7 @@ def main() -> None:
             consumer=consumer,
             expected_trips=expected_trips,
             expected_snapshots=expected_snapshots,
+            init_trips=init_trips,
         )
 
         # Stage 5: Feast online store push verification
