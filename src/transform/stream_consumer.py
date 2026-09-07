@@ -301,8 +301,22 @@ class StreamConsumerService:
 
         self.engine = engine or get_engine()
         self.producer = producer or get_kafka_producer(broker=self.broker)
-        self.feature_store = feature_store
         self.enable_feature_push = enable_feature_push
+        if feature_store is not None:
+            self.feature_store = feature_store
+        elif self.enable_feature_push:
+            try:
+                from src.features.config import get_feature_store
+
+                self.feature_store = get_feature_store()
+            except Exception as exc:
+                logger.warning(
+                    "Could not initialize Feast FeatureStore for stream push: %s",
+                    exc,
+                )
+                self.feature_store = None
+        else:
+            self.feature_store = None
         self.aggregator = StreamFeatureAggregator()
 
         # Cache valid taxi zone IDs from warehouse.taxi_zones
@@ -610,8 +624,6 @@ class StreamConsumerService:
 
             records_dict = self.consumer.poll(timeout_ms=1000, max_records=batch_size)
             if not records_dict:
-                if max_messages and total_handled > 0:
-                    break
                 continue
 
             for messages in records_dict.values():
@@ -623,6 +635,11 @@ class StreamConsumerService:
                         >= max_messages
                     ):
                         break
+                if (
+                    max_messages
+                    and (counts["processed"] + counts["deadlettered"]) >= max_messages
+                ):
+                    break
 
         return counts
 
@@ -650,6 +667,13 @@ class StreamConsumerService:
                 time.sleep(1.0)
 
         logger.info("StreamConsumerService shutdown complete.")
+
+    def close(self) -> None:
+        """Close Kafka consumer and producer resources."""
+        if hasattr(self, "consumer") and self.consumer:
+            self.consumer.close()
+        if hasattr(self, "producer") and self.producer:
+            self.producer.close()
 
 
 def main() -> None:
