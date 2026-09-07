@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import time
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 from unittest.mock import MagicMock
@@ -330,7 +331,7 @@ def verify_stage5_feast_online_push(store: Any) -> None:
     ), f"Expected 2 feature vectors, got {len(zone_features)}"
 
     z161 = zone_features[0]
-    print(f"Zone 161 Pushed Online Features: {z161.model_dump()}")
+    print(f"Zone 161 Pushed Online Features: {asdict(z161)}")
     assert z161.zone_id == 161
     assert z161.pickup_count_last_15m > 0, "pickup_count_last_15m should be > 0"
     assert z161.pickup_count_last_1h > 0, "pickup_count_last_1h should be > 0"
@@ -348,8 +349,11 @@ def verify_stage5_feast_online_push(store: Any) -> None:
     ), f"Corridor retrieval latency exceeded 1000ms: {corr_latency_ms:.2f}ms"
     assert len(corridor_features) == 1
     c161_236 = corridor_features[0]
-    print(f"Corridor 161_236 Pushed Online Features: {c161_236.model_dump()}")
-    assert c161_236.avg_duration_seconds_last_15m > 0
+    print(f"Corridor 161_236 Pushed Online Features: {asdict(c161_236)}")
+    assert (
+        c161_236.avg_duration_last_15m is not None
+        and c161_236.avg_duration_last_15m > 0
+    )
     print("Feast Online Store Feature Push verified with sub-second retrieval.")
 
 
@@ -435,8 +439,20 @@ def verify_stage7_push_resilience_and_reconciliation(
         side_effect=RuntimeError("Simulated Redis online store push failure")
     )
 
-    # 2. Build 10 test trips specifically for zone 142 -> 236
+    # Pre-burst baseline count of warehouse.trips for zone 142
+    with engine.connect() as conn:
+        init_142 = (
+            conn.execute(
+                text("SELECT COUNT(*) FROM warehouse.trips WHERE pickup_zone_id = 142;")
+            ).scalar()
+            or 0
+        )
+
+    # 2. Build 10 test trips specifically for zone 142 -> 236 within target observation window
     now_utc = datetime.now(timezone.utc)
+    target_obs_hour = (now_utc + timedelta(hours=1)).replace(
+        minute=0, second=0, microsecond=0
+    )
     resilience_trips = [
         {
             "trip_id": 850000 + i,
@@ -444,8 +460,12 @@ def verify_stage7_push_resilience_and_reconciliation(
             "cab_type": "yellow",
             "pickup_zone_id": 142,
             "dropoff_zone_id": 236,
-            "pickup_datetime": (now_utc - timedelta(minutes=15 - i)).isoformat(),
-            "dropoff_datetime": (now_utc - timedelta(minutes=5 - i)).isoformat(),
+            "pickup_datetime": (
+                target_obs_hour - timedelta(minutes=30 - i)
+            ).isoformat(),
+            "dropoff_datetime": (
+                target_obs_hour - timedelta(minutes=20 - i)
+            ).isoformat(),
             "trip_duration_seconds": 600,
             "passenger_count": 1,
             "trip_distance_km": 3.0,
@@ -487,50 +507,48 @@ def verify_stage7_push_resilience_and_reconciliation(
 
     # Verify trips persisted in Postgres
     with engine.connect() as conn:
-        persisted = (
+        persisted_142 = (
             conn.execute(
-                text("SELECT COUNT(*) FROM warehouse.trips WHERE trip_id >= 850000;")
+                text("SELECT COUNT(*) FROM warehouse.trips WHERE pickup_zone_id = 142;")
             ).scalar()
             or 0
         )
     assert (
-        persisted == 10
-    ), f"Expected 10 persisted trips in warehouse.trips, got {persisted}"
+        persisted_142 - init_142 == 10
+    ), f"Expected 10 new persisted trips in warehouse.trips for zone 142, got {persisted_142 - init_142}"
 
     # 3. Restore real push and verify online store does NOT reflect failed push
     store.push = real_push
     client = FeastOnlineClient(store=store)
     # Zone 142 push view should not have received these 10 trips via push
     pre_reconcile = client.get_zone_demand_features([142], use_push_features=True)
-    print(
-        f"Pre-reconciliation Zone 142 online features: {pre_reconcile[0].model_dump()}"
-    )
+    print(f"Pre-reconciliation Zone 142 online features: {asdict(pre_reconcile[0])}")
     assert (
-        pre_reconcile[0].pickup_count_last_15m == 0
-    ), f"Expected 0 pushed pickups for zone 142 due to push outage, got {pre_reconcile[0].pickup_count_last_15m}"
+        pre_reconcile[0].pickup_count_last_15m is None
+        or pre_reconcile[0].pickup_count_last_15m == 0
+    ), f"Expected Redis not to reflect failed push (count is None or 0), got {pre_reconcile[0].pickup_count_last_15m}"
 
     # 4. Run Prefect realtime_reconciliation_flow to catch up Redis from Postgres
     print("Executing Prefect realtime_reconciliation_flow...")
     flow_res = realtime_reconciliation_flow(
         lookback_hours=3,
         lookback_days=1,
+        end_datetime=target_obs_hour,
         engine=engine,
         store=store,
     )
     print(f"Reconciliation flow results: {flow_res}")
     assert flow_res["status"] == "success"
-    assert flow_res["materialize_result"]["status"] == "success"
+    assert flow_res["materialization"]["status"] == "success"
 
     # 5. Verify online store caught up after reconciliation
     post_reconcile = client.get_zone_demand_features([142], use_push_features=False)
-    print(
-        f"Post-reconciliation Zone 142 online features: {post_reconcile[0].model_dump()}"
-    )
+    print(f"Post-reconciliation Zone 142 online features: {asdict(post_reconcile[0])}")
     assert post_reconcile[0].zone_id == 142
     assert (
-        post_reconcile[0].pickup_count_last_1h > 0
-        or post_reconcile[0].pickup_count_last_15m > 0
-    ), f"Expected positive pickup count after reconciliation, got {post_reconcile[0].model_dump()}"
+        post_reconcile[0].pickup_count_last_1h is not None
+        and post_reconcile[0].pickup_count_last_1h > 0
+    ), f"Expected positive pickup count after reconciliation, got {asdict(post_reconcile[0])}"
     print(
         "Push outage resilience and Prefect reconciliation catch-up verified (100% PROVEN)."
     )
