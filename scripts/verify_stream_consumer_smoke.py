@@ -226,7 +226,10 @@ def main() -> None:
             TOPIC_WEATHER_SNAPSHOTS,
         ],
     )
-    total_snapshots = sum(res["records_published"] for res in poll_results.values())
+    traffic_pub = poll_results["traffic"]["records_published"]
+    transit_pub = poll_results["transit"]["records_published"]
+    weather_pub = poll_results["weather"]["records_published"]
+    total_snapshots = traffic_pub + transit_pub + weather_pub
     snap_res = snapshot_consumer.consume_batch(
         max_messages=total_snapshots, timeout_seconds=15.0
     )
