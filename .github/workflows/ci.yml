@@ -136,6 +136,8 @@ jobs:
       - name: Verify Live Redpanda External Feeds Streaming (Traffic, Transit, Weather)
         env:
           REDPANDA_BROKER: localhost:9092
+          MTA_API_KEY: ${{ secrets.MTA_API_KEY }}
+          OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
         run: |
           uv run python -u scripts/verify_live_feeds_stream.py
       - name: Verify Live Redpanda Stream Consumer & PostgreSQL Ingestion
