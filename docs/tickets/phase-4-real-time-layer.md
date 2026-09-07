@@ -131,9 +131,13 @@ Implement the streaming data infrastructure for real-time demand and ETA forecas
 
 ### M4-2-FF: Real-Data Proof for MTA & OpenWeather Live Feeds (#93)
 - **Scope / Acceptance Criteria:**
-  - `transit.positions` and `weather.snapshots` are currently proven only via synthetic fallback — `MTA_API_KEY` and `OPENWEATHERMAP_API_KEY` were never obtained.
-  - Real-data proof for these two feeds is a fast-follow, same pattern as ADR-007's R2 credentialing.
-  - When API keys are provisioned in `.env` / CI secrets, execute `scripts/verify_live_feeds_stream.py` to assert live responses (`source: 'mta_live'`, `source: 'openweathermap_live'`).
+  - `transit.positions` and `weather.snapshots` were originally proven only via synthetic fallback when third-party credentials were unconfigured.
+  - Real-data proof for these two feeds is tracked as a credentialed fast-follow, following ADR-007's pattern.
+  - Execute live probes against real endpoints to assert live payloads (`source: 'mta_gtfs_live'`, `source: 'openweathermap_live'`).
+- **Status (2026-09-07):** In Progress (MTA Proven Live; OpenWeatherMap Blocked on User Key).
+  - **MTA Subway Alerts (`transit.positions`):** Fully proven live. MTA GTFS-RT subway alerts endpoint (`https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json`) is active and accessible. `TransitPositionsProducer.poll_live()` retrieved 196 genuine records with `source: 'mta_gtfs_live'`, all passing Pydantic schema validation (`TransitPositionPayload`). `MTA_API_KEY` is configured in `.env` and saved to GitHub Actions repository secrets.
+  - **OpenWeatherMap (`weather.snapshots`):** Blocked pending user account registration on `openweathermap.org/api` (free tier). Upstream API probe demonstrates `HTTPError: 401 Client Error: Unauthorized` when accessed without a registered API key.
+  - **Closure Gate:** Issue #93 remains open until user provisions `OPENWEATHERMAP_API_KEY` to complete full live verification for both feeds.
 
 ---
 

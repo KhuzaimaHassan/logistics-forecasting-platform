@@ -128,7 +128,7 @@ def test_transit_positions_producer_poll_live_mocked():
 def test_transit_positions_producer_synthetic_fallback():
     """Verify TransitPositionsProducer generates synthetic subway line status when no key is set."""
     mock_producer = MagicMock()
-    producer = TransitPositionsProducer(producer=mock_producer, api_key=None)
+    producer = TransitPositionsProducer(producer=mock_producer, api_key="")
 
     res = producer.poll_and_publish(force_synthetic=False)
     assert res["feed"] == "transit"
@@ -189,7 +189,7 @@ def test_weather_snapshots_producer_poll_live_mocked():
 def test_weather_snapshots_producer_synthetic_fallback():
     """Verify WeatherSnapshotsProducer fallback publishes synthetic weather snapshot."""
     mock_producer = MagicMock()
-    producer = WeatherSnapshotsProducer(producer=mock_producer, api_key=None)
+    producer = WeatherSnapshotsProducer(producer=mock_producer, api_key="")
 
     res = producer.poll_and_publish(force_synthetic=False)
     assert res["feed"] == "weather"
