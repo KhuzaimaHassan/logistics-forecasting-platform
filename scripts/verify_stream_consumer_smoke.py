@@ -226,7 +226,13 @@ def main() -> None:
             TOPIC_WEATHER_SNAPSHOTS,
         ],
     )
-    snap_res = snapshot_consumer.consume_batch(max_messages=50, timeout_seconds=10.0)
+    traffic_pub = poll_results["traffic"]["records_published"]
+    transit_pub = poll_results["transit"]["records_published"]
+    weather_pub = poll_results["weather"]["records_published"]
+    total_snapshots = traffic_pub + transit_pub + weather_pub
+    snap_res = snapshot_consumer.consume_batch(
+        max_messages=total_snapshots, timeout_seconds=15.0
+    )
     print(f"Consumer Batch Results (Snapshots): {snap_res}")
 
     with engine.connect() as conn:
@@ -421,8 +427,8 @@ def verify_deadletter_routing(
     # Consume malformed trips with consumer_service (already past valid trips on trip.events)
     trip_deadlettered = 0
     start_poll = time.time()
-    while time.time() - start_poll < 10.0 and trip_deadlettered < 2:
-        dl_res = consumer_service.consume_batch(max_messages=5, timeout_seconds=2.0)
+    while time.time() - start_poll < 15.0 and trip_deadlettered < 2:
+        dl_res = consumer_service.consume_batch(max_messages=20, timeout_seconds=3.0)
         trip_deadlettered += dl_res["deadlettered"]
         print(
             f"Consumer (Trips) processed batch: {dl_res} (cumulative trip deadlettered: {trip_deadlettered})"
@@ -431,8 +437,8 @@ def verify_deadletter_routing(
     # Consume malformed snapshots with snapshot_consumer (already past valid snapshots on snapshot topics)
     snapshot_deadlettered = 0
     start_poll = time.time()
-    while time.time() - start_poll < 10.0 and snapshot_deadlettered < 3:
-        dl_res = snapshot_consumer.consume_batch(max_messages=5, timeout_seconds=2.0)
+    while time.time() - start_poll < 20.0 and snapshot_deadlettered < 3:
+        dl_res = snapshot_consumer.consume_batch(max_messages=50, timeout_seconds=3.0)
         snapshot_deadlettered += dl_res["deadlettered"]
         print(
             f"Consumer (Snapshots) processed batch: {dl_res} (cumulative snapshot deadlettered: {snapshot_deadlettered})"
