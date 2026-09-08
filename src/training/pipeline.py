@@ -54,9 +54,6 @@ def _find_or_create_model_version(
         if v.run_id == candidate_run_id:
             return v
 
-    if versions:
-        return sorted(versions, key=lambda x: int(x.version))[-1]
-
     # Explicitly register model version from run artifact
     logger.info(
         "Registering model version for '%s' from run '%s'...",

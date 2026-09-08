@@ -344,7 +344,10 @@ def train_duration_lightgbm(
                     registered_model_name="corridor_duration_lightgbm_model",
                 )
             except Exception as model_err:
-                logger.warning("Could not log model binary to MLflow: %s", model_err)
+                logger.error(
+                    "Could not log model binary to MLflow: %s", model_err, exc_info=True
+                )
+                raise model_err
 
             logger.info("Logged Duration LightGBM run to MLflow Run ID: %s", run_id)
 
