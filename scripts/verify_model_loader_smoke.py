@@ -193,8 +193,8 @@ def main() -> None:
         duration_model_name=DURATION_MODEL_NAME,
     )
     loaded_models = loader.load_all()
-    demand_info = loaded_models["demand"]
-    duration_info = loaded_models["duration"]
+    demand_info = loaded_models[DEMAND_MODEL_NAME]
+    duration_info = loaded_models[DURATION_MODEL_NAME]
     load_time_sec = time.perf_counter() - t0
 
     print(

@@ -348,5 +348,6 @@ class ModelLoaderService:
         return {
             "all_models_loaded": all_ready,
             "has_fallback_models": any_fallback,
+            "fallback_active": any_fallback,
             "models": models_meta,
         }
