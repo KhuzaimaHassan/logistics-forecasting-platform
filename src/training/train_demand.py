@@ -271,7 +271,10 @@ def train_demand_lightgbm(
                     registered_model_name="demand_lightgbm_model",
                 )
             except Exception as model_err:
-                logger.warning("Could not log model binary to MLflow: %s", model_err)
+                logger.error(
+                    "Could not log model binary to MLflow: %s", model_err, exc_info=True
+                )
+                raise model_err
 
             logger.info("Logged Demand LightGBM run to MLflow Run ID: %s", run_id)
 
