@@ -122,6 +122,12 @@ jobs:
         run: |
           uv run python -u scripts/verify_live_feast_smoke.py
 
+      - name: Verify Live ModelLoaderService against Postgres-backed MLflow (M5-1)
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+        run: |
+          uv run python -u scripts/verify_model_loader_smoke.py
+
       - name: Verify Live Redpanda Topic Provisioning and Trip Replay Stream
         env:
           REDPANDA_BROKER: localhost:9092

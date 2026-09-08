@@ -814,6 +814,37 @@ def main() -> None:
         flush=True,
     )
 
+    # Ensure registered models have an active Production stage for online serving loader
+    import warnings
+
+    mlflow_client = get_mlflow_client()
+    demand_ver = pipeline_summary["demand"]["promotion"]["version"]
+    duration_ver = pipeline_summary["duration"]["promotion"]["version"]
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FutureWarning, module="mlflow.*")
+        if demand_ver:
+            mlflow_client.transition_model_version_stage(
+                name="demand_lightgbm_model",
+                version=str(demand_ver),
+                stage="Production",
+                archive_existing_versions=True,
+            )
+            print(
+                f"Explicitly promoted demand_lightgbm_model v{demand_ver} to 'Production' stage in MLflow registry.",
+                flush=True,
+            )
+        if duration_ver:
+            mlflow_client.transition_model_version_stage(
+                name="corridor_duration_lightgbm_model",
+                version=str(duration_ver),
+                stage="Production",
+                archive_existing_versions=True,
+            )
+            print(
+                f"Explicitly promoted corridor_duration_lightgbm_model v{duration_ver} to 'Production' stage in MLflow registry.",
+                flush=True,
+            )
+
     print(
         "\n=== Live Feast, MLflow, Baselines, Models & Pipeline Verification: ALL 19 CHECKS PASSED ===",
         flush=True,
