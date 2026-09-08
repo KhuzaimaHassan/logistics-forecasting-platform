@@ -331,6 +331,62 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Clean, maintainable, lightweight JSON ingestion with zero Protobuf compiler dependencies. Payload accurately delivers line-level delay and congestion severity directly to `transit.positions` and `warehouse.transit_snapshots`.
 
+---
 
+## ADR-020: Online Serving Architecture — MLflow Model Lifecycle, Startup Loading, Batch Inference Contracts, 60s Prediction Caching, and Degraded Fallbacks
 
+**Context:** In Phase 5, the online serving layer exposes low-latency HTTP prediction endpoints (`/predict/demand`, `/predict/eta`) and feature/health inspection endpoints (`/features/*`, `/health`, `/pipeline/status`) via FastAPI, reading real-time feature vectors from the Feast Redis online store and serving predictions from trained LightGBM models registered in MLflow. Four core architectural design decisions must be established:
+1. Model loading and in-memory caching at startup, lifecycle for picking up newly-promoted models, and MLflow registry stage API verification.
+2. Batch endpoint support and exact request/response shapes for demand and ETA predictions (closing the open question in `docs/API.md`).
+3. Concrete prediction caching time-to-live (TTL) in Redis.
+4. Feature-unavailable response contract when `FeastOnlineClient.get_online_features()` returns `cache_hit=False` (addressing the behavior proven in M2-4).
 
+**Decision:**
+
+1. **Model Loading at Startup & Lifecycle (Deferring Hot-Reload to Phase 6):**
+   - **Startup Eager Load:** On FastAPI startup (`lifespan` handler), `ModelLoader` connects to the MLflow tracking server, queries the Model Registry for active `Production` stage versions of `demand_lightgbm_model` and `corridor_duration_lightgbm_model`, loads the model artifacts into memory, and performs a warmup evaluation. If MLflow is temporarily unreachable, it logs a warning and loads local baseline models (`src/training/baseline.py`) as a graceful fallback.
+   - **Newly-Promoted Model Pickup (Container Restart):** In Phase 5, picking up a newly-promoted model is handled simply and reliably via container restart (`docker compose restart serving` or redeployment via CI/CD), which `Deployment.md` already specifies. This avoids premature complexity (managing staging slots, atomic pointer swapping under concurrent inference, and in-flight request drains) before the automated retraining and drift pipeline exists.
+   - **Deferred to Phase 6:** Zero-downtime atomic hot-reload (`POST /models/reload` or webhook-driven reloading) is formally tracked as a design item for Phase 6 (CI/CD & Retraining Automation), where retraining orchestration (`prefect` flow + deploy hooks) actually lives.
+   - **MLflow Registry API Confirmation:** Verified against the pinned MLflow version (`mlflow>=2.11.0` in `pyproject.toml`, resolved to `3.15.1` in `uv.lock`): `MlflowClient.transition_model_version_stage` and `MlflowClient.get_latest_versions(..., stages=['Production'])` remain fully functional and supported. Because `src/training/pipeline.py` explicitly promotes models to `stage="Production"`, `ModelLoader` targets `stages=["Production"]` directly without needing speculative alias dual-querying.
+
+2. **Batch Endpoint Support & Request/Response Contracts:**
+   - To support high-cardinality UI map rendering (all 263 active NYC taxi zones and top corridors) without incurring hundreds of sequential HTTP roundtrips, the service exposes dedicated batch POST endpoints alongside single-entity GET endpoints:
+     - **Demand Batch (`POST /predict/demand/batch`):**
+       - Request: `{"zone_ids": [161, 236, ...], "horizon_minutes": 15}`. If `zone_ids` is empty or omitted, defaults to all 263 active TLC zones.
+       - Vectorized Processing: Executes a single vectorized Redis lookup via `FeastOnlineClient.get_zone_demand_features(zone_ids)` (single Redis MGET) and scores the entire feature matrix in a single C++ LightGBM `predict()` call.
+       - Response: Returns a list of per-zone predictions with `status`, `cache_hit`, and model metadata.
+     - **ETA Batch (`POST /predict/eta/batch`):**
+       - Request: `{"corridors": [{"origin_zone_id": 161, "dest_zone_id": 236}, ...]}`.
+       - Vectorized Processing: Performs batched corridor and zone feature lookups and evaluates log1p duration predictions in a single matrix pass, inverting via $\hat{y} = \max(60.0, \exp(\hat{y}_{\text{log}}) - 1.0)$.
+       - Response: Returns an array of corridor ETA predictions in seconds and minutes.
+
+3. **Concrete 60-Second Prediction Caching TTL:**
+   - Prediction results are cached in Redis (with in-memory LRU fallback) using a fixed **60-second (60s)** TTL.
+   - Cache keys follow the schema `pred:demand:{zone_id}:{horizon_minutes}` and `pred:eta:{origin_zone_id}:{dest_zone_id}`.
+   - **Rationale:** While historical TLC batch features step at 15-minute intervals, streaming traffic speed updates, transit delays, and weather snapshots arrive at 10–60s intervals via Redpanda. A 60s TTL prevents duplicate inference stampedes when dashboards or multiple users refresh simultaneously, reduces p99 endpoint latency to sub-2ms, and guarantees prediction freshness stays bounded within 1 minute of live real-world updates.
+
+4. **Feature-Unavailable Response Contract (Degraded Fallback on Cache Miss):**
+   - In M2-4, `FeastOnlineClient` establishes that when an entity has never been materialized or its Redis TTL has expired, `get_online_features()` returns `cache_hit=False` with `None` fields rather than raising an error.
+   - **Invalid Entity ID ($< 1$ or $> 265$):** Returns **HTTP 404 Not Found** (`{"error": "ZoneNotFound", "detail": "Zone ID 999 does not exist"}`).
+   - **Valid Entity but Online Features Missing (`cache_hit=False`):** Returns **HTTP 200 with degraded status metadata** and a **genuine, non-zero prediction** computed by feeding the imputed feature vector (calendar harmonics calculated from current UTC time + zero rolling counts + zone base categorical encoding) directly into the LightGBM booster:
+     ```json
+     {
+       "zone_id": 263,
+       "horizon_minutes": 15,
+       "predicted_pickups": 4.2,
+       "status": "degraded_fallback",
+       "cache_hit": false,
+       "warning": "Real-time features unavailable in Redis; model inferred using default/historical feature imputation.",
+       "model_version": "1",
+       "as_of": "2026-09-08T15:30:00Z"
+     }
+     ```
+   - **Rationale:** Imputed inference is NOT a hardcoded 0.0 placeholder; the LightGBM model naturally accounts for zone-level baselines and time-of-day/day-of-week seasonality even when short-term rolling trip counters are cold. Returning HTTP 503 or 404 for quiet zones would crash frontend dashboards and agent tool calls. HTTP 200 with explicit degraded status metadata allows clients to render best-effort baseline predictions while displaying visual warning badges to operators.
+   - **HTTP 503 Service Unavailable** is strictly reserved for fatal serving failures where both the primary MLflow model and the local baseline fallback fail to execute.
+
+**Consequences:**
+- Sub-5ms cached response latency, sub-20ms uncached single-entity latency, and sub-50ms full-city batch latency.
+- Lean, robust startup model loading in Phase 5 without speculative hot-reload machinery; atomic reload tracked cleanly for Phase 6.
+- Direct alignment with verified MLflow 3.x Production stage registry API.
+- Genuine model predictions on imputed features during feature cache misses with clear degradation metadata.
+- Clean contract separation between non-existent entities (HTTP 404), unmaterialized features (HTTP 200 degraded), and system outages (HTTP 503).
