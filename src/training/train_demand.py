@@ -71,12 +71,8 @@ def prepare_demand_features(
 
     # Ensure zone_id is categorical with active TLC categories
     if "zone_id" in X.columns:
-        zone_series = (
-            pd.to_numeric(X["zone_id"], errors="coerce").fillna(0).astype(int)
-        )
-        X["zone_id"] = pd.Categorical(
-            zone_series, categories=ACTIVE_ZONE_CATEGORIES
-        )
+        zone_series = pd.to_numeric(X["zone_id"], errors="coerce").fillna(0).astype(int)
+        X["zone_id"] = pd.Categorical(zone_series, categories=ACTIVE_ZONE_CATEGORIES)
 
     # Extract temporal components if event_timestamp is present and columns missing
     if "event_timestamp" in X.columns:

@@ -53,14 +53,10 @@ def _extract_corridor_entities(X: pd.DataFrame) -> Tuple[pd.Series, pd.Series]:
         corridor_parts = X["corridor_id"].astype(str).str.split("_", expand=True)
         if corridor_parts.shape[1] >= 2:
             orig = (
-                pd.to_numeric(corridor_parts[0], errors="coerce")
-                .fillna(0)
-                .astype(int)
+                pd.to_numeric(corridor_parts[0], errors="coerce").fillna(0).astype(int)
             )
             dest = (
-                pd.to_numeric(corridor_parts[1], errors="coerce")
-                .fillna(0)
-                .astype(int)
+                pd.to_numeric(corridor_parts[1], errors="coerce").fillna(0).astype(int)
             )
             return (
                 pd.Categorical(orig, categories=ACTIVE_ZONE_CATEGORIES),

@@ -439,7 +439,7 @@ def verify_stage7_push_resilience_and_reconciliation(
         side_effect=RuntimeError("Simulated Redis online store push failure")
     )
 
-    # Pre-burst baseline count of warehouse.trips for zone 142
+    # Pre-burst baseline count of warehouse.trips and Redis features for zone 142
     with engine.connect() as conn:
         init_142 = (
             conn.execute(
@@ -447,6 +447,15 @@ def verify_stage7_push_resilience_and_reconciliation(
             ).scalar()
             or 0
         )
+    init_client = FeastOnlineClient(store=store)
+    init_online_142 = init_client.get_zone_demand_features(
+        [142], use_push_features=True
+    )
+    init_15m_count = (
+        init_online_142[0].pickup_count_last_15m
+        if init_online_142 and init_online_142[0].pickup_count_last_15m is not None
+        else 0
+    )
 
     # 2. Build 10 test trips specifically for zone 142 -> 236 within target observation window
     now_utc = datetime.now(timezone.utc)
@@ -523,10 +532,14 @@ def verify_stage7_push_resilience_and_reconciliation(
     # Zone 142 push view should not have received these 10 trips via push
     pre_reconcile = client.get_zone_demand_features([142], use_push_features=True)
     print(f"Pre-reconciliation Zone 142 online features: {asdict(pre_reconcile[0])}")
+    pre_reconcile_count = (
+        pre_reconcile[0].pickup_count_last_15m
+        if pre_reconcile and pre_reconcile[0].pickup_count_last_15m is not None
+        else 0
+    )
     assert (
-        pre_reconcile[0].pickup_count_last_15m is None
-        or pre_reconcile[0].pickup_count_last_15m == 0
-    ), f"Expected Redis not to reflect failed push (count is None or 0), got {pre_reconcile[0].pickup_count_last_15m}"
+        pre_reconcile_count == init_15m_count
+    ), f"Expected Redis not to reflect failed push (count remained {init_15m_count}), got {pre_reconcile_count}"
 
     # 4. Run Prefect realtime_reconciliation_flow to catch up Redis from Postgres
     print("Executing Prefect realtime_reconciliation_flow...")
