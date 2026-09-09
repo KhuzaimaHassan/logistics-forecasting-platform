@@ -3,7 +3,7 @@
 import logging
 import os
 import tempfile
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import lightgbm as lgb
 import mlflow
@@ -41,6 +41,8 @@ DEMAND_FEATURE_COLS = [
     "cos_day_of_week",
 ]
 
+ACTIVE_ZONE_CATEGORIES: List[int] = list(range(1, 264))
+
 CATEGORICAL_FEATURES = ["zone_id"]
 
 
@@ -67,9 +69,14 @@ def prepare_demand_features(
 
     X = df.copy()
 
-    # Ensure zone_id is categorical
+    # Ensure zone_id is categorical with active TLC categories
     if "zone_id" in X.columns:
-        X["zone_id"] = X["zone_id"].astype("category")
+        zone_series = (
+            pd.to_numeric(X["zone_id"], errors="coerce").fillna(0).astype(int)
+        )
+        X["zone_id"] = pd.Categorical(
+            zone_series, categories=ACTIVE_ZONE_CATEGORIES
+        )
 
     # Extract temporal components if event_timestamp is present and columns missing
     if "event_timestamp" in X.columns:

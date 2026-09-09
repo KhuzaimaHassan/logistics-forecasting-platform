@@ -3,7 +3,7 @@
 import logging
 import os
 import tempfile
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import lightgbm as lgb
 import mlflow
@@ -42,6 +42,8 @@ DURATION_FEATURE_COLS = [
     "cos_day_of_week",
 ]
 
+ACTIVE_ZONE_CATEGORIES: List[int] = list(range(1, 264))
+
 CATEGORICAL_FEATURES = ["pickup_zone_id", "dropoff_zone_id"]
 
 
@@ -50,10 +52,23 @@ def _extract_corridor_entities(X: pd.DataFrame) -> Tuple[pd.Series, pd.Series]:
     if "corridor_id" in X.columns:
         corridor_parts = X["corridor_id"].astype(str).str.split("_", expand=True)
         if corridor_parts.shape[1] >= 2:
-            return corridor_parts[0].astype("category"), corridor_parts[1].astype(
-                "category"
+            orig = (
+                pd.to_numeric(corridor_parts[0], errors="coerce")
+                .fillna(0)
+                .astype(int)
             )
-    zeros = pd.Series(0, index=X.index).astype("category")
+            dest = (
+                pd.to_numeric(corridor_parts[1], errors="coerce")
+                .fillna(0)
+                .astype(int)
+            )
+            return (
+                pd.Categorical(orig, categories=ACTIVE_ZONE_CATEGORIES),
+                pd.Categorical(dest, categories=ACTIVE_ZONE_CATEGORIES),
+            )
+    zeros = pd.Categorical(
+        pd.Series(0, index=X.index, dtype=int), categories=ACTIVE_ZONE_CATEGORIES
+    )
     return zeros, zeros
 
 
