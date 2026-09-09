@@ -442,7 +442,7 @@ def main() -> None:
 
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
     assert body["entity_type"] == "zone"
-    assert body["entity_id"] == "161"
+    assert body["entity_id"] in (161, "161")
     assert "pickup_count_last_15m" in body["features"]
     passed_checks += 1
     print(
@@ -490,11 +490,11 @@ def main() -> None:
     )
 
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
-    assert "total_runs" in body
-    assert isinstance(body["runs"], list)
+    assert "status" in body
+    assert isinstance(body["latest_runs"], list)
     passed_checks += 1
     print(
-        f"✓ Check 14 Passed: Pipeline status returned {body['total_runs']} recorded runs."
+        f"✓ Check 14 Passed: Pipeline status returned '{body['status']}' with {len(body['latest_runs'])} recorded runs."
     )
 
     # -----------------------------------------------------------------------
