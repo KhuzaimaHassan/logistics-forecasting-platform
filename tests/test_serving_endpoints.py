@@ -20,6 +20,10 @@ from src.features.client import (
     ZoneDemandOnlineFeatures,
 )
 from src.serving.app import app
+from src.serving.feature_extractor import (
+    build_corridor_feature_df,
+    build_demand_feature_df,
+)
 from src.serving.model_loader import (
     DEMAND_MODEL_NAME,
     DURATION_MODEL_NAME,
@@ -125,7 +129,7 @@ def mock_serving_environment():
                 CorridorDurationOnlineFeatures(
                     corridor_id=cid,
                     avg_duration_last_15m=870.0 if is_hit else None,
-                    avg_duration_last_1h=900.0 if is_hit else None,
+                    avg_duration_last_1h=720.0 if is_hit else None,
                     distance_km=3.8 if is_hit else None,
                     origin_zone_demand_pressure=1.15 if is_hit else None,
                     cache_hit=is_hit,
@@ -230,6 +234,33 @@ def test_predict_demand_batch_explicit_zones(mock_serving_environment):
     assert data["predictions"][0]["status"] == "ok"
     assert data["predictions"][1]["zone_id"] == 236
     assert data["predictions"][1]["status"] == "degraded_fallback"
+
+    # Assert distinct inputs yield distinct batch predictions (no broadcast / vector reuse)
+    pred_0 = data["predictions"][0]["predicted_pickups"]
+    pred_1 = data["predictions"][1]["predicted_pickups"]
+    assert (
+        pred_0 != pred_1
+    ), f"Batch predictions should differ for distinct zone features: {pred_0} == {pred_1}"
+
+
+def test_demand_batch_sensitivity_to_varied_features(mock_serving_environment):
+    """Test that varied synthetic feature inputs in a batch produce strictly distinct predictions."""
+    feat_high = ZoneDemandOnlineFeatures(
+        zone_id=161,
+        pickup_count_same_hour_last_week=50,
+        cache_hit=True,
+    )
+    feat_low = ZoneDemandOnlineFeatures(
+        zone_id=236,
+        pickup_count_same_hour_last_week=10,
+        cache_hit=True,
+    )
+    batch_df = build_demand_feature_df([feat_high, feat_low])
+    loader = app.state.model_loader
+    model = loader.get_model(DEMAND_MODEL_NAME)
+    preds = model.predict(batch_df)
+    assert preds[0] != preds[1]
+    assert preds[0] > preds[1]
 
 
 def test_predict_demand_batch_all_active_zones_default(
@@ -336,6 +367,38 @@ def test_predict_eta_batch_ok(mock_serving_environment):
     assert data["predictions"][0]["status"] == "ok"
     assert data["predictions"][1]["corridor_id"] == "100_200"
     assert data["predictions"][1]["status"] == "degraded_fallback"
+
+    # Assert distinct inputs yield distinct batch predictions (no broadcast / vector reuse)
+    eta_0 = data["predictions"][0]["predicted_duration_seconds"]
+    eta_1 = data["predictions"][1]["predicted_duration_seconds"]
+    assert (
+        eta_0 != eta_1
+    ), f"Batch ETA predictions should differ for distinct corridor features: {eta_0} == {eta_1}"
+
+
+def test_eta_batch_sensitivity_to_varied_features(mock_serving_environment):
+    """Test that varied synthetic corridor inputs in a batch produce strictly distinct ETA predictions."""
+    feat_long = CorridorDurationOnlineFeatures(
+        corridor_id="161_236",
+        avg_duration_last_1h=1200.0,
+        distance_km=8.5,
+        cache_hit=True,
+    )
+    feat_short = CorridorDurationOnlineFeatures(
+        corridor_id="236_142",
+        avg_duration_last_1h=300.0,
+        distance_km=1.2,
+        cache_hit=True,
+    )
+    batch_df = build_corridor_feature_df(
+        [feat_long, feat_short],
+        origin_dest_pairs=[(161, 236), (236, 142)],
+    )
+    loader = app.state.model_loader
+    model = loader.get_model(DURATION_MODEL_NAME)
+    preds = model.predict(batch_df)
+    assert preds[0] != preds[1]
+    assert preds[0] > preds[1]
 
 
 @pytest.mark.parametrize(

@@ -136,6 +136,7 @@ jobs:
       - name: Verify Live FastAPI Serving Endpoints (M5-2)
         env:
           FASTAPI_URL: http://localhost
+          MLFLOW_TRACKING_URI: http://localhost:5000
         run: |
           uv run python -u scripts/verify_serving_endpoints_smoke.py
 

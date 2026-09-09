@@ -24,7 +24,23 @@ import sys
 import time
 from typing import Any
 
+import numpy as np
 import requests
+
+from src.features.client import (
+    CorridorDurationOnlineFeatures,
+    ZoneDemandOnlineFeatures,
+)
+from src.serving.feature_extractor import (
+    build_corridor_feature_df,
+    build_demand_feature_df,
+    invert_log_duration,
+)
+from src.serving.model_loader import (
+    DEMAND_MODEL_NAME,
+    DURATION_MODEL_NAME,
+    ModelLoaderService,
+)
 
 # Insulate against Windows console encoding errors when printing Unicode
 if sys.platform == "win32":
@@ -90,8 +106,127 @@ def print_http_exchange(
     print(f"   Response Body:\n{json.dumps(resp_body, indent=2)}", flush=True)
 
 
+def verify_demand_batch_sensitivity(loader: ModelLoaderService) -> None:
+    """Verify that varied synthetic feature inputs produce strictly distinct batch demand predictions.
+
+    Guards against vector broadcasting bugs, row reuse, or silent model invariance across batch entities.
+    """
+    print("\n   --- Batch Demand Input Sensitivity Assertion ---", flush=True)
+    demand_model_info = loader.get_model(DEMAND_MODEL_NAME)
+    demand_model = demand_model_info.model
+
+    # Construct two synthetic feature sets with deliberately contrasting recent pickup activity
+    feat_high = ZoneDemandOnlineFeatures(
+        zone_id=161,
+        pickup_count_last_15m=25,
+        pickup_count_last_1h=75,
+        pickup_count_last_24h=850,
+        pickup_count_same_hour_last_week=40,
+        hour_of_day=14,
+        day_of_week=2,
+        is_weekend=False,
+        is_holiday=False,
+        cache_hit=True,
+    )
+    feat_low = ZoneDemandOnlineFeatures(
+        zone_id=236,
+        pickup_count_last_15m=0,
+        pickup_count_last_1h=0,
+        pickup_count_last_24h=0,
+        pickup_count_same_hour_last_week=0,
+        hour_of_day=14,
+        day_of_week=2,
+        is_weekend=False,
+        is_holiday=False,
+        cache_hit=False,
+    )
+
+    batch_df = build_demand_feature_df([feat_high, feat_low])
+    raw_preds = demand_model.predict(batch_df)
+    preds = [float(p) for p in np.asarray(raw_preds).flatten()]
+
+    print(
+        f"   Synthetic Row 0 (Zone 161, pickup_count_last_15m=25): predicted_pickups={preds[0]:.2f}",
+        flush=True,
+    )
+    print(
+        f"   Synthetic Row 1 (Zone 236, pickup_count_last_15m=0):  predicted_pickups={preds[1]:.2f}",
+        flush=True,
+    )
+
+    assert preds[0] != preds[1], (
+        f"Batch demand sensitivity regression: distinct feature inputs produced identical predictions "
+        f"({preds[0]:.2f} == {preds[1]:.2f})!"
+    )
+    diff = abs(preds[0] - preds[1])
+    print(
+        f"   ✓ Batch demand sensitivity verified: distinct inputs yielded distinct outputs (|Δ|={diff:.2f} pickups).",
+        flush=True,
+    )
+
+
+def verify_eta_batch_sensitivity(loader: ModelLoaderService) -> None:
+    """Verify that varied synthetic corridor inputs produce strictly distinct batch ETA predictions.
+
+    Guards against vector broadcasting bugs, row reuse, or silent model invariance across batch corridors.
+    """
+    print("\n   --- Batch ETA Input Sensitivity Assertion ---", flush=True)
+    duration_model_info = loader.get_model(DURATION_MODEL_NAME)
+    duration_model = duration_model_info.model
+
+    # Construct two synthetic corridor feature sets with contrasting distance and historical speed
+    feat_long = CorridorDurationOnlineFeatures(
+        corridor_id="161_236",
+        avg_duration_last_15m=1200.0,
+        avg_duration_last_1h=1100.0,
+        distance_km=8.5,
+        origin_zone_demand_pressure=5,
+        cache_hit=True,
+    )
+    feat_short = CorridorDurationOnlineFeatures(
+        corridor_id="236_142",
+        avg_duration_last_15m=300.0,
+        avg_duration_last_1h=350.0,
+        distance_km=1.2,
+        origin_zone_demand_pressure=1,
+        cache_hit=True,
+    )
+
+    batch_df = build_corridor_feature_df(
+        [feat_long, feat_short],
+        origin_dest_pairs=[(161, 236), (236, 142)],
+    )
+    raw_preds = duration_model.predict(batch_df)
+    is_log = not duration_model_info.is_fallback
+
+    dur_sec_0, dur_min_0 = invert_log_duration(raw_preds[0], is_log_space=is_log)
+    dur_sec_1, dur_min_1 = invert_log_duration(raw_preds[1], is_log_space=is_log)
+
+    print(
+        f"   Synthetic Row 0 (Corridor 161_236, dist=8.5km, hist=1200s): predicted_duration={dur_sec_0:.1f}s ({dur_min_0:.2f}m)",
+        flush=True,
+    )
+    print(
+        f"   Synthetic Row 1 (Corridor 236_142, dist=1.2km, hist=300s):  predicted_duration={dur_sec_1:.1f}s ({dur_min_1:.2f}m)",
+        flush=True,
+    )
+
+    assert dur_sec_0 != dur_sec_1, (
+        f"Batch ETA sensitivity regression: distinct corridor inputs produced identical predictions "
+        f"({dur_sec_0:.1f}s == {dur_sec_1:.1f}s)!"
+    )
+    diff = abs(dur_sec_0 - dur_sec_1)
+    print(
+        f"   ✓ Batch ETA sensitivity verified: distinct inputs yielded distinct outputs (|Δ|={diff:.1f}s).",
+        flush=True,
+    )
+
+
 def main() -> None:
     base_url = get_base_url()
+    mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    loader = ModelLoaderService(tracking_uri=mlflow_uri)
+
     print_section(
         f"M5-2 SMOKE VERIFICATION: FastAPI Prediction & Inspection Endpoints\nTarget URL: {base_url}"
     )
@@ -232,9 +367,12 @@ def main() -> None:
         assert item["zone_id"] in [161, 236, 237, 142]
         assert isinstance(item["predicted_pickups"], (int, float))
         assert item["predicted_pickups"] >= 0.0
+
+    # Sensitivity assertion: verify deliberately varied synthetic feature inputs produce different predictions
+    verify_demand_batch_sensitivity(loader)
     passed_checks += 1
     print(
-        f"✓ Check 5 Passed: Vectorized demand batch returned 4 predictions in {lat:.1f}ms."
+        f"✓ Check 5 Passed: Vectorized demand batch returned 4 predictions in {lat:.1f}ms (differential sensitivity verified)."
     )
 
     # -----------------------------------------------------------------------
@@ -395,9 +533,12 @@ def main() -> None:
         assert pred["predicted_duration_minutes"] == round(
             pred["predicted_duration_seconds"] / 60.0, 2
         )
+
+    # Sensitivity assertion: verify deliberately varied synthetic corridor inputs produce different predictions
+    verify_eta_batch_sensitivity(loader)
     passed_checks += 1
     print(
-        f"✓ Check 10 Passed: Vectorized ETA batch returned 3 predictions in {lat:.1f}ms."
+        f"✓ Check 10 Passed: Vectorized ETA batch returned 3 predictions in {lat:.1f}ms (differential sensitivity verified)."
     )
 
     # -----------------------------------------------------------------------
