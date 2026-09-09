@@ -281,11 +281,16 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
    - Train the corridor ETA model on log-transformed targets $y_{\text{log}} = \ln(1 + \text{duration\_sec})$.
    - Invert predictions during evaluation and serving via $\hat{y} = \max(60.0, \exp(\hat{y}_{\text{log}}) - 1.0)$, respecting the 60s physical minimum trip duration floor.
    - Compute all validation metrics (MAE, RMSE, WAPE, MedAE) in **original seconds** against ground truth $y_{\text{val}}$ for direct, unskewed comparison against baseline benchmarks.
+4. **Standardized Integer Categorical Domain (Phase 5 Alignment Addendum):**
+   - Standardize `pickup_zone_id`, `dropoff_zone_id` (in `train_duration.py`), and `zone_id` (in `train_demand.py`) to an explicit `pd.Categorical` type indexed across all 263 active TLC taxi zones (`ACTIVE_ZONE_CATEGORIES = list(range(1, 264))`).
+   - Previously, M3-4 extracted corridor origin/destination zones as string categories (e.g. `['161', '236']` via string split) and dynamically inferred demand categories from training slice subsets. This caused LightGBM at serving time to treat incoming integer zone categories as unseen categories, falling back to default tree leaves.
+   - Aligning both training scripts to `pd.Categorical(..., categories=list(range(1, 264)))` ensures identical categorical code indexing across offline training and online serving. Future model retrains will learn partition splits over this standardized integer domain, preventing serving-time leaf degradation.
 
 **Consequences:**
 - Variance-stabilized target distribution, eliminating outlier-induced gradient skew.
 - Inherent physical guarantee of positive duration predictions ($\hat{y} \ge 60.0\text{s}$).
 - Demonstrated $+39.09\%$ MAE reduction (278.35s vs 456.95s) on the 256k-row validation split.
+- Guaranteed category alignment between training and serving matrices: LightGBM tree nodes correctly partition across all 263 active integer TLC taxi zones without unseen-category routing anomalies. Future retrained models will exhibit subtle split threshold shifts compared to M3-4's string-encoded prototypes due to strict integer indexing.
 
 ---
 
