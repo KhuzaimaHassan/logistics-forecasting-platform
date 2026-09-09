@@ -12,7 +12,9 @@ from sqlalchemy.engine import Engine
 
 from src.common.mlflow_utils import (
     DEMAND_EXPERIMENT_NAME,
+    DEMAND_MODEL_NAME,
     DURATION_EXPERIMENT_NAME,
+    DURATION_MODEL_NAME,
     get_mlflow_client,
     setup_mlflow,
 )
@@ -34,9 +36,6 @@ from src.training.train_demand import train_demand_lightgbm
 from src.training.train_duration import train_duration_lightgbm
 
 logger = logging.getLogger(__name__)
-
-DEMAND_MODEL_NAME = "demand_lightgbm_model"
-DURATION_MODEL_NAME = "corridor_duration_lightgbm_model"
 
 
 def _find_or_create_model_version(

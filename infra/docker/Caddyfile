@@ -19,6 +19,10 @@
         reverse_proxy fastapi:8000
     }
 
+    handle /pipeline/* {
+        reverse_proxy fastapi:8000
+    }
+
     handle /agent/* {
         reverse_proxy fastapi:8000
     }

@@ -9,5 +9,8 @@ services:
   redpanda:
     ports:
       - "9092:9092"
+  fastapi:
+    ports:
+      - "8000:8000"
 
 

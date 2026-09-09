@@ -35,7 +35,7 @@ Returns predicted pickup demand for the given NYC taxi zone over the configured 
   "as_of": "2026-09-08T15:30:00Z"
 }
 ```
-- If `zone_id` is invalid ($< 1$ or $> 265$): returns `404 Not Found`.
+- If `zone_id` is outside the servable forecast range ($< 1$ or $> 263$, including non-geographic TLC placeholders 264 "NV" and 265 "NA"): returns `404 Not Found`.
 - If `zone_id` features are missing in Redis online store (`cache_hit=False`): returns `200 OK` with `"status": "degraded_fallback"`, a genuine non-zero `predicted_pickups` output (e.g. `4.2`) evaluated by running LightGBM over the imputed feature vector (calendar harmonics + zero rolling counts + zone base bias), and `"warning"` explaining feature imputation (ADR-020).
 
 ### `POST /predict/demand/batch`
@@ -86,6 +86,8 @@ Returns predicted trip duration for the given corridor under current conditions.
   "as_of": "2026-09-08T15:30:00Z"
 }
 ```
+- If either `origin` or `dest` is outside the servable forecast range ($< 1$ or $> 263$, including non-geographic TLC placeholders 264 "NV" and 265 "NA"): returns `404 Not Found`.
+- If corridor features are missing in Redis online store (`cache_hit=False`): returns `200 OK` with `"status": "degraded_fallback"`, a genuine model output evaluated by running LightGBM over the imputed corridor feature vector (default median distance 3.5 km + calendar harmonics), and `"warning"` explaining feature imputation (ADR-020).
 
 ### `POST /predict/eta/batch`
 Batch trip duration ETA prediction for multiple origin-destination corridor pairs.
@@ -172,6 +174,7 @@ Returns recent orchestration run history (from the `pipeline_runs` table) — "i
 
 - All timestamps UTC, ISO 8601.
 - Standard errors follow a consistent shape: `{"error": "...", "detail": "..."}` with appropriate HTTP status codes (400 for bad parameters, 404 for nonexistent entities, 422 for unprocessable payloads, 503 for unrecoverable service crashes).
+- **Single vs Batch Error Codes (404 vs 400):** The distinction between HTTP 404 on single endpoints (where a path/query parameter names a non-existent forecast resource outside $[1, 263]$) and HTTP 400 on batch endpoints (where a request body payload contains an unservable zone element) is deliberate REST semantics distinguishing resource-not-found from malformed-batch-payload failure modes, not an inconsistency.
 - **Graceful Degradation (ADR-020):** If an entity is valid but online features are missing in Redis (`cache_hit=False`), `/predict/*` returns HTTP 200 with `"status": "degraded_fallback"`, `"cache_hit": false`, and a genuine model prediction computed over the imputed feature vector (e.g. calendar harmonics calculated from UTC `now` + zero rolling counts + zone base categorical bias, yielding realistic outputs like `4.2` pickups rather than hardcoded zero). Clients display visual warning indicators rather than failing.
 - No public auth in v1 (internal Docker bridge network).
 

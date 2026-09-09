@@ -3,12 +3,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install system runtime dependencies required by LightGBM (OpenMP)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install uv for fast dependency management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Ensure the virtualenv created by uv is on PATH
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app"
 
 # Copy project definition, lockfile, and readme
 COPY pyproject.toml uv.lock README.md ./

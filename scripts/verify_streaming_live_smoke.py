@@ -433,125 +433,178 @@ def verify_stage7_push_resilience_and_reconciliation(
     print("STAGE 7: PUSH OUTAGE RESILIENCE & PREFECT RECONCILIATION CATCH-UP")
     print("=" * 80)
 
+    # Stop background stream-consumer container if running to prevent concurrent push
+    stopped_consumer = False
+    try:
+        import subprocess
+
+        res = subprocess.run(
+            ["docker", "stop", "stream-consumer"],
+            capture_output=True,
+            timeout=10,
+        )
+        if res.returncode == 0:
+            stopped_consumer = True
+            print(
+                "Stopped background stream-consumer container for isolated push failure test."
+            )
+    except Exception:
+        pass
+
     # 1. Monkeypatch store.push to simulate Redis / network failure
     real_push = store.push
     store.push = MagicMock(
         side_effect=RuntimeError("Simulated Redis online store push failure")
     )
 
-    # Pre-burst baseline count of warehouse.trips for zone 142
-    with engine.connect() as conn:
-        init_142 = (
-            conn.execute(
-                text("SELECT COUNT(*) FROM warehouse.trips WHERE pickup_zone_id = 142;")
-            ).scalar()
-            or 0
+    try:
+        # Pre-burst baseline count of warehouse.trips and Redis features for zone 142
+        with engine.connect() as conn:
+            init_142 = (
+                conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM warehouse.trips WHERE pickup_zone_id = 142;"
+                    )
+                ).scalar()
+                or 0
+            )
+        init_client = FeastOnlineClient(store=store)
+        init_online_142 = init_client.get_zone_demand_features(
+            [142], use_push_features=True
+        )
+        init_15m_count = (
+            init_online_142[0].pickup_count_last_15m
+            if init_online_142 and init_online_142[0].pickup_count_last_15m is not None
+            else 0
         )
 
-    # 2. Build 10 test trips specifically for zone 142 -> 236 within target observation window
-    now_utc = datetime.now(timezone.utc)
-    target_obs_hour = (now_utc + timedelta(hours=1)).replace(
-        minute=0, second=0, microsecond=0
-    )
-    resilience_trips = [
-        {
-            "trip_id": 850000 + i,
-            "vendor_id": 1,
-            "cab_type": "yellow",
-            "pickup_zone_id": 142,
-            "dropoff_zone_id": 236,
-            "pickup_datetime": (
-                target_obs_hour - timedelta(minutes=30 - i)
-            ).isoformat(),
-            "dropoff_datetime": (
-                target_obs_hour - timedelta(minutes=20 - i)
-            ).isoformat(),
-            "trip_duration_seconds": 600,
-            "passenger_count": 1,
-            "trip_distance_km": 3.0,
-            "fare_amount": 14.0,
-            "tip_amount": 2.0,
-            "total_amount": 16.0,
-            "source": "replay",
-        }
-        for i in range(10)
-    ]
-
-    replay_producer = HistoricalReplayProducer(
-        broker=broker,
-        topic=TOPIC_TRIP_EVENTS,
-        speed_multiplier=0.0,
-        rewrite_timestamps=False,
-    )
-    replay_producer.replay_stream(iter(resilience_trips))
-    replay_producer.close()
-    print("Published 10 trips during simulated push outage.")
-
-    accumulated_res = {"processed": 0, "deadlettered": 0, "trips": 0}
-    start_time = time.time()
-    while time.time() - start_time < 15.0 and accumulated_res["processed"] < 10:
-        res_batch = consumer.consume_batch(
-            max_messages=10 - accumulated_res["processed"], timeout_seconds=2.0
+        # 2. Build 10 test trips specifically for zone 142 -> 236 within target observation window
+        now_utc = datetime.now(timezone.utc)
+        target_obs_hour = (now_utc + timedelta(hours=1)).replace(
+            minute=0, second=0, microsecond=0
         )
-        for k in ["processed", "deadlettered", "trips"]:
-            accumulated_res[k] += res_batch.get(k, 0)
+        resilience_trips = [
+            {
+                "trip_id": 850000 + i,
+                "vendor_id": 1,
+                "cab_type": "yellow",
+                "pickup_zone_id": 142,
+                "dropoff_zone_id": 236,
+                "pickup_datetime": (
+                    target_obs_hour - timedelta(minutes=30 - i)
+                ).isoformat(),
+                "dropoff_datetime": (
+                    target_obs_hour - timedelta(minutes=20 - i)
+                ).isoformat(),
+                "trip_duration_seconds": 600,
+                "passenger_count": 1,
+                "trip_distance_km": 3.0,
+                "fare_amount": 14.0,
+                "tip_amount": 2.0,
+                "total_amount": 16.0,
+                "source": "replay",
+            }
+            for i in range(10)
+        ]
 
-    print(f"Consumer batch during outage: {accumulated_res}")
-
-    # Consumer commits offset and continues; zero deadlettering
-    assert accumulated_res["processed"] == 10
-    assert (
-        accumulated_res["deadlettered"] == 0
-    ), "Push failure should be best-effort and must not dead-letter valid trips!"
-    assert store.push.called, "store.push should have been attempted"
-
-    # Verify trips persisted in Postgres
-    with engine.connect() as conn:
-        persisted_142 = (
-            conn.execute(
-                text("SELECT COUNT(*) FROM warehouse.trips WHERE pickup_zone_id = 142;")
-            ).scalar()
-            or 0
+        replay_producer = HistoricalReplayProducer(
+            broker=broker,
+            topic=TOPIC_TRIP_EVENTS,
+            speed_multiplier=0.0,
+            rewrite_timestamps=False,
         )
-    assert (
-        persisted_142 - init_142 == 10
-    ), f"Expected 10 new persisted trips in warehouse.trips for zone 142, got {persisted_142 - init_142}"
+        replay_producer.replay_stream(iter(resilience_trips))
+        replay_producer.close()
+        print("Published 10 trips during simulated push outage.")
 
-    # 3. Restore real push and verify online store does NOT reflect failed push
-    store.push = real_push
-    client = FeastOnlineClient(store=store)
-    # Zone 142 push view should not have received these 10 trips via push
-    pre_reconcile = client.get_zone_demand_features([142], use_push_features=True)
-    print(f"Pre-reconciliation Zone 142 online features: {asdict(pre_reconcile[0])}")
-    assert (
-        pre_reconcile[0].pickup_count_last_15m is None
-        or pre_reconcile[0].pickup_count_last_15m == 0
-    ), f"Expected Redis not to reflect failed push (count is None or 0), got {pre_reconcile[0].pickup_count_last_15m}"
+        accumulated_res = {"processed": 0, "deadlettered": 0, "trips": 0}
+        start_time = time.time()
+        while time.time() - start_time < 15.0 and accumulated_res["processed"] < 10:
+            res_batch = consumer.consume_batch(
+                max_messages=10 - accumulated_res["processed"], timeout_seconds=2.0
+            )
+            for k in ["processed", "deadlettered", "trips"]:
+                accumulated_res[k] += res_batch.get(k, 0)
 
-    # 4. Run Prefect realtime_reconciliation_flow to catch up Redis from Postgres
-    print("Executing Prefect realtime_reconciliation_flow...")
-    flow_res = realtime_reconciliation_flow(
-        lookback_hours=3,
-        lookback_days=1,
-        end_datetime=target_obs_hour,
-        engine=engine,
-        store=store,
-    )
-    print(f"Reconciliation flow results: {flow_res}")
-    assert flow_res["status"] == "success"
-    assert flow_res["materialization"]["status"] == "success"
+        print(f"Consumer batch during outage: {accumulated_res}")
 
-    # 5. Verify online store caught up after reconciliation
-    post_reconcile = client.get_zone_demand_features([142], use_push_features=False)
-    print(f"Post-reconciliation Zone 142 online features: {asdict(post_reconcile[0])}")
-    assert post_reconcile[0].zone_id == 142
-    assert (
-        post_reconcile[0].pickup_count_last_1h is not None
-        and post_reconcile[0].pickup_count_last_1h > 0
-    ), f"Expected positive pickup count after reconciliation, got {asdict(post_reconcile[0])}"
-    print(
-        "Push outage resilience and Prefect reconciliation catch-up verified (100% PROVEN)."
-    )
+        # Consumer commits offset and continues; zero deadlettering
+        assert accumulated_res["processed"] == 10
+        assert (
+            accumulated_res["deadlettered"] == 0
+        ), "Push failure should be best-effort and must not dead-letter valid trips!"
+        assert store.push.called, "store.push should have been attempted"
+
+        # Verify trips persisted in Postgres
+        with engine.connect() as conn:
+            persisted_142 = (
+                conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM warehouse.trips WHERE pickup_zone_id = 142;"
+                    )
+                ).scalar()
+                or 0
+            )
+        assert (
+            persisted_142 - init_142 == 10
+        ), f"Expected 10 new persisted trips in warehouse.trips for zone 142, got {persisted_142 - init_142}"
+
+        # 3. Restore real push and verify online store does NOT reflect failed push
+        store.push = real_push
+        client = FeastOnlineClient(store=store)
+        # Zone 142 push view should not have received these 10 trips via push
+        pre_reconcile = client.get_zone_demand_features([142], use_push_features=True)
+        print(
+            f"Pre-reconciliation Zone 142 online features: {asdict(pre_reconcile[0])}"
+        )
+        pre_reconcile_count = (
+            pre_reconcile[0].pickup_count_last_15m
+            if pre_reconcile and pre_reconcile[0].pickup_count_last_15m is not None
+            else 0
+        )
+        assert (
+            pre_reconcile_count == init_15m_count
+        ), f"Expected Redis not to reflect failed push (count remained {init_15m_count}), got {pre_reconcile_count}"
+
+        # 4. Run Prefect realtime_reconciliation_flow to catch up Redis from Postgres
+        print("Executing Prefect realtime_reconciliation_flow...")
+        flow_res = realtime_reconciliation_flow(
+            lookback_hours=3,
+            lookback_days=1,
+            end_datetime=target_obs_hour,
+            engine=engine,
+            store=store,
+        )
+        print(f"Reconciliation flow results: {flow_res}")
+        assert flow_res["status"] == "success"
+        assert flow_res["materialization"]["status"] == "success"
+
+        # 5. Verify online store caught up after reconciliation
+        post_reconcile = client.get_zone_demand_features([142], use_push_features=False)
+        print(
+            f"Post-reconciliation Zone 142 online features: {asdict(post_reconcile[0])}"
+        )
+        assert post_reconcile[0].zone_id == 142
+        assert (
+            post_reconcile[0].pickup_count_last_1h is not None
+            and post_reconcile[0].pickup_count_last_1h > 0
+        ), f"Expected positive pickup count after reconciliation, got {asdict(post_reconcile[0])}"
+        print(
+            "Push outage resilience and Prefect reconciliation catch-up verified (100% PROVEN)."
+        )
+    finally:
+        store.push = real_push
+        if stopped_consumer:
+            try:
+                import subprocess
+
+                subprocess.run(
+                    ["docker", "start", "stream-consumer"],
+                    capture_output=True,
+                    timeout=10,
+                )
+            except Exception:
+                pass
 
 
 def main() -> None:

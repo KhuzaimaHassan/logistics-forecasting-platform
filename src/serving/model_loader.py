@@ -20,6 +20,8 @@ from mlflow.entities.model_registry import ModelVersion
 from mlflow.tracking import MlflowClient
 
 from src.common.mlflow_utils import (
+    DEMAND_MODEL_NAME,
+    DURATION_MODEL_NAME,
     get_mlflow_client,
     get_tracking_uri,
     setup_mlflow,
@@ -27,10 +29,6 @@ from src.common.mlflow_utils import (
 from src.training.baseline import (
     CorridorDurationBaseline,
     DemandSeasonalNaiveBaseline,
-)
-from src.training.pipeline import (
-    DEMAND_MODEL_NAME,
-    DURATION_MODEL_NAME,
 )
 
 logger = logging.getLogger(__name__)

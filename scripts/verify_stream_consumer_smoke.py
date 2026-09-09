@@ -229,11 +229,26 @@ def main() -> None:
     traffic_pub = poll_results["traffic"]["records_published"]
     transit_pub = poll_results["transit"]["records_published"]
     weather_pub = poll_results["weather"]["records_published"]
-    total_snapshots = traffic_pub + transit_pub + weather_pub
-    snap_res = snapshot_consumer.consume_batch(
-        max_messages=total_snapshots, timeout_seconds=15.0
-    )
-    print(f"Consumer Batch Results (Snapshots): {snap_res}")
+    accumulated_snaps = {
+        "processed": 0,
+        "deadlettered": 0,
+        "trips": 0,
+        "traffic": 0,
+        "transit": 0,
+        "weather": 0,
+    }
+    start_time = time.time()
+    while time.time() - start_time < 20.0:
+        batch = snapshot_consumer.consume_batch(max_messages=50, timeout_seconds=2.0)
+        for k in accumulated_snaps:
+            accumulated_snaps[k] += batch.get(k, 0)
+        if (
+            accumulated_snaps["traffic"] >= traffic_pub
+            and accumulated_snaps["transit"] >= transit_pub
+            and accumulated_snaps["weather"] >= weather_pub
+        ):
+            break
+    print(f"Consumer Batch Results (Snapshots): {accumulated_snaps}")
 
     with engine.connect() as conn:
         traffic_cnt = (
