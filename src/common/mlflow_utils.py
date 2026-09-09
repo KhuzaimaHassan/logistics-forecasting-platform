@@ -15,6 +15,9 @@ DEMAND_EXPERIMENT_NAME = "nyc-taxi-demand-forecasting"
 DURATION_EXPERIMENT_NAME = "nyc-taxi-corridor-eta"
 CORRIDOR_EXPERIMENT_NAME = DURATION_EXPERIMENT_NAME
 
+DEMAND_MODEL_NAME = "demand_lightgbm_model"
+DURATION_MODEL_NAME = "corridor_duration_lightgbm_model"
+
 
 def get_tracking_uri() -> str:
     """Return the configured MLflow tracking URI from settings or environment."""
