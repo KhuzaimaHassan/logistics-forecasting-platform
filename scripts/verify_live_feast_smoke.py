@@ -176,7 +176,7 @@ def main() -> None:
         flush=True,
     )
     t4 = time.perf_counter()
-    apply_feature_definitions(store=store)
+    apply_feature_definitions(store=store, include_push=True)
     entities = store.list_entities()
     views = store.list_feature_views()
     entity_names = sorted([e.name for e in entities])
@@ -783,8 +783,8 @@ def main() -> None:
         store=store,
         engine=engine,
         zone_ids=[161, 236],
-        demand_params={"n_estimators": 5, "min_child_samples": 2},
-        duration_params={"n_estimators": 5, "min_child_samples": 2},
+        demand_params={"n_estimators": 5, "min_child_samples": 1},
+        duration_params={"n_estimators": 5, "min_child_samples": 1},
         backup_to_r2=False,
         log_to_mlflow=True,
         promote_models=True,
