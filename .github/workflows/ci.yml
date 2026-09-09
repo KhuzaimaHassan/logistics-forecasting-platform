@@ -148,6 +148,10 @@ jobs:
         run: |
           uv run python -u scripts/verify_serving_endpoints_smoke.py
 
+      - name: Stop background stream consumer container to prevent test interference
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci stop stream-consumer
+
       - name: Verify Live Redpanda Topic Provisioning and Trip Replay Stream
         env:
           REDPANDA_BROKER: localhost:9092
