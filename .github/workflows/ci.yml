@@ -131,7 +131,7 @@ jobs:
       - name: Restart FastAPI service to load promoted Production models
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci restart fastapi
-          sleep 5
+          sleep 10
 
       - name: Verify Live FastAPI Serving Endpoints (M5-2)
         env:
