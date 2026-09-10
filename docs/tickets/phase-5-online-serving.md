@@ -64,7 +64,7 @@ Implement the production-grade online inference and serving layer for real-time 
 - **Estimated Size:** ~400 lines.
 - **Depends On:** M5-1.
 
-### M5-3: Low-Latency Prediction Caching (Redis 60s TTL) & Degraded Mode Fallback (ADR-020)
+### M5-3: Low-Latency Prediction Caching (Redis 60s TTL) & Degraded Mode Fallback (ADR-020) [COMPLETED]
 - **Scope / Acceptance Criteria:**
   - Implement transparent prediction caching layer in `src/serving/cache.py`:
     - Transparently caches prediction responses in Redis with keys `pred:demand:{zone_id}:{horizon}` and `pred:eta:{origin}:{dest}`.

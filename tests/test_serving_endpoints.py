@@ -20,6 +20,7 @@ from src.features.client import (
     ZoneDemandOnlineFeatures,
 )
 from src.serving.app import app
+from src.serving.cache import PredictionCache
 from src.serving.feature_extractor import (
     build_corridor_feature_df,
     build_demand_feature_df,
@@ -34,6 +35,13 @@ from src.training.baseline import (
     CorridorDurationBaseline,
     DemandSeasonalNaiveBaseline,
 )
+
+
+@pytest.fixture(autouse=True)
+def clear_serving_cache():
+    """Ensure prediction cache is empty before every test run."""
+    if hasattr(app.state, "cache") and app.state.cache is not None:
+        app.state.cache.clear()
 
 
 @pytest.fixture(scope="module")
@@ -143,6 +151,7 @@ def mock_serving_environment():
     # Attach to app.state
     app.state.model_loader = mock_loader
     app.state.feast_client = mock_feast
+    app.state.cache = PredictionCache(redis_url=None)
 
     return client
 

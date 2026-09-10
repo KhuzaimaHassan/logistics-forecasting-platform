@@ -26,9 +26,11 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import pandas as pd
+import redis
 import requests
 from feast.data_source import PushMode
 
+from src.common.config import get_settings
 from src.features.client import (
     CorridorDurationOnlineFeatures,
     ZoneDemandOnlineFeatures,
@@ -354,12 +356,12 @@ def main() -> None:
     loader = ModelLoaderService(tracking_uri=mlflow_uri)
 
     print_section(
-        f"M5-2 SMOKE VERIFICATION: FastAPI Prediction & Inspection Endpoints\nTarget URL: {base_url}"
+        f"M5-2/M5-3 SMOKE VERIFICATION: FastAPI Prediction, Caching & Inspection Endpoints\nTarget URL: {base_url}"
     )
     wait_for_serving(base_url, timeout_seconds=45)
 
     passed_checks = 0
-    total_checks = 14
+    total_checks = 18
 
     # -----------------------------------------------------------------------
     # 1. GET /health
@@ -811,10 +813,126 @@ def main() -> None:
     )
 
     # -----------------------------------------------------------------------
+    # 15. Prediction Caching Verification (X-Cache: HIT & Low Latency)
+    # -----------------------------------------------------------------------
+    print_section(
+        "Check 15: Prediction Caching Verification (X-Cache: HIT & Low Latency)"
+    )
+    # Zone 161 was evaluated in Check 2 and should now be cached in Redis with a 60s TTL
+    t0 = time.perf_counter()
+    resp_warm = requests.get(f"{base_url}/predict/demand/161")
+    lat_warm = (time.perf_counter() - t0) * 1000.0
+    body_warm = resp_warm.json()
+    cache_header = resp_warm.headers.get("X-Cache")
+    print_http_exchange(
+        "GET",
+        f"{base_url}/predict/demand/161",
+        None,
+        resp_warm.status_code,
+        body_warm,
+        lat_warm,
+    )
+
+    assert resp_warm.status_code == 200, f"Expected 200, got {resp_warm.status_code}"
+    assert cache_header == "HIT", f"Expected X-Cache: HIT, got {cache_header}"
+    assert lat_warm < 25.0, f"Expected cached latency < 25ms, got {lat_warm:.2f}ms"
+    passed_checks += 1
+    print(
+        f"✓ Check 15 Passed: Prediction cache hit verified (X-Cache: HIT, latency={lat_warm:.2f}ms < 25ms)."
+    )
+
+    # -----------------------------------------------------------------------
+    # 16. Live Redis TTL Inspection (assert 0 < TTL <= 60s)
+    # -----------------------------------------------------------------------
+    print_section("Check 16: Live Redis TTL Inspection (ADR-020 Section 3)")
+    redis_url = os.getenv("REDIS_URL") or get_settings().redis_url
+    r_client = redis.from_url(redis_url, decode_responses=True, socket_timeout=2.0)
+    cache_key = "pred:demand:161:15"
+    real_ttl = r_client.ttl(cache_key)
+    print(
+        f"\n[LIVE REDIS PROOF] Queried live Redis key '{cache_key}' via real TTL command."
+    )
+    print(f"[LIVE REDIS PROOF] Actual returned Redis TTL: {real_ttl} seconds")
+
+    assert (
+        0 < real_ttl <= 60
+    ), f"Expected live Redis TTL in (0, 60], got: {real_ttl} for key '{cache_key}'"
+    passed_checks += 1
+    print(
+        f"✓ Check 16 Passed: Live Redis TTL confirmed at {real_ttl}s (strictly <= 60s and > 0)."
+    )
+
+    # -----------------------------------------------------------------------
+    # 17. Degraded Cache-Bypass Policy Verification (ADR-020 Section 3)
+    # -----------------------------------------------------------------------
+    print_section(
+        "Check 17: Degraded Cache-Bypass Verification (Zero-TTL / Never Cached)"
+    )
+    # Test with unmaterialized cold zone (e.g. 200)
+    resp_deg = requests.get(f"{base_url}/predict/demand/200")
+    lat_deg = (time.perf_counter() - t0) * 1000.0
+    body_deg = resp_deg.json()
+    print_http_exchange(
+        "GET",
+        f"{base_url}/predict/demand/200",
+        None,
+        resp_deg.status_code,
+        body_deg,
+        lat_deg,
+    )
+
+    assert resp_deg.status_code == 200
+    assert body_deg.get("status") == "degraded_fallback"
+    assert body_deg.get("cache_hit") is False
+    assert body_deg.get("predicted_pickups") >= 0.0
+
+    deg_key = "pred:demand:200:15"
+    key_exists = r_client.exists(deg_key)
+    assert (
+        key_exists == 0
+    ), f"Degraded response was erroneously cached in Redis key '{deg_key}'"
+
+    # Subsequent single call must remain MISS
+    resp_deg2 = requests.get(f"{base_url}/predict/demand/200")
+    assert (
+        resp_deg2.headers.get("X-Cache") == "MISS"
+    ), "Degraded response should never be served as X-Cache: HIT"
+    passed_checks += 1
+    print(
+        f"✓ Check 17 Passed: Degraded prediction confirmed not cached in Redis (exists={key_exists}, X-Cache=MISS)."
+    )
+
+    # -----------------------------------------------------------------------
+    # 18. Cross-Path Batch-then-Single Degraded Isolation
+    # -----------------------------------------------------------------------
+    print_section("Check 18: Cross-Path Batch-then-Single Degraded Isolation")
+    # Batch request containing warm zone 161 and degraded zone 200
+    batch_payload = {"zone_ids": [161, 200], "horizon_minutes": 15}
+    resp_batch = requests.post(f"{base_url}/predict/demand/batch", json=batch_payload)
+    assert resp_batch.status_code == 200
+    batch_items = resp_batch.json()["predictions"]
+    deg_item = next((it for it in batch_items if it["zone_id"] == 200), None)
+    assert deg_item is not None
+    assert deg_item["status"] == "degraded_fallback"
+
+    # Immediately request zone 200 via single endpoint
+    resp_single = requests.get(f"{base_url}/predict/demand/200")
+    assert resp_single.status_code == 200
+    assert (
+        resp_single.headers.get("X-Cache") == "MISS"
+    ), "Batch execution leaked degraded zone into prediction cache! Expected X-Cache: MISS on subsequent single call."
+    assert resp_single.json()["status"] == "degraded_fallback"
+    assert r_client.exists("pred:demand:200:15") == 0
+    passed_checks += 1
+    print(
+        "✓ Check 18 Passed: Cross-path isolation verified (batch path never leaks degraded items to cache)."
+    )
+
+    # -----------------------------------------------------------------------
     # Final Summary
     # -----------------------------------------------------------------------
     print_section(
-        f"ALL {passed_checks}/{total_checks} M5-2 SERVING ENDPOINT SMOKE CHECKS PASSED"
+        f"ALL {passed_checks}/{total_checks} M5-2 & M5-3 SERVING SMOKE CHECKS PASSED"
     )
     print(
         "✓ Health, dependencies (Postgres/Redis/MLflow), and loaded Production models verified."
@@ -827,6 +945,13 @@ def main() -> None:
         "✓ Deliberate 404 (single invalid zone) vs 400 (batch invalid element) split verified."
     )
     print("✓ Online feature inspection and pipeline status endpoints verified.")
+    print(
+        "✓ Low-latency prediction caching verified (X-Cache: HIT, sub-25ms over HTTP)."
+    )
+    print("✓ Live Redis key TTL verified <= 60s with real TTL command proof.")
+    print(
+        "✓ Degraded mode cache-bypass and cross-path batch-single isolation verified."
+    )
 
 
 if __name__ == "__main__":
