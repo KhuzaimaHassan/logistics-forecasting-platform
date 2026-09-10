@@ -365,10 +365,12 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
        - Vectorized Processing: Performs batched corridor and zone feature lookups and evaluates log1p duration predictions in a single matrix pass, inverting via $\hat{y} = \max(60.0, \exp(\hat{y}_{\text{log}}) - 1.0)$.
        - Response: Returns an array of corridor ETA predictions in seconds and minutes.
 
-3. **Concrete 60-Second Prediction Caching TTL:**
-   - Prediction results are cached in Redis (with in-memory LRU fallback) using a fixed **60-second (60s)** TTL.
-   - Cache keys follow the schema `pred:demand:{zone_id}:{horizon_minutes}` and `pred:eta:{origin_zone_id}:{dest_zone_id}`.
-   - **Rationale:** While historical TLC batch features step at 15-minute intervals, streaming traffic speed updates, transit delays, and weather snapshots arrive at 10–60s intervals via Redpanda. A 60s TTL prevents duplicate inference stampedes when dashboards or multiple users refresh simultaneously, reduces p99 endpoint latency to sub-2ms, and guarantees prediction freshness stays bounded within 1 minute of live real-world updates.
+3. **Concrete 60-Second Prediction Caching TTL & Degraded Cache-Bypass Policy:**
+   - **Genuine Materialized Predictions (`cache_hit=True`, `status="ok"`):** Cached in Redis (with in-memory LRU fallback) using a fixed **60-second (60s)** TTL.
+     - Cache keys follow the schema `pred:demand:{zone_id}:{horizon_minutes}` and `pred:eta:{origin_zone_id}:{dest_zone_id}`.
+     - Rationale: While historical TLC batch features step at 15-minute intervals, streaming traffic speed updates, transit delays, and weather snapshots arrive at 10–60s intervals via Redpanda. A 60s TTL prevents duplicate inference stampedes when dashboards or multiple users refresh simultaneously, reduces p99 endpoint latency to sub-2ms, and guarantees prediction freshness stays bounded within 1 minute of live real-world updates.
+   - **Degraded Responses (`cache_hit=False`, `status="degraded_fallback"`):** MUST NOT be cached in the prediction cache (zero-TTL / cache write bypass).
+     - Rationale: A degraded response indicates unmaterialized or cold feature state in the online store. Holding a degraded prediction in the cache for 60 seconds would create an artificial 1-minute blindspot where incoming sub-second stream pushes from Redpanda or newly run reconciliation batches would be ignored by serving clients. By bypassing cache write for degraded responses, the very next client request immediately transitions from `degraded_fallback` to `status: ok` as soon as fresh features land in the online store.
 
 4. **Feature-Unavailable Response Contract (Degraded Fallback on Cache Miss):**
    - In M2-4, `FeastOnlineClient` establishes that when an entity has never been materialized or its Redis TTL has expired, `get_online_features()` returns `cache_hit=False` with `None` fields rather than raising an error.

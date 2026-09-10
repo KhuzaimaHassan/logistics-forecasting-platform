@@ -13,11 +13,11 @@ Exposes low-latency online inference and inspection endpoints per docs/API.md an
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import redis
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -29,6 +29,7 @@ from src.features.client import (
     FeastOnlineClient,
     ZoneDemandOnlineFeatures,
 )
+from src.serving.cache import PredictionCache
 from src.serving.feature_extractor import (
     build_corridor_feature_df,
     build_demand_feature_df,
@@ -93,6 +94,19 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.warning("FeastOnlineClient initialization failed: %s", exc)
             app.state.feast_client = None
+
+    # Initialize PredictionCache if not already provided
+    if not hasattr(app.state, "cache") or app.state.cache is None:
+        try:
+            settings = get_settings()
+            app.state.cache = PredictionCache(redis_url=settings.redis_url)
+            logger.info("PredictionCache initialized successfully.")
+        except Exception as exc:
+            logger.warning(
+                "PredictionCache initialization failed (%s); using in-memory cache.",
+                exc,
+            )
+            app.state.cache = PredictionCache(redis_url=None)
 
     yield
     logger.info("Shutting down FastAPI serving application.")
@@ -169,6 +183,15 @@ def get_feast_client(request: Request) -> FeastOnlineClient:
     return client
 
 
+def get_prediction_cache(request: Optional[Request] = None) -> PredictionCache:
+    """Retrieve PredictionCache singleton from app.state with fallback."""
+    if request is not None and hasattr(request.app, "state"):
+        cache = getattr(request.app.state, "cache", None)
+        if cache is not None:
+            return cache
+    return PredictionCache(redis_url=None)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -239,6 +262,7 @@ def health_check(request: Request) -> HealthCheckResponse:
 def predict_demand(
     zone_id: int,
     request: Request,
+    response: Response,
     horizon_minutes: int = Query(default=15, ge=5, le=60),
 ) -> DemandPredictionResponse:
     """Predict taxi pickup demand for a single NYC taxi zone.
@@ -251,6 +275,16 @@ def predict_demand(
             status_code=404,
             detail=f"Zone ID {zone_id} is outside the servable forecast range [1, 263].",
         )
+
+    cache = get_prediction_cache(request)
+    cached = cache.get_demand(zone_id, horizon_minutes)
+    if cached is not None:
+        if response is not None:
+            response.headers["X-Cache"] = "HIT"
+        return DemandPredictionResponse(**cached)
+
+    if response is not None:
+        response.headers["X-Cache"] = "MISS"
 
     loader = get_model_loader(request)
     feast = get_feast_client(request)
@@ -279,7 +313,7 @@ def predict_demand(
         else "Online features unmaterialized in Redis; evaluated using imputed defaults and calendar harmonics."
     )
 
-    return DemandPredictionResponse(
+    result = DemandPredictionResponse(
         zone_id=zone_id,
         horizon_minutes=horizon_minutes,
         predicted_pickups=round(predicted_val, 2),
@@ -290,11 +324,51 @@ def predict_demand(
         warning=warning,
     )
 
+    # Cache response if genuine (bypasses write if degraded_fallback per ADR-020)
+    cache.set_demand(zone_id, horizon_minutes, result.model_dump(), status=status)
+
+    return result
+
+
+def _set_batch_cache_header(
+    response: Optional[Response], num_cached: int, total_requested: int
+) -> None:
+    """Set X-Cache header for batch responses based on cache hit ratio."""
+    if response is None:
+        return
+    if num_cached == total_requested:
+        response.headers["X-Cache"] = "HIT"
+    elif num_cached > 0:
+        response.headers["X-Cache"] = "PARTIAL"
+    else:
+        response.headers["X-Cache"] = "MISS"
+
+
+def _validate_batch_corridors(corridors: List[Any]) -> None:
+    """Validate corridor pairs are within [1, 263]. Raises HTTP 400 if invalid."""
+    invalid = [
+        f"{c.origin_zone_id}_{c.dest_zone_id}"
+        for c in corridors
+        if c.origin_zone_id < 1
+        or c.origin_zone_id > 263
+        or c.dest_zone_id < 1
+        or c.dest_zone_id > 263
+    ]
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid corridor pair(s) in batch request: {invalid}. "
+                "Origin and destination zone IDs must be in [1, 263]."
+            ),
+        )
+
 
 @app.post("/predict/demand/batch", response_model=DemandBatchPredictionResponse)
 def predict_demand_batch(
     payload: DemandBatchPredictionRequest,
     request: Request,
+    response: Response,
 ) -> DemandBatchPredictionResponse:
     """Batch demand prediction across multiple zones or entire city in a single vectorized call.
 
@@ -318,31 +392,37 @@ def predict_demand_batch(
             ),
         )
 
+    cache = get_prediction_cache(request)
+    cached_map = cache.get_demand_batch(zone_ids, payload.horizon_minutes)
+    _set_batch_cache_header(response, len(cached_map), len(zone_ids))
+
     loader = get_model_loader(request)
-    feast = get_feast_client(request)
+    demand_model = loader.get_model(DEMAND_MODEL_NAME)
     now_utc = datetime.now(timezone.utc)
 
-    # Vectorized Feast retrieval
-    features_list = feast.get_zone_demand_features(zone_ids)
+    # Determine missing zones that require inference
+    missing_zones = [z for z in zone_ids if z not in cached_map]
+    computed_items_map: Dict[int, DemandBatchPredictionItem] = {}
 
-    # Vectorized DataFrame construction
-    df = build_demand_feature_df(features_list, now=now_utc)
+    if missing_zones:
+        feast = get_feast_client(request)
+        # Vectorized Feast retrieval strictly for missing zones
+        features_list = feast.get_zone_demand_features(missing_zones)
+        # Vectorized DataFrame construction
+        df = build_demand_feature_df(features_list, now=now_utc)
+        # Single vectorized LightGBM matrix scoring pass
+        raw_preds = np.asarray(demand_model.predict(df)).flatten()
+        bounded_preds = np.maximum(0.0, raw_preds)
 
-    # Single vectorized LightGBM matrix scoring pass
-    demand_model = loader.get_model(DEMAND_MODEL_NAME)
-    raw_preds = np.asarray(demand_model.predict(df)).flatten()
-    bounded_preds = np.maximum(0.0, raw_preds)
-
-    items: List[DemandBatchPredictionItem] = []
-    for feat, pred_val in zip(features_list, bounded_preds, strict=True):
-        status = "ok" if feat.cache_hit else "degraded_fallback"
-        warning = (
-            None
-            if feat.cache_hit
-            else "Online features unmaterialized in Redis; evaluated using imputed defaults and calendar harmonics."
-        )
-        items.append(
-            DemandBatchPredictionItem(
+        new_items_to_cache: List[dict] = []
+        for feat, pred_val in zip(features_list, bounded_preds, strict=True):
+            status = "ok" if feat.cache_hit else "degraded_fallback"
+            warning = (
+                None
+                if feat.cache_hit
+                else "Online features unmaterialized in Redis; evaluated using imputed defaults and calendar harmonics."
+            )
+            item = DemandBatchPredictionItem(
                 zone_id=feat.zone_id,
                 horizon_minutes=payload.horizon_minutes,
                 predicted_pickups=round(float(pred_val), 2),
@@ -350,7 +430,29 @@ def predict_demand_batch(
                 cache_hit=feat.cache_hit,
                 warning=warning,
             )
-        )
+            computed_items_map[feat.zone_id] = item
+            new_items_to_cache.append(item.model_dump())
+
+        # Vectorized write to cache (filters out degraded items per ADR-020)
+        cache.set_demand_batch(new_items_to_cache, payload.horizon_minutes)
+
+    # Reassemble items in exact requested order
+    items: List[DemandBatchPredictionItem] = []
+    for zid in zone_ids:
+        if zid in cached_map:
+            c_data = cached_map[zid]
+            items.append(
+                DemandBatchPredictionItem(
+                    zone_id=c_data["zone_id"],
+                    horizon_minutes=c_data["horizon_minutes"],
+                    predicted_pickups=c_data["predicted_pickups"],
+                    status=c_data["status"],
+                    cache_hit=c_data["cache_hit"],
+                    warning=c_data.get("warning"),
+                )
+            )
+        else:
+            items.append(computed_items_map[zid])
 
     return DemandBatchPredictionResponse(
         predictions=items,
@@ -362,9 +464,10 @@ def predict_demand_batch(
 
 @app.get("/predict/eta", response_model=ETAPredictionResponse)
 def predict_eta(
+    request: Request,
+    response: Response,
     origin: int = Query(..., description="Origin NYC TLC zone ID (1 to 263)"),
     dest: int = Query(..., description="Destination NYC TLC zone ID (1 to 263)"),
-    request: Request = None,
 ) -> ETAPredictionResponse:
     """Predict trip duration for an origin-destination corridor under current conditions.
 
@@ -381,6 +484,16 @@ def predict_eta(
             status_code=404,
             detail=f"Destination zone ID {dest} is outside the servable forecast range [1, 263].",
         )
+
+    cache = get_prediction_cache(request)
+    cached = cache.get_eta(origin, dest)
+    if cached is not None:
+        if response is not None:
+            response.headers["X-Cache"] = "HIT"
+        return ETAPredictionResponse(**cached)
+
+    if response is not None:
+        response.headers["X-Cache"] = "MISS"
 
     loader = get_model_loader(request)
     feast = get_feast_client(request)
@@ -410,7 +523,7 @@ def predict_eta(
         else "Corridor features unmaterialized in Redis; evaluated using imputed distance and calendar harmonics."
     )
 
-    return ETAPredictionResponse(
+    result = ETAPredictionResponse(
         origin_zone_id=origin,
         dest_zone_id=dest,
         corridor_id=corridor_id,
@@ -423,61 +536,59 @@ def predict_eta(
         warning=warning,
     )
 
+    # Cache response if genuine (bypasses write if degraded_fallback per ADR-020)
+    cache.set_eta(origin, dest, result.model_dump(), status=status)
+
+    return result
+
 
 @app.post("/predict/eta/batch", response_model=ETABatchPredictionResponse)
 def predict_eta_batch(
     payload: ETABatchPredictionRequest,
     request: Request,
+    response: Response,
 ) -> ETABatchPredictionResponse:
     """Batch corridor trip duration prediction.
 
     Validates all corridor origin/destination IDs in [1, 263]. If any are outside, returns HTTP 400.
     """
-    invalid_corridors = []
-    for c in payload.corridors:
-        if (
-            c.origin_zone_id < 1
-            or c.origin_zone_id > 263
-            or c.dest_zone_id < 1
-            or c.dest_zone_id > 263
-        ):
-            invalid_corridors.append(f"{c.origin_zone_id}_{c.dest_zone_id}")
+    _validate_batch_corridors(payload.corridors)
 
-    if invalid_corridors:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Invalid corridor pair(s) in batch request: {invalid_corridors}. "
-                "Origin and destination zone IDs must be in [1, 263]."
-            ),
-        )
+    pairs = [(c.origin_zone_id, c.dest_zone_id) for c in payload.corridors]
+    cache = get_prediction_cache(request)
+    cached_map = cache.get_eta_batch(pairs)
+    _set_batch_cache_header(response, len(cached_map), len(pairs))
 
     loader = get_model_loader(request)
-    feast = get_feast_client(request)
-    now_utc = datetime.now(timezone.utc)
-    corridor_ids = [f"{c.origin_zone_id}_{c.dest_zone_id}" for c in payload.corridors]
-    pairs = [(c.origin_zone_id, c.dest_zone_id) for c in payload.corridors]
-
-    features_list = feast.get_corridor_duration_features(corridor_ids)
-    df = build_corridor_feature_df(features_list, origin_dest_pairs=pairs, now=now_utc)
-
     duration_model = loader.get_model(DURATION_MODEL_NAME)
-    raw_log_preds = np.asarray(duration_model.predict(df)).flatten()
-    is_log = not duration_model.is_fallback
+    now_utc = datetime.now(timezone.utc)
 
-    items: List[ETABatchPredictionItem] = []
-    for (orig, dest), cid, feat, raw_val in zip(
-        pairs, corridor_ids, features_list, raw_log_preds, strict=True
-    ):
-        dur_sec, dur_min = invert_log_duration(raw_val, is_log_space=is_log)
-        status = "ok" if feat.cache_hit else "degraded_fallback"
-        warning = (
-            None
-            if feat.cache_hit
-            else "Corridor features unmaterialized in Redis; evaluated using imputed distance and calendar harmonics."
+    missing_pairs = [p for p in pairs if p not in cached_map]
+    computed_items_map: Dict[Tuple[int, int], ETABatchPredictionItem] = {}
+
+    if missing_pairs:
+        feast = get_feast_client(request)
+        corridor_ids = [f"{o}_{d}" for o, d in missing_pairs]
+        features_list = feast.get_corridor_duration_features(corridor_ids)
+        df = build_corridor_feature_df(
+            features_list, origin_dest_pairs=missing_pairs, now=now_utc
         )
-        items.append(
-            ETABatchPredictionItem(
+
+        raw_log_preds = np.asarray(duration_model.predict(df)).flatten()
+        is_log = not duration_model.is_fallback
+
+        new_items_to_cache: List[dict] = []
+        for (orig, dest), cid, feat, raw_val in zip(
+            missing_pairs, corridor_ids, features_list, raw_log_preds, strict=True
+        ):
+            dur_sec, dur_min = invert_log_duration(raw_val, is_log_space=is_log)
+            status = "ok" if feat.cache_hit else "degraded_fallback"
+            warning = (
+                None
+                if feat.cache_hit
+                else "Corridor features unmaterialized in Redis; evaluated using imputed distance and calendar harmonics."
+            )
+            item = ETABatchPredictionItem(
                 origin_zone_id=orig,
                 dest_zone_id=dest,
                 corridor_id=cid,
@@ -487,7 +598,30 @@ def predict_eta_batch(
                 cache_hit=feat.cache_hit,
                 warning=warning,
             )
-        )
+            computed_items_map[(orig, dest)] = item
+            new_items_to_cache.append(item.model_dump())
+
+        # Vectorized write to cache (filters out degraded items per ADR-020)
+        cache.set_eta_batch(new_items_to_cache)
+
+    items: List[ETABatchPredictionItem] = []
+    for pair in pairs:
+        if pair in cached_map:
+            c_data = cached_map[pair]
+            items.append(
+                ETABatchPredictionItem(
+                    origin_zone_id=c_data["origin_zone_id"],
+                    dest_zone_id=c_data["dest_zone_id"],
+                    corridor_id=c_data["corridor_id"],
+                    predicted_duration_seconds=c_data["predicted_duration_seconds"],
+                    predicted_duration_minutes=c_data["predicted_duration_minutes"],
+                    status=c_data["status"],
+                    cache_hit=c_data["cache_hit"],
+                    warning=c_data.get("warning"),
+                )
+            )
+        else:
+            items.append(computed_items_map[pair])
 
     return ETABatchPredictionResponse(
         predictions=items,
