@@ -218,15 +218,16 @@ def main() -> None:
     print_http_exchange("GET", f"{base_url}/health", None, resp.status_code, body, lat)
 
     assert resp.status_code == 200, f"Expected 200, got: {resp.status_code}"
+    deps = body.get("dependencies", {})
     assert (
-        body.get("database") == "connected"
-    ), f"Database unreachable: {body.get('database')}"
-    assert body.get("redis") == "connected", f"Redis unreachable: {body.get('redis')}"
-    assert body.get("mlflow") in [
+        deps.get("database") == "connected"
+    ), f"Database unreachable: {deps.get('database')}"
+    assert deps.get("redis") == "connected", f"Redis unreachable: {deps.get('redis')}"
+    assert deps.get("mlflow") in [
         "reachable",
         "connected",
         "degraded",
-    ], f"MLflow check failed: {body.get('mlflow')}"
+    ], f"MLflow check failed: {deps.get('mlflow')}"
 
     models = body.get("models", {})
     demand_model = models.get("demand") or models.get("taxi_demand_lightgbm")
