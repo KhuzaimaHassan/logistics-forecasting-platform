@@ -281,6 +281,11 @@ def predict_demand(
     if cached is not None:
         if response is not None:
             response.headers["X-Cache"] = "HIT"
+        loader = get_model_loader(request)
+        cached.setdefault(
+            "model_version", str(loader.get_model(DEMAND_MODEL_NAME).version)
+        )
+        cached.setdefault("as_of", datetime.now(timezone.utc).isoformat())
         return DemandPredictionResponse(**cached)
 
     if response is not None:
@@ -431,7 +436,10 @@ def predict_demand_batch(
                 warning=warning,
             )
             computed_items_map[feat.zone_id] = item
-            new_items_to_cache.append(item.model_dump())
+            cache_payload = item.model_dump()
+            cache_payload["model_version"] = str(demand_model.version)
+            cache_payload["as_of"] = now_utc.isoformat()
+            new_items_to_cache.append(cache_payload)
 
         # Vectorized write to cache (filters out degraded items per ADR-020)
         cache.set_demand_batch(new_items_to_cache, payload.horizon_minutes)
@@ -490,6 +498,11 @@ def predict_eta(
     if cached is not None:
         if response is not None:
             response.headers["X-Cache"] = "HIT"
+        loader = get_model_loader(request)
+        cached.setdefault(
+            "model_version", str(loader.get_model(DURATION_MODEL_NAME).version)
+        )
+        cached.setdefault("as_of", datetime.now(timezone.utc).isoformat())
         return ETAPredictionResponse(**cached)
 
     if response is not None:
@@ -599,7 +612,10 @@ def predict_eta_batch(
                 warning=warning,
             )
             computed_items_map[(orig, dest)] = item
-            new_items_to_cache.append(item.model_dump())
+            cache_payload = item.model_dump()
+            cache_payload["model_version"] = str(duration_model.version)
+            cache_payload["as_of"] = now_utc.isoformat()
+            new_items_to_cache.append(cache_payload)
 
         # Vectorized write to cache (filters out degraded items per ADR-020)
         cache.set_eta_batch(new_items_to_cache)

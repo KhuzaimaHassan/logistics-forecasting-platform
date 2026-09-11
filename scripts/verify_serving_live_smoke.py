@@ -86,6 +86,14 @@ def print_section(title: str) -> None:
     print("=" * 80, flush=True)
 
 
+def safe_json(resp: requests.Response) -> Any:
+    """Parse response JSON or return raw text if decoding fails."""
+    try:
+        return resp.json()
+    except Exception:
+        return resp.text
+
+
 def print_http_exchange(
     method: str,
     url: str,
@@ -104,7 +112,10 @@ def print_http_exchange(
         if cache_hdr:
             print(f"   Header X-Cache: {cache_hdr}", flush=True)
     print(f"<< HTTP {status} (Latency: {latency_ms:.1f}ms)", flush=True)
-    print(f"   Response Body:\n{json.dumps(resp_body, indent=2)}", flush=True)
+    if isinstance(resp_body, (dict, list)):
+        print(f"   Response Body:\n{json.dumps(resp_body, indent=2)}", flush=True)
+    else:
+        print(f"   Response Body:\n{resp_body}", flush=True)
 
 
 def seed_differentiated_online_features() -> None:
@@ -214,10 +225,10 @@ def main() -> None:
     t0 = time.perf_counter()
     resp = requests.get(f"{base_url}/health")
     lat = (time.perf_counter() - t0) * 1000.0
-    body = resp.json()
+    body = safe_json(resp)
     print_http_exchange("GET", f"{base_url}/health", None, resp.status_code, body, lat)
 
-    assert resp.status_code == 200, f"Expected 200, got: {resp.status_code}"
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {body}"
     deps = body.get("dependencies", {})
     assert (
         deps.get("database") == "connected"
@@ -264,14 +275,14 @@ def main() -> None:
         t0 = time.perf_counter()
         resp = requests.get(f"{base_url}/predict/demand/{zid}")
         lat = (time.perf_counter() - t0) * 1000.0
-        body = resp.json()
+        body = safe_json(resp)
         print_http_exchange(
             "GET", f"{base_url}/predict/demand/{zid}", None, resp.status_code, body, lat
         )
 
         assert (
             resp.status_code == 200
-        ), f"Zone {zid} returned status: {resp.status_code}"
+        ), f"Zone {zid} returned status {resp.status_code}: {body}"
         assert body.get("zone_id") == zid
         assert body.get("status") in ["ok", "degraded_fallback"]
         pred_val = body.get("predicted_pickups")
@@ -294,7 +305,7 @@ def main() -> None:
     t0 = time.perf_counter()
     resp = requests.get(f"{base_url}/predict/eta?origin=161&dest=236")
     lat = (time.perf_counter() - t0) * 1000.0
-    body = resp.json()
+    body = safe_json(resp)
     print_http_exchange(
         "GET",
         f"{base_url}/predict/eta?origin=161&dest=236",
@@ -304,7 +315,7 @@ def main() -> None:
         lat,
     )
 
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"Corridor ETA returned {resp.status_code}: {body}"
     assert body.get("origin_zone_id") == 161
     assert body.get("dest_zone_id") == 236
     dur_sec = body.get("predicted_duration_seconds")
@@ -333,9 +344,9 @@ def main() -> None:
         json={"zone_ids": all_zones, "horizon_minutes": 15},
     )
     total_batch_lat = (time.perf_counter() - t0) * 1000.0
-    body = resp.json()
+    body = safe_json(resp)
 
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"Batch demand returned {resp.status_code}: {body}"
     preds_list = body.get("predictions", [])
     assert (
         len(preds_list) == 263
@@ -369,7 +380,7 @@ def main() -> None:
     t0 = time.perf_counter()
     resp = requests.post(f"{base_url}/predict/eta/batch", json={"corridors": corridors})
     lat = (time.perf_counter() - t0) * 1000.0
-    body = resp.json()
+    body = safe_json(resp)
     print_http_exchange(
         "POST",
         f"{base_url}/predict/eta/batch",
@@ -379,7 +390,7 @@ def main() -> None:
         lat,
     )
 
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"Batch ETA returned {resp.status_code}: {body}"
     eta_items = body.get("predictions", [])
     assert len(eta_items) == len(corridors)
     for it in eta_items:
@@ -402,15 +413,20 @@ def main() -> None:
     t0 = time.perf_counter()
     resp_cached = requests.get(f"{base_url}/predict/demand/161")
     cached_lat = (time.perf_counter() - t0) * 1000.0
+    body_cached = safe_json(resp_cached)
     print_http_exchange(
         "GET",
         f"{base_url}/predict/demand/161",
         None,
         resp_cached.status_code,
-        resp_cached.json(),
+        body_cached,
         cached_lat,
         resp_cached.headers,
     )
+
+    assert (
+        resp_cached.status_code == 200
+    ), f"Cached call returned {resp_cached.status_code}: {body_cached}"
 
     assert (
         resp_cached.headers.get("X-Cache") == "HIT"
@@ -453,7 +469,7 @@ def main() -> None:
         f"{base_url}/predict/demand/batch", json=batch_demand_payload
     )
     lat_b1 = (time.perf_counter() - t0) * 1000.0
-    body_b1 = resp_b1.json()
+    body_b1 = safe_json(resp_b1)
     print_http_exchange(
         "POST (Call 1 - Fresh Inference)",
         f"{base_url}/predict/demand/batch",
@@ -464,7 +480,9 @@ def main() -> None:
         resp_b1.headers,
     )
 
-    assert resp_b1.status_code == 200
+    assert (
+        resp_b1.status_code == 200
+    ), f"Batch demand Call 1 returned {resp_b1.status_code}: {body_b1}"
     items_b1 = body_b1["predictions"]
     pred_161_b1 = next(
         it["predicted_pickups"] for it in items_b1 if it["zone_id"] == 161
@@ -488,7 +506,7 @@ def main() -> None:
         f"{base_url}/predict/demand/batch", json=batch_demand_payload
     )
     lat_b2 = (time.perf_counter() - t0) * 1000.0
-    body_b2 = resp_b2.json()
+    body_b2 = safe_json(resp_b2)
     print_http_exchange(
         "POST (Call 2 - Cached Hit)",
         f"{base_url}/predict/demand/batch",
@@ -499,7 +517,9 @@ def main() -> None:
         resp_b2.headers,
     )
 
-    assert resp_b2.status_code == 200
+    assert (
+        resp_b2.status_code == 200
+    ), f"Batch demand Call 2 returned {resp_b2.status_code}: {body_b2}"
     assert (
         resp_b2.headers.get("X-Cache") == "HIT"
     ), f"Expected X-Cache: HIT on Call 2, got: {resp_b2.headers.get('X-Cache')}"
@@ -550,7 +570,7 @@ def main() -> None:
     t0 = time.perf_counter()
     resp_eta1 = requests.post(f"{base_url}/predict/eta/batch", json=batch_eta_payload)
     lat_eta1 = (time.perf_counter() - t0) * 1000.0
-    body_eta1 = resp_eta1.json()
+    body_eta1 = safe_json(resp_eta1)
     print_http_exchange(
         "POST (Call 1 - Fresh Inference)",
         f"{base_url}/predict/eta/batch",
@@ -561,7 +581,9 @@ def main() -> None:
         resp_eta1.headers,
     )
 
-    assert resp_eta1.status_code == 200
+    assert (
+        resp_eta1.status_code == 200
+    ), f"Batch ETA Call 1 returned {resp_eta1.status_code}: {body_eta1}"
     items_eta1 = body_eta1["predictions"]
     dur_161_236_1 = items_eta1[0]["predicted_duration_seconds"]
     dur_236_142_1 = items_eta1[1]["predicted_duration_seconds"]
@@ -578,7 +600,7 @@ def main() -> None:
     t0 = time.perf_counter()
     resp_eta2 = requests.post(f"{base_url}/predict/eta/batch", json=batch_eta_payload)
     lat_eta2 = (time.perf_counter() - t0) * 1000.0
-    body_eta2 = resp_eta2.json()
+    body_eta2 = safe_json(resp_eta2)
     print_http_exchange(
         "POST (Call 2 - Cached Hit)",
         f"{base_url}/predict/eta/batch",
@@ -589,7 +611,9 @@ def main() -> None:
         resp_eta2.headers,
     )
 
-    assert resp_eta2.status_code == 200
+    assert (
+        resp_eta2.status_code == 200
+    ), f"Batch ETA Call 2 returned {resp_eta2.status_code}: {body_eta2}"
     assert (
         resp_eta2.headers.get("X-Cache") == "HIT"
     ), f"Expected X-Cache: HIT on Call 2, got: {resp_eta2.headers.get('X-Cache')}"
@@ -620,7 +644,7 @@ def main() -> None:
     t0 = time.perf_counter()
     resp_deg = requests.get(f"{base_url}/predict/demand/200")
     lat_deg = (time.perf_counter() - t0) * 1000.0
-    body_deg = resp_deg.json()
+    body_deg = safe_json(resp_deg)
     print_http_exchange(
         "GET",
         f"{base_url}/predict/demand/200",
@@ -631,7 +655,9 @@ def main() -> None:
         resp_deg.headers,
     )
 
-    assert resp_deg.status_code == 200
+    assert (
+        resp_deg.status_code == 200
+    ), f"Degraded demand returned {resp_deg.status_code}: {body_deg}"
     assert body_deg.get("status") == "degraded_fallback"
     assert body_deg.get("cache_hit") is False
     deg_val = body_deg.get("predicted_pickups")
@@ -661,16 +687,20 @@ def main() -> None:
     # -----------------------------------------------------------------------
     print_section("Check 10: Online Feature Store Inspection & Pipeline Status History")
     resp_fz = requests.get(f"{base_url}/features/zone/161")
-    assert resp_fz.status_code == 200
-    body_fz = resp_fz.json()
+    body_fz = safe_json(resp_fz)
+    assert (
+        resp_fz.status_code == 200
+    ), f"Features zone returned {resp_fz.status_code}: {body_fz}"
     assert body_fz.get("entity_type") == "zone"
     assert body_fz.get("entity_id") == 161
     assert "pickup_count_last_15m" in body_fz.get("features", {})
     print("   ✓ GET /features/zone/161 returned online feature vector.", flush=True)
 
     resp_fc = requests.get(f"{base_url}/features/corridor/161_236")
-    assert resp_fc.status_code == 200
-    body_fc = resp_fc.json()
+    body_fc = safe_json(resp_fc)
+    assert (
+        resp_fc.status_code == 200
+    ), f"Features corridor returned {resp_fc.status_code}: {body_fc}"
     assert body_fc.get("entity_type") == "corridor"
     assert body_fc.get("entity_id") == "161_236"
     assert "avg_duration_last_15m" in body_fc.get("features", {})
@@ -680,8 +710,10 @@ def main() -> None:
     )
 
     resp_pipe = requests.get(f"{base_url}/pipeline/status")
-    assert resp_pipe.status_code == 200
-    body_pipe = resp_pipe.json()
+    body_pipe = safe_json(resp_pipe)
+    assert (
+        resp_pipe.status_code == 200
+    ), f"Pipeline status returned {resp_pipe.status_code}: {body_pipe}"
     assert "status" in body_pipe
     print(
         f"   ✓ GET /pipeline/status returned '{body_pipe.get('status')}'.",
