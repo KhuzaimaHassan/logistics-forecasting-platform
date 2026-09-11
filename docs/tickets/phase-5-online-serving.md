@@ -84,7 +84,7 @@ Implement the production-grade online inference and serving layer for real-time 
 - **Estimated Size:** ~300 lines.
 - **Depends On:** M5-2.
 
-### M5-4: End-to-End Live Serving Smoke Test, Docker Integration & CI Verification
+### M5-4: End-to-End Live Serving Smoke Test, Docker Integration & CI Verification [COMPLETED]
 - **Scope / Acceptance Criteria:**
   - Implement comprehensive live smoke verification script in `scripts/verify_serving_live_smoke.py`:
     - Connects to real local/Docker dependencies (PostgreSQL, Redis, MLflow, FastAPI).

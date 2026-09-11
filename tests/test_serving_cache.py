@@ -355,6 +355,56 @@ def test_batch_then_single_degraded_zone_not_stale_cached(
     assert cache.get_demand(236, 15) is None
 
 
+def test_batch_then_single_genuine_cache_hit_deserialization(
+    mock_serving_cache_environment,
+):
+    """Confirm genuine predictions cached via batch endpoints can be successfully retrieved
+
+    and deserialized by single endpoints without schema validation errors (e.g. model_version, as_of).
+    """
+    # 1. Demand batch caching -> single retrieval
+    demand_batch_res = client.post(
+        "/predict/demand/batch",
+        json={"zone_ids": [161], "horizon_minutes": 15},
+    )
+    assert demand_batch_res.status_code == 200
+    demand_batch_item = demand_batch_res.json()["predictions"][0]
+    assert demand_batch_item["status"] == "ok"
+
+    # Immediately request zone 161 via single endpoint -> must be a cache HIT
+    single_demand_res = client.get("/predict/demand/161?horizon=15")
+    assert single_demand_res.status_code == 200
+    assert single_demand_res.headers.get("X-Cache") == "HIT"
+    single_demand_data = single_demand_res.json()
+    assert (
+        single_demand_data["predicted_pickups"]
+        == demand_batch_item["predicted_pickups"]
+    )
+    assert single_demand_data["model_version"] is not None
+    assert single_demand_data["as_of"] is not None
+
+    # 2. ETA batch caching -> single retrieval
+    eta_batch_res = client.post(
+        "/predict/eta/batch",
+        json={"corridors": [{"origin_zone_id": 161, "dest_zone_id": 236}]},
+    )
+    assert eta_batch_res.status_code == 200
+    eta_batch_item = eta_batch_res.json()["predictions"][0]
+    assert eta_batch_item["status"] == "ok"
+
+    # Immediately request corridor 161->236 via single endpoint -> must be a cache HIT
+    single_eta_res = client.get("/predict/eta?origin=161&dest=236")
+    assert single_eta_res.status_code == 200
+    assert single_eta_res.headers.get("X-Cache") == "HIT"
+    single_eta_data = single_eta_res.json()
+    assert (
+        single_eta_data["predicted_duration_seconds"]
+        == eta_batch_item["predicted_duration_seconds"]
+    )
+    assert single_eta_data["model_version"] is not None
+    assert single_eta_data["as_of"] is not None
+
+
 # ---------------------------------------------------------------------------
 # Fault Tolerance & In-Memory Fallback
 # ---------------------------------------------------------------------------
