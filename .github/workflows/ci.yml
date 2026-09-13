@@ -60,9 +60,13 @@ jobs:
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "POSTGRES_PASSWORD must be set"
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build all Docker images
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci build
+
 
       - name: Start Docker Compose stack
         run: |

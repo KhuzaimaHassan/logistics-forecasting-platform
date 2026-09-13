@@ -1,4 +1,4 @@
-# CI-only Docker Compose override for host-level connectivity checks
+# CI-only Docker Compose override for host-level connectivity checks and buildx caching
 services:
   redis:
     ports:
@@ -12,5 +12,35 @@ services:
   fastapi:
     ports:
       - "8000:8000"
+    build:
+      cache_from:
+        - type=gha,scope=fastapi
+      cache_to:
+        - type=gha,mode=max,scope=fastapi
+  streamlit:
+    build:
+      cache_from:
+        - type=gha,scope=streamlit
+      cache_to:
+        - type=gha,mode=max,scope=streamlit
+  stream-consumer:
+    build:
+      cache_from:
+        - type=gha,scope=stream-consumer
+      cache_to:
+        - type=gha,mode=max,scope=stream-consumer
+  stream-producer:
+    build:
+      cache_from:
+        - type=gha,scope=stream-producer
+      cache_to:
+        - type=gha,mode=max,scope=stream-producer
+  prefect-worker:
+    build:
+      cache_from:
+        - type=gha,scope=prefect-worker
+      cache_to:
+        - type=gha,mode=max,scope=prefect-worker
+
 
 
