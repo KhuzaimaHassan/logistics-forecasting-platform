@@ -26,6 +26,7 @@ FastAPI `/predict/demand`, `/predict/eta`, `/features/*`, `/health` live, readin
 
 ## Phase 6 — CI/CD
 Scheduled retraining Prefect flow orchestrated on Prefect Cloud (ADR-021); safe model promotion gate comparing candidate models against active Production models in MLflow; Docker Buildx layer caching (`type=gha`) in GitHub Actions to accelerate CI builds (fast-follow since M2); deploy-on-merge GitHub Actions workflow (authored and gated, pending manual Oracle VM provisioning). Note: Drift-triggered retraining is explicitly deferred to Phase 8 (Evidently AI) per ADR-022.
+*Note: Complete CI/CD and retraining stack verified in CI (`docker-compose-validate`). Includes ModelPromotionGate with a default 2.0% hurdle rate (min_improvement_pct=0.02) enforcing 4-stage validation (seasonal naive baseline check, champion/challenger comparison, 2.0% minimum improvement, and MLflow stage transitions) proven against live warehouse.trips data and MLflow Production models; scheduled-model-retraining-flow registered on Prefect Cloud work pool logistics-pool with weekly cron (0 3 * * 0); Docker Buildx GHA layer caching across all 5 custom services; and deploy.yml with secret-guard validation tested live on push to main.*
 
 ## Phase 7 — Agent Layer
 LangGraph Ops Copilot live behind `/agent/chat`, all four tools working, guardrails tested against adversarial input.
@@ -44,7 +45,8 @@ README, architecture diagram, live demo link, portfolio write-up, Lessons-Learne
 - **Phase 3 — Baseline Models:** Done (completed 2026-08-31)
 - **Phase 4 — Real-Time Layer:** Done (completed 2026-09-07)
 - **Phase 5 — Online Serving:** Done (completed 2026-09-11)
-- **Phases 6–9:** Not yet started
+- **Phase 6 — CI/CD:** Done (completed 2026-09-13)
+- **Phases 7–9:** Not yet started
 
 
 
