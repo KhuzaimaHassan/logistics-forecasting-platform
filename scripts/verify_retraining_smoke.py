@@ -48,7 +48,7 @@ from src.common.mlflow_utils import (
     setup_mlflow,
 )
 from src.features.config import get_feature_store
-from src.orchestration.flows.retraining_flow import generate_retraining_summary
+from src.orchestration.flows.retraining_flow import generate_retraining_summary_task
 from src.training.baseline import evaluate_demand_baseline
 from src.training.dataset import (
     DEMAND_FEATURES,
@@ -463,35 +463,36 @@ def run_orchestration_summary_verification(gate_decision: Dict[str, Any]) -> Non
     )
     print("=" * 70, flush=True)
 
-    summary_input = {
-        "demand": gate_decision,
-        "corridor": {
+    b_mae = float(gate_decision.get("baseline_mae") or 4.0)
+    c_mae = float(gate_decision.get("candidate_mae") or 3.8)
+
+    summary = generate_retraining_summary_task.fn(
+        demand_baseline={"metrics": {"val_mae": b_mae}},
+        demand_model={"metrics": {"val_mae": c_mae}},
+        demand_promo=gate_decision,
+        corridor_baseline={"metrics": {"val_mae": 120.0}},
+        corridor_model={"metrics": {"val_mae": 115.0}},
+        corridor_promo={
             "model_name": DURATION_MODEL_NAME,
             "promoted": False,
             "version": "1",
             "stage": "Staging",
-            "candidate_mae": 115.0,
             "production_mae": 112.0,
             "hurdle_mae": 109.76,
-            "min_improvement_pct": 0.02,
-            "actual_improvement_pct": -0.0268,
+            "candidate_mae": 115.0,
             "reason": "Candidate v1 MAE (115.0000) was worse than Production v1 MAE (112.0000)",
         },
-    }
-
-    summary = generate_retraining_summary(
-        promotion_results=summary_input,
-        reconciled_counts={"zone_rows_loaded": 30, "corridor_rows_loaded": 20},
+        r2_status={"status": "mocked_success"},
+        elapsed_seconds=12.34,
     )
 
     print(
         f"Task executed successfully. Emitted summary keys: {list(summary.keys())}",
         flush=True,
     )
-    print("\nGenerated Markdown Retraining Summary:\n", flush=True)
-    print(summary["markdown_table"], flush=True)
-    assert len(summary["markdown_table"]) > 100, "Markdown table is suspiciously short"
-    assert "demand_lightgbm_model" in summary["markdown_table"]
+    assert summary["status"] == "success"
+    assert "demand" in summary and "corridor" in summary
+    assert summary["demand"]["candidate_mae"] == c_mae
     print("  ✓ PASSED: generate_retraining_summary contract fully verified.")
 
 
