@@ -397,3 +397,40 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Direct alignment with verified MLflow 3.x Production stage registry API.
 - Genuine model predictions on imputed features during feature cache misses with clear degradation metadata.
 - Clean contract separation between non-existent entities (HTTP 404), unmaterialized features (HTTP 200 degraded), and system outages (HTTP 503).
+
+---
+
+## ADR-021: Retraining Orchestration — Prefect Flow vs. GitHub Actions Cron
+
+**Context:** Periodic retraining of the LightGBM demand and corridor duration models requires extracting trip batches from the PostgreSQL warehouse, materializing Feast offline features, computing training/validation splits, training gradient boosted decision trees, logging runs and artifacts to MLflow, executing model promotion safety checks, and backing up model artifacts to Cloudflare R2. We need to decide whether to trigger and orchestrate this automated retraining pipeline via GitHub Actions scheduled workflows (`schedule: cron`) or a dedicated Prefect flow scheduled on Prefect Cloud.
+
+**Decision:** Orchestrate retraining via a Prefect flow (`retraining_flow` in `src/orchestration/flows/retraining_flow.py`) scheduled via Prefect Cloud and executed on our dedicated worker/host, rather than GitHub Actions cron.
+
+**Alternatives considered:**
+- GitHub Actions cron workflow — rejected. GitHub-hosted runners have strict resource bounds (2 vCPUs, 7GB RAM, 6-hour execution limits) and lack private network access to internal PostgreSQL and MLflow services without insecurely exposing database ports to the public internet or managing fragile SSH/WireGuard tunnels. Heavyweight dataset transformations and ML training in ephemeral CI runners also incur queuing delays and flakiness.
+- Cron job on host directly — rejected. Raw cron lacks execution history, task retry policies, failure alerting, parameterization, and centralized UI observability.
+- Airflow / Dagster — rejected per ADR-005. Prefect Cloud is already established as the platform's scheduler.
+
+**Consequences:** Model retraining executes with direct local network connectivity to the PostgreSQL warehouse, Feast offline store, and MLflow tracking server. Prefect Cloud provides centralized execution tracking, run alerts, native task-level retries, and failure triage. GitHub Actions remains strictly focused on software CI/CD (linting, testing, Docker Buildx caching, and deploy-on-merge automation).
+
+**Model Promotion Safety Gate & Hurdle Rate Specification:**
+- **Gate Contract:** Retraining must never unconditionally replace the active `Production` model. A candidate model is promoted to `Production` stage if and only if it simultaneously satisfies:
+  1. $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{baseline}}$ (beats naive baseline).
+  2. $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{prod}} \times (1.0 - \text{min\_improvement\_pct})$ (beats current production model by at least the hurdle rate).
+- **Default Hurdle Rate:** `min_improvement_pct = 0.02` (2.0% reduction in MAE).
+- **Rationale for 2.0% Default:** Retraining gradient boosted decision trees on tabular trip data introduces subtle run-to-run metric variance ($\pm 0.3-0.8\%$) resulting from multithreaded tree splitting, stochastic feature subsampling, and floating-point non-associativity. A 0.0% threshold causes "false champion" churn where models are repeatedly promoted solely due to random seed jitter. Requiring a 2.0% error reduction guarantees that promotion reflects genuine, statistically meaningful model improvements on fresh data.
+- **Degraded Outcome:** If a candidate model fails either condition, it is transitioned to `Staging` with an explicit reason logged, leaving the existing `Production` model untouched in serving.
+
+---
+
+## ADR-022: Drift-Triggered Retraining Deferred to Phase 8 (Evidently AI)
+
+**Context:** The initial roadmap outline for Phase 6 described a "scheduled/drift-triggered retrain workflow". We need to define the exact scope boundaries between Phase 6 (CI/CD & Retraining Automation) and Phase 8 (Monitoring with Evidently AI).
+
+**Decision:** Phase 6 delivers the scheduled retraining pipeline (weekly off-peak cron via Prefect) and the model promotion safety gate. Drift-triggered retraining (triggering a retraining run automatically when data or prediction drift exceeds statistical thresholds) is explicitly deferred to Phase 8.
+
+**Alternatives considered:**
+- Implement mock drift triggers in Phase 6 — rejected. Introducing synthetic drift thresholds or stubbed drift monitors before Evidently AI is implemented violates vertical slicing and creates technical debt.
+- Defer all retraining orchestration to Phase 8 — rejected. Automated retraining and model promotion gates are core MLOps CI/CD deliverables. Establishing a verified, scheduled retraining flow and promotion safety gate in Phase 6 provides the foundation that Phase 8 will invoke when drift alerts occur.
+
+**Consequences:** Phase 6 cleanly delivers the scheduled retraining flow and champion/challenger promotion gate without premature dependencies on Phase 8 monitoring infrastructure. In Phase 8, when Evidently AI drift analysis and alerting pipelines are built, triggering a retrain will be a simple deployment hook invoking the existing `retraining_flow`.

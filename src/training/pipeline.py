@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from feast import FeatureStore
-from mlflow.tracking import MlflowClient
 from prefect import flow, task
 from sqlalchemy.engine import Engine
 
@@ -31,164 +30,14 @@ from src.training.dataset import (
     train_val_split_by_time,
     validate_dataset_integrity,
 )
+from src.training.promotion import (
+    promote_model_to_production,
+)
 from src.training.r2_backup import backup_artifacts_to_r2_task
 from src.training.train_demand import train_demand_lightgbm
 from src.training.train_duration import train_duration_lightgbm
 
 logger = logging.getLogger(__name__)
-
-
-def _find_or_create_model_version(
-    client: MlflowClient,
-    model_name: str,
-    candidate_run_id: str,
-) -> Optional[Any]:
-    """Find existing registered model version or register a new one from candidate run."""
-    try:
-        versions = client.search_model_versions(f"name='{model_name}'")
-    except Exception:
-        versions = []
-
-    for v in versions:
-        if v.run_id == candidate_run_id:
-            return v
-
-    # Explicitly register model version from run artifact
-    logger.info(
-        "Registering model version for '%s' from run '%s'...",
-        model_name,
-        candidate_run_id,
-    )
-    try:
-        client.create_registered_model(model_name)
-    except Exception:
-        pass  # Model already exists
-
-    try:
-        return client.create_model_version(
-            name=model_name,
-            source=f"runs:/{candidate_run_id}/model",
-            run_id=candidate_run_id,
-        )
-    except Exception as reg_err:
-        logger.warning("Failed to register version for '%s': %s", model_name, reg_err)
-        return None
-
-
-def _transition_model_stage(
-    client: MlflowClient,
-    model_name: str,
-    target_version: Any,
-    candidate_mae: float,
-    baseline_mae: float,
-    outcome: Dict[str, Any],
-) -> None:
-    """Transition model version stage to Production (if improved) or Staging."""
-    version_num = target_version.version
-    if candidate_mae <= baseline_mae:
-        logger.info(
-            "Promoting %s v%s to Production (Candidate MAE=%.4f <= Baseline MAE=%.4f)...",
-            model_name,
-            version_num,
-            candidate_mae,
-            baseline_mae,
-        )
-        try:
-            client.transition_model_version_stage(
-                name=model_name,
-                version=version_num,
-                stage="Production",
-                archive_existing_versions=True,
-            )
-            outcome["stage"] = "Production"
-            outcome["promoted"] = True
-            outcome["reason"] = (
-                f"Outperformed baseline (MAE {candidate_mae:.4f} <= {baseline_mae:.4f})"
-            )
-        except Exception:
-            try:
-                client.set_registered_model_alias(
-                    name=model_name,
-                    alias="champion",
-                    version=version_num,
-                )
-                outcome["stage"] = "champion_alias"
-                outcome["promoted"] = True
-            except Exception as alias_err:
-                outcome["reason"] = f"Registry update failed: {alias_err}"
-    else:
-        logger.warning(
-            "Candidate %s v%s did not improve over baseline (Candidate MAE=%.4f > Baseline MAE=%.4f); moving to Staging.",
-            model_name,
-            version_num,
-            candidate_mae,
-            baseline_mae,
-        )
-        try:
-            client.transition_model_version_stage(
-                name=model_name,
-                version=version_num,
-                stage="Staging",
-                archive_existing_versions=False,
-            )
-            outcome["stage"] = "Staging"
-            outcome["reason"] = "Higher error than baseline"
-        except Exception:
-            outcome["stage"] = "None"
-
-
-def promote_model_to_production(
-    client: MlflowClient,
-    model_name: str,
-    candidate_run_id: str,
-    candidate_mae: float,
-    baseline_mae: float,
-) -> Dict[str, Any]:
-    """Promote registered model version to Production stage if it improves over baseline.
-
-    Args:
-        client: MLflow tracking and registry client.
-        model_name: Registered model name.
-        candidate_run_id: Run ID of the trained candidate model.
-        candidate_mae: Candidate model validation MAE.
-        baseline_mae: Baseline validation MAE.
-
-    Returns:
-        Dictionary detailing version number, stage, and promotion outcome.
-    """
-    outcome: Dict[str, Any] = {
-        "model_name": model_name,
-        "promoted": False,
-        "version": None,
-        "stage": "None",
-        "reason": "no_versions_found",
-    }
-
-    try:
-        target_version = _find_or_create_model_version(
-            client=client, model_name=model_name, candidate_run_id=candidate_run_id
-        )
-        if target_version is None:
-            logger.warning(
-                "No registered model version found or created for model '%s'.",
-                model_name,
-            )
-            return outcome
-
-        outcome["version"] = str(target_version.version)
-        _transition_model_stage(
-            client=client,
-            model_name=model_name,
-            target_version=target_version,
-            candidate_mae=candidate_mae,
-            baseline_mae=baseline_mae,
-            outcome=outcome,
-        )
-    except Exception as exc:
-        logger.error("Error during model promotion for '%s': %s", model_name, exc)
-        outcome["reason"] = f"Exception: {exc}"
-
-    return outcome
 
 
 @task(name="extract-training-datasets")
