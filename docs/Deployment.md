@@ -35,6 +35,23 @@ All on a shared Docker network; only Caddy ports 80/443 exposed externally (via 
 
 Deliberately lean stack given the constraint — no Spark/Flink, no multi-broker Kafka cluster, no separate training cluster. Training runs happen on the same VM during off-peak (batch job via Prefect), not continuously.
 
-## 6. Resolved & Open Questions
+## 6. CI/CD Automated Deployment
+
+The deployment pipeline is automated via `.github/workflows/deploy.yml`:
+- **Trigger:** Automatic upon merge to `main`, or manually via GitHub Actions `workflow_dispatch`.
+- **Secret Guard:** The workflow inspects repository secrets `ORACLE_HOST` and `ORACLE_SSH_KEY`. If they are not configured, the workflow gracefully skips execution with an informational notice, avoiding false CI failures while the VM is pending provisioning.
+- **SSH Deployment:** When secrets are present, the workflow connects to the VM, fetches the latest `main` commit, executes `docker compose up -d --build`, and verifies the Caddy reverse proxy `/health` probe.
+
+### Required GitHub Secrets for Live Deployment
+| Secret | Description | Example |
+|---|---|---|
+| `ORACLE_HOST` | Reserved public IP or DNS hostname of the Oracle VM | `150.136.x.x` |
+| `ORACLE_SSH_KEY` | Private SSH key authorized in `~/.ssh/authorized_keys` | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `ORACLE_USER` | SSH user account on the VM (optional, defaults to `ubuntu`) | `ubuntu` |
+| `ORACLE_PORT` | SSH port (optional, defaults to `22`) | `22` |
+
+## 7. Resolved & Open Questions
  
 - **Swap space:** Automated via `infra/oracle-vm/provision.sh` (2GB swapfile configured on Oracle Linux/Ubuntu ARM64 host). Resolved in Phase 0.
+- **VM Provisioning Status:** Oracle Ampere A1 compute instance provisioning is pending manual creation in OCI Console. Automatic deployment is gracefully gated until credentials are populated.
+
