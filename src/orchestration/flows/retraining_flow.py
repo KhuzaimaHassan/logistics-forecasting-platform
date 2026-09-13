@@ -349,6 +349,10 @@ def generate_retraining_summary_task(
     }
 
 
+# Alias for backward compatibility / direct import
+generate_retraining_summary = generate_retraining_summary_task
+
+
 def run_scheduled_retraining(
     lookback_days: int = 28,
     val_days: int = 7,
