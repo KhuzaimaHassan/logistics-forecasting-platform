@@ -167,6 +167,19 @@ jobs:
         run: |
           uv run python -u scripts/verify_serving_live_smoke.py
 
+      - name: Verify Live Model Retraining & Promotion Safety Gate (M6-5)
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uv run python -u scripts/verify_retraining_smoke.py
+
+
       - name: Verify Live Redpanda Topic Provisioning and Trip Replay Stream
         env:
           REDPANDA_BROKER: localhost:9092
