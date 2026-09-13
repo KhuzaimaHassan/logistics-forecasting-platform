@@ -20,11 +20,14 @@ Implement the automated continuous integration, continuous delivery, and model r
    - While provisioning scripts and network specifications exist in `infra/oracle-vm/`, the instance has not yet been provisioned in the Oracle Cloud Console, and no host IP or SSH credentials exist in `.env` or GitHub repository secrets.
    - Deploy-to-VM automation (M6-4) will be authored as a fully valid GitHub Actions workflow (`.github/workflows/deploy.yml`) gated on secret presence, logging an informative skip notice when credentials are absent, and documented in `docs/Deployment.md` as pending manual host provisioning. Today's execution scopes strictly to components that do not depend on external host connectivity (M6-1, M6-2, M6-3, M6-5).
 
-4. **Model Promotion Safety Gate Contract**:
+4. **Model Promotion Safety Gate Contract & Minimum Improvement Threshold**:
    - Retraining must NEVER unconditionally replace the `Production` model.
    - The candidate model must satisfy two gates:
      1. Outperform the naive baseline: $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{baseline}}$.
-     2. Outperform the active `Production` model in the MLflow Model Registry: $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{prod}} \times (1.0 - \delta)$ (where default improvement threshold $\delta = 0.0$, requiring candidate error to be strictly less than or equal to current production).
+     2. Outperform the active `Production` model in the MLflow Model Registry by at least a non-zero hurdle rate:
+        $$\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{prod}} \times (1.0 - \delta)$$
+        where default **$\delta = 0.02$ (2.0% minimum improvement)**.
+   - **Rationale for $\delta = 0.02$:** LightGBM training on large tabular datasets exhibits subtle run-to-run metric variance ($\pm 0.3-0.8\%$) from multithreaded tree building, random feature subsampling, and floating-point non-determinism. Setting $\delta = 0.02$ (2%) guarantees that candidate models are only promoted when they demonstrate genuine, statistically meaningful accuracy gains rather than stochastic training noise or data jitter.
    - If no model exists in `Production` stage (cold start / fresh registry), beating the naive baseline is sufficient for initial promotion.
    - If the candidate fails either condition, it transitions to `Staging` (or remains unpromoted), logs detailed comparative evaluation metrics, and prevents unauthorized regression in serving.
 
@@ -39,22 +42,25 @@ Implement the automated continuous integration, continuous delivery, and model r
     - Fetches the active production model's validation metrics from its associated MLflow run (`val_mae`, `val_rmse`, `val_wape`).
     - Evaluates the new candidate model's validation metrics against:
       1. Naive baseline error (`candidate_mae <= baseline_mae`).
-      2. Active production model error (`candidate_mae <= production_mae * (1.0 - min_improvement_threshold)`).
+      2. Active production model error with minimum improvement hurdle:
+         `candidate_mae <= production_mae * (1.0 - min_improvement_pct)`
+         where default `min_improvement_pct = 0.02` (2.0%).
     - If candidate wins:
       - Transitions candidate version to `stage="Production"` with `archive_existing_versions=True`.
       - Optionally sets alias `"champion"` on the new version and tags the previous champion as `"previous_champion"`.
       - Returns outcome dictionary indicating `promoted=True`, `stage="Production"`, and metric comparison summary.
-    - If candidate loses (higher error than production or fails baseline):
+    - If candidate loses (higher error than production, fails hurdle rate, or fails baseline):
       - Transitions candidate version to `stage="Staging"` (or leaves stage unassigned).
-      - Returns outcome dictionary indicating `promoted=False`, `stage="Staging"`, and explicit failure reason (e.g. `Candidate MAE 4.85 > Production MAE 4.20`).
+      - Returns outcome dictionary indicating `promoted=False`, `stage="Staging"`, and explicit failure reason (e.g. `Candidate MAE 4.85 did not beat Production MAE 4.20 by 2.0% hurdle`).
     - Handles cold start: if no `Production` version exists in MLflow, candidate is promoted as the inaugural champion if it outperforms the naive baseline.
   - Refactor `src/training/pipeline.py` to use `ModelPromotionGate` rather than unconditional baseline-only promotion.
   - Unit and contract tests in `tests/test_model_promotion_gate.py`:
     - Cold-start promotion when beating naive baseline.
     - Rejection when candidate MAE > active Production MAE (remains in Staging, production unmutated).
-    - Approval and stage transition when candidate MAE < active Production MAE.
+    - Rejection when candidate beats Production MAE by < 2% (fails hurdle rate, prevents noise churn).
+    - Approval and stage transition when candidate MAE < active Production MAE by >= 2%.
     - Rejection when candidate beats Production but fails baseline.
-    - Boundary tolerance check with non-zero improvement threshold ($\delta > 0$).
+    - Boundary tolerance checks with custom `min_improvement_pct` parameters.
 - **Per-Ticket Context:** `src/training/pipeline.py`, `src/common/mlflow_utils.py`, `docs/Decisions.md` (ADR-021).
 - **Files Touched:** `src/training/promotion.py`, `src/training/pipeline.py`, `tests/test_model_promotion_gate.py`.
 - **Estimated Size:** ~350 lines.
@@ -114,21 +120,28 @@ Implement the automated continuous integration, continuous delivery, and model r
 - **Scope / Acceptance Criteria:**
   - Implement automated retraining verification script `scripts/verify_retraining_smoke.py`:
     - Connects to local/CI PostgreSQL and MLflow tracking server.
-    - Step 1: Prepares a baseline Production model version in MLflow with known validation error (e.g. MAE = 4.00).
-    - Step 2: Trains a degraded candidate model (e.g. high noise or small epoch) with MAE = 5.20; verifies `ModelPromotionGate` rejects the candidate, leaves production version untouched at v1, and places candidate in `Staging`.
-    - Step 3: Trains an improved candidate model with MAE = 3.50; verifies `ModelPromotionGate` approves promotion, transitions candidate to `Production`, and archives the previous champion.
-    - Step 4: Prints a formatted metric comparison table detailing Candidate vs. Production vs. Baseline MAE, RMSE, and WAPE with clear promotion outcomes.
+    - **Synthetic Simulation Proofs:**
+      - Step 1: Prepares a baseline Production model version in MLflow with known validation error (e.g. MAE = 4.00).
+      - Step 2: Trains a degraded candidate model with MAE = 5.20; verifies `ModelPromotionGate` rejects the candidate, leaves production version untouched at v1, and places candidate in `Staging`.
+      - Step 3: Tests candidate with MAE = 3.95 (< 2% improvement); verifies `ModelPromotionGate` rejects due to hurdle rate.
+      - Step 4: Trains an improved candidate model with MAE = 3.50 (>= 2% improvement); verifies `ModelPromotionGate` approves promotion, transitions candidate to `Production`, and archives previous champion.
+    - **Live Production Model Proof (Genuine Retrain):**
+      - Step 5: Queries the live MLflow Model Registry for the actual current `Production` model (the `demand_lightgbm_model` v2 confirmed serving in M5-4).
+      - Pulls real trip records from `warehouse.trips`, generates a real feature matrix, fits a genuine candidate LightGBM booster, and computes real validation metrics (`val_mae`, `val_rmse`, `val_wape`).
+      - Evaluates `ModelPromotionGate` live against the real active v2 Production model using the real 2.0% hurdle rate.
+      - Prints the actual comparison numbers (real Production MAE vs. real Candidate MAE vs. real Hurdle MAE) and logs the real promotion decision.
+    - Formats all results in an unmistakable console table showing before/after metrics and stage transitions.
   - Wire retraining smoke verification into `.github/workflows/ci.yml` in the integration test job.
   - Validate that `pytest tests/` runs clean with all new unit and contract tests passing.
   - Update `docs/Roadmap.md` marking Phase 6 complete.
 - **Per-Ticket Context:** `scripts/verify_serving_live_smoke.py`, `.github/workflows/ci.yml`, `docs/Roadmap.md`.
 - **Files Touched:** `scripts/verify_retraining_smoke.py`, `.github/workflows/ci.yml`, `docs/Roadmap.md`, `docs/tickets/phase-6-cicd.md`.
-- **Estimated Size:** ~350 lines.
+- **Estimated Size:** ~400 lines.
 - **Depends On:** M6-1, M6-2, M6-3, M6-4.
 
 ---
 
 ## Tracking & Issue Linkage
 - **Milestone:** `M6 - CI/CD` (Milestone #7)
-- **Tracking Issue:** To be opened upon approval
+- **Tracking Issue:** Closes #122
 - **Branch Strategy:** `dev` -> `feature/m6-cicd` -> PR to `dev` -> merge to `main`

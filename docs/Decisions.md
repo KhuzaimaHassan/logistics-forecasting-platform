@@ -413,6 +413,14 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Model retraining executes with direct local network connectivity to the PostgreSQL warehouse, Feast offline store, and MLflow tracking server. Prefect Cloud provides centralized execution tracking, run alerts, native task-level retries, and failure triage. GitHub Actions remains strictly focused on software CI/CD (linting, testing, Docker Buildx caching, and deploy-on-merge automation).
 
+**Model Promotion Safety Gate & Hurdle Rate Specification:**
+- **Gate Contract:** Retraining must never unconditionally replace the active `Production` model. A candidate model is promoted to `Production` stage if and only if it simultaneously satisfies:
+  1. $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{baseline}}$ (beats naive baseline).
+  2. $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{prod}} \times (1.0 - \text{min\_improvement\_pct})$ (beats current production model by at least the hurdle rate).
+- **Default Hurdle Rate:** `min_improvement_pct = 0.02` (2.0% reduction in MAE).
+- **Rationale for 2.0% Default:** Retraining gradient boosted decision trees on tabular trip data introduces subtle run-to-run metric variance ($\pm 0.3-0.8\%$) resulting from multithreaded tree splitting, stochastic feature subsampling, and floating-point non-associativity. A 0.0% threshold causes "false champion" churn where models are repeatedly promoted solely due to random seed jitter. Requiring a 2.0% error reduction guarantees that promotion reflects genuine, statistically meaningful model improvements on fresh data.
+- **Degraded Outcome:** If a candidate model fails either condition, it is transitioned to `Staging` with an explicit reason logged, leaving the existing `Production` model untouched in serving.
+
 ---
 
 ## ADR-022: Drift-Triggered Retraining Deferred to Phase 8 (Evidently AI)
