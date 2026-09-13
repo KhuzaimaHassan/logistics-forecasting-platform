@@ -281,11 +281,16 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
    - Train the corridor ETA model on log-transformed targets $y_{\text{log}} = \ln(1 + \text{duration\_sec})$.
    - Invert predictions during evaluation and serving via $\hat{y} = \max(60.0, \exp(\hat{y}_{\text{log}}) - 1.0)$, respecting the 60s physical minimum trip duration floor.
    - Compute all validation metrics (MAE, RMSE, WAPE, MedAE) in **original seconds** against ground truth $y_{\text{val}}$ for direct, unskewed comparison against baseline benchmarks.
+4. **Standardized Integer Categorical Domain (Phase 5 Alignment Addendum):**
+   - Standardize `pickup_zone_id`, `dropoff_zone_id` (in `train_duration.py`), and `zone_id` (in `train_demand.py`) to an explicit `pd.Categorical` type indexed across all 263 active TLC taxi zones (`ACTIVE_ZONE_CATEGORIES = list(range(1, 264))`).
+   - Previously, M3-4 extracted corridor origin/destination zones as string categories (e.g. `['161', '236']` via string split) and dynamically inferred demand categories from training slice subsets. This caused LightGBM at serving time to treat incoming integer zone categories as unseen categories, falling back to default tree leaves.
+   - Aligning both training scripts to `pd.Categorical(..., categories=list(range(1, 264)))` ensures identical categorical code indexing across offline training and online serving. Future model retrains will learn partition splits over this standardized integer domain, preventing serving-time leaf degradation.
 
 **Consequences:**
 - Variance-stabilized target distribution, eliminating outlier-induced gradient skew.
 - Inherent physical guarantee of positive duration predictions ($\hat{y} \ge 60.0\text{s}$).
 - Demonstrated $+39.09\%$ MAE reduction (278.35s vs 456.95s) on the 256k-row validation split.
+- Guaranteed category alignment between training and serving matrices: LightGBM tree nodes correctly partition across all 263 active integer TLC taxi zones without unseen-category routing anomalies. Future retrained models will exhibit subtle split threshold shifts compared to M3-4's string-encoded prototypes due to strict integer indexing.
 
 ---
 
@@ -331,6 +336,101 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Consequences:** Clean, maintainable, lightweight JSON ingestion with zero Protobuf compiler dependencies. Payload accurately delivers line-level delay and congestion severity directly to `transit.positions` and `warehouse.transit_snapshots`.
 
+---
 
+## ADR-020: Online Serving Architecture — MLflow Model Lifecycle, Startup Loading, Batch Inference Contracts, 60s Prediction Caching, and Degraded Fallbacks
 
+**Context:** In Phase 5, the online serving layer exposes low-latency HTTP prediction endpoints (`/predict/demand`, `/predict/eta`) and feature/health inspection endpoints (`/features/*`, `/health`, `/pipeline/status`) via FastAPI, reading real-time feature vectors from the Feast Redis online store and serving predictions from trained LightGBM models registered in MLflow. Four core architectural design decisions must be established:
+1. Model loading and in-memory caching at startup, lifecycle for picking up newly-promoted models, and MLflow registry stage API verification.
+2. Batch endpoint support and exact request/response shapes for demand and ETA predictions (closing the open question in `docs/API.md`).
+3. Concrete prediction caching time-to-live (TTL) in Redis.
+4. Feature-unavailable response contract when `FeastOnlineClient.get_online_features()` returns `cache_hit=False` (addressing the behavior proven in M2-4).
 
+**Decision:**
+
+1. **Model Loading at Startup & Lifecycle (Deferring Hot-Reload to Phase 6):**
+   - **Startup Eager Load:** On FastAPI startup (`lifespan` handler), `ModelLoader` connects to the MLflow tracking server, queries the Model Registry for active `Production` stage versions of `demand_lightgbm_model` and `corridor_duration_lightgbm_model`, loads the model artifacts into memory, and performs a warmup evaluation. If MLflow is temporarily unreachable, it logs a warning and loads local baseline models (`src/training/baseline.py`) as a graceful fallback.
+   - **Newly-Promoted Model Pickup (Container Restart):** In Phase 5, picking up a newly-promoted model is handled simply and reliably via container restart (`docker compose restart serving` or redeployment via CI/CD), which `Deployment.md` already specifies. This avoids premature complexity (managing staging slots, atomic pointer swapping under concurrent inference, and in-flight request drains) before the automated retraining and drift pipeline exists.
+   - **Deferred to Phase 6:** Zero-downtime atomic hot-reload (`POST /models/reload` or webhook-driven reloading) is formally tracked as a design item for Phase 6 (CI/CD & Retraining Automation), where retraining orchestration (`prefect` flow + deploy hooks) actually lives.
+   - **MLflow Registry API Confirmation:** Verified against the pinned MLflow version (`mlflow>=2.11.0` in `pyproject.toml`, resolved to `3.15.1` in `uv.lock`): `MlflowClient.transition_model_version_stage` and `MlflowClient.get_latest_versions(..., stages=['Production'])` remain fully functional and supported. Because `src/training/pipeline.py` explicitly promotes models to `stage="Production"`, `ModelLoader` targets `stages=["Production"]` directly without needing speculative alias dual-querying.
+
+2. **Batch Endpoint Support & Request/Response Contracts:**
+   - To support high-cardinality UI map rendering (all 263 active NYC taxi zones and top corridors) without incurring hundreds of sequential HTTP roundtrips, the service exposes dedicated batch POST endpoints alongside single-entity GET endpoints:
+     - **Demand Batch (`POST /predict/demand/batch`):**
+       - Request: `{"zone_ids": [161, 236, ...], "horizon_minutes": 15}`. If `zone_ids` is empty or omitted, defaults to all 263 active TLC zones.
+       - Vectorized Processing: Executes a single vectorized Redis lookup via `FeastOnlineClient.get_zone_demand_features(zone_ids)` (single Redis MGET) and scores the entire feature matrix in a single C++ LightGBM `predict()` call.
+       - Response: Returns a list of per-zone predictions with `status`, `cache_hit`, and model metadata.
+     - **ETA Batch (`POST /predict/eta/batch`):**
+       - Request: `{"corridors": [{"origin_zone_id": 161, "dest_zone_id": 236}, ...]}`.
+       - Vectorized Processing: Performs batched corridor and zone feature lookups and evaluates log1p duration predictions in a single matrix pass, inverting via $\hat{y} = \max(60.0, \exp(\hat{y}_{\text{log}}) - 1.0)$.
+       - Response: Returns an array of corridor ETA predictions in seconds and minutes.
+
+3. **Concrete 60-Second Prediction Caching TTL & Degraded Cache-Bypass Policy:**
+   - **Genuine Materialized Predictions (`cache_hit=True`, `status="ok"`):** Cached in Redis (with in-memory LRU fallback) using a fixed **60-second (60s)** TTL.
+     - Cache keys follow the schema `pred:demand:{zone_id}:{horizon_minutes}` and `pred:eta:{origin_zone_id}:{dest_zone_id}`.
+     - Rationale: While historical TLC batch features step at 15-minute intervals, streaming traffic speed updates, transit delays, and weather snapshots arrive at 10–60s intervals via Redpanda. A 60s TTL prevents duplicate inference stampedes when dashboards or multiple users refresh simultaneously, reduces p99 endpoint latency to sub-2ms, and guarantees prediction freshness stays bounded within 1 minute of live real-world updates.
+   - **Degraded Responses (`cache_hit=False`, `status="degraded_fallback"`):** MUST NOT be cached in the prediction cache (zero-TTL / cache write bypass).
+     - Rationale: A degraded response indicates unmaterialized or cold feature state in the online store. Holding a degraded prediction in the cache for 60 seconds would create an artificial 1-minute blindspot where incoming sub-second stream pushes from Redpanda or newly run reconciliation batches would be ignored by serving clients. By bypassing cache write for degraded responses, the very next client request immediately transitions from `degraded_fallback` to `status: ok` as soon as fresh features land in the online store.
+
+4. **Feature-Unavailable Response Contract (Degraded Fallback on Cache Miss):**
+   - In M2-4, `FeastOnlineClient` establishes that when an entity has never been materialized or its Redis TTL has expired, `get_online_features()` returns `cache_hit=False` with `None` fields rather than raising an error.
+   - **Invalid Entity ID ($< 1$ or $> 265$):** Returns **HTTP 404 Not Found** (`{"error": "ZoneNotFound", "detail": "Zone ID 999 does not exist"}`).
+   - **Valid Entity but Online Features Missing (`cache_hit=False`):** Returns **HTTP 200 with degraded status metadata** and a **genuine, non-zero prediction** computed by feeding the imputed feature vector (calendar harmonics calculated from current UTC time + zero rolling counts + zone base categorical encoding) directly into the LightGBM booster:
+     ```json
+     {
+       "zone_id": 263,
+       "horizon_minutes": 15,
+       "predicted_pickups": 4.2,
+       "status": "degraded_fallback",
+       "cache_hit": false,
+       "warning": "Real-time features unavailable in Redis; model inferred using default/historical feature imputation.",
+       "model_version": "1",
+       "as_of": "2026-09-08T15:30:00Z"
+     }
+     ```
+   - **Rationale:** Imputed inference is NOT a hardcoded 0.0 placeholder; the LightGBM model naturally accounts for zone-level baselines and time-of-day/day-of-week seasonality even when short-term rolling trip counters are cold. Returning HTTP 503 or 404 for quiet zones would crash frontend dashboards and agent tool calls. HTTP 200 with explicit degraded status metadata allows clients to render best-effort baseline predictions while displaying visual warning badges to operators.
+   - **HTTP 503 Service Unavailable** is strictly reserved for fatal serving failures where both the primary MLflow model and the local baseline fallback fail to execute.
+
+**Consequences:**
+- Sub-5ms cached response latency, sub-20ms uncached single-entity latency, and sub-50ms full-city batch latency.
+- Lean, robust startup model loading in Phase 5 without speculative hot-reload machinery; atomic reload tracked cleanly for Phase 6.
+- Direct alignment with verified MLflow 3.x Production stage registry API.
+- Genuine model predictions on imputed features during feature cache misses with clear degradation metadata.
+- Clean contract separation between non-existent entities (HTTP 404), unmaterialized features (HTTP 200 degraded), and system outages (HTTP 503).
+
+---
+
+## ADR-021: Retraining Orchestration — Prefect Flow vs. GitHub Actions Cron
+
+**Context:** Periodic retraining of the LightGBM demand and corridor duration models requires extracting trip batches from the PostgreSQL warehouse, materializing Feast offline features, computing training/validation splits, training gradient boosted decision trees, logging runs and artifacts to MLflow, executing model promotion safety checks, and backing up model artifacts to Cloudflare R2. We need to decide whether to trigger and orchestrate this automated retraining pipeline via GitHub Actions scheduled workflows (`schedule: cron`) or a dedicated Prefect flow scheduled on Prefect Cloud.
+
+**Decision:** Orchestrate retraining via a Prefect flow (`retraining_flow` in `src/orchestration/flows/retraining_flow.py`) scheduled via Prefect Cloud and executed on our dedicated worker/host, rather than GitHub Actions cron.
+
+**Alternatives considered:**
+- GitHub Actions cron workflow — rejected. GitHub-hosted runners have strict resource bounds (2 vCPUs, 7GB RAM, 6-hour execution limits) and lack private network access to internal PostgreSQL and MLflow services without insecurely exposing database ports to the public internet or managing fragile SSH/WireGuard tunnels. Heavyweight dataset transformations and ML training in ephemeral CI runners also incur queuing delays and flakiness.
+- Cron job on host directly — rejected. Raw cron lacks execution history, task retry policies, failure alerting, parameterization, and centralized UI observability.
+- Airflow / Dagster — rejected per ADR-005. Prefect Cloud is already established as the platform's scheduler.
+
+**Consequences:** Model retraining executes with direct local network connectivity to the PostgreSQL warehouse, Feast offline store, and MLflow tracking server. Prefect Cloud provides centralized execution tracking, run alerts, native task-level retries, and failure triage. GitHub Actions remains strictly focused on software CI/CD (linting, testing, Docker Buildx caching, and deploy-on-merge automation).
+
+**Model Promotion Safety Gate & Hurdle Rate Specification:**
+- **Gate Contract:** Retraining must never unconditionally replace the active `Production` model. A candidate model is promoted to `Production` stage if and only if it simultaneously satisfies:
+  1. $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{baseline}}$ (beats naive baseline).
+  2. $\text{MAE}_{\text{cand}} \le \text{MAE}_{\text{prod}} \times (1.0 - \text{min\_improvement\_pct})$ (beats current production model by at least the hurdle rate).
+- **Default Hurdle Rate:** `min_improvement_pct = 0.02` (2.0% reduction in MAE).
+- **Rationale for 2.0% Default:** Retraining gradient boosted decision trees on tabular trip data introduces subtle run-to-run metric variance ($\pm 0.3-0.8\%$) resulting from multithreaded tree splitting, stochastic feature subsampling, and floating-point non-associativity. A 0.0% threshold causes "false champion" churn where models are repeatedly promoted solely due to random seed jitter. Requiring a 2.0% error reduction guarantees that promotion reflects genuine, statistically meaningful model improvements on fresh data.
+- **Degraded Outcome:** If a candidate model fails either condition, it is transitioned to `Staging` with an explicit reason logged, leaving the existing `Production` model untouched in serving.
+
+---
+
+## ADR-022: Drift-Triggered Retraining Deferred to Phase 8 (Evidently AI)
+
+**Context:** The initial roadmap outline for Phase 6 described a "scheduled/drift-triggered retrain workflow". We need to define the exact scope boundaries between Phase 6 (CI/CD & Retraining Automation) and Phase 8 (Monitoring with Evidently AI).
+
+**Decision:** Phase 6 delivers the scheduled retraining pipeline (weekly off-peak cron via Prefect) and the model promotion safety gate. Drift-triggered retraining (triggering a retraining run automatically when data or prediction drift exceeds statistical thresholds) is explicitly deferred to Phase 8.
+
+**Alternatives considered:**
+- Implement mock drift triggers in Phase 6 — rejected. Introducing synthetic drift thresholds or stubbed drift monitors before Evidently AI is implemented violates vertical slicing and creates technical debt.
+- Defer all retraining orchestration to Phase 8 — rejected. Automated retraining and model promotion gates are core MLOps CI/CD deliverables. Establishing a verified, scheduled retraining flow and promotion safety gate in Phase 6 provides the foundation that Phase 8 will invoke when drift alerts occur.
+
+**Consequences:** Phase 6 cleanly delivers the scheduled retraining flow and champion/challenger promotion gate without premature dependencies on Phase 8 monitoring infrastructure. In Phase 8, when Evidently AI drift analysis and alerting pipelines are built, triggering a retrain will be a simple deployment hook invoking the existing `retraining_flow`.

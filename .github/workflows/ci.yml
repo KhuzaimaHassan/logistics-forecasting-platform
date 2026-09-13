@@ -60,9 +60,13 @@ jobs:
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "POSTGRES_PASSWORD must be set"
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build all Docker images
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci build
+
 
       - name: Start Docker Compose stack
         run: |
@@ -121,6 +125,60 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
         run: |
           uv run python -u scripts/verify_live_feast_smoke.py
+
+      - name: Verify Live ModelLoaderService against Postgres-backed MLflow (M5-1)
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+        run: |
+          uv run python -u scripts/verify_model_loader_smoke.py
+
+      - name: Restart FastAPI service to load promoted Production models
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci restart fastapi
+          sleep 10
+
+      - name: Verify Live FastAPI Serving Endpoints & Prediction Caching (M5-2 & M5-3)
+        env:
+          FASTAPI_URL: http://localhost
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uv run python -u scripts/verify_serving_endpoints_smoke.py
+
+      - name: Verify Live End-to-End Serving Smoke & Caching (M5-4)
+        env:
+          FASTAPI_URL: http://localhost
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uv run python -u scripts/verify_serving_live_smoke.py
+
+      - name: Verify Live Model Retraining & Promotion Safety Gate (M6-5)
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: logistics
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uv run python -u scripts/verify_retraining_smoke.py
+
 
       - name: Verify Live Redpanda Topic Provisioning and Trip Replay Stream
         env:

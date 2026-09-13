@@ -94,16 +94,17 @@ services:
       - logistics-net
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.11.0
+    image: ghcr.io/mlflow/mlflow:v3.15.1
     container_name: mlflow
     restart: unless-stopped
     environment:
       MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-logistics}
       MLFLOW_ARTIFACTS_DESTINATION: /mlflow/artifacts
+      MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE: "true"
     entrypoint:
       - sh
       - -c
-      - "pip install --no-cache-dir psycopg2-binary && mlflow server --backend-store-uri postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-logistics} --artifacts-destination /mlflow/artifacts --serve-artifacts --host 0.0.0.0 --port 5000"
+      - "pip install --no-cache-dir psycopg2-binary && mkdir -p /mlflow/artifacts && mlflow server --backend-store-uri postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-logistics} --artifacts-destination /mlflow/artifacts --serve-artifacts --host 0.0.0.0 --port 5000 --disable-security-middleware"
     volumes:
       - mlflow_data:/mlflow
     networks:
@@ -181,7 +182,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:-logistics}
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: 5432
       REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: 6379
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
@@ -190,6 +193,13 @@ services:
     depends_on:
       - postgres
       - redis
+      - mlflow
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   streamlit:
     build:

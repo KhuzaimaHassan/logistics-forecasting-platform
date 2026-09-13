@@ -176,7 +176,7 @@ def main() -> None:
         flush=True,
     )
     t4 = time.perf_counter()
-    apply_feature_definitions(store=store)
+    apply_feature_definitions(store=store, include_push=True)
     entities = store.list_entities()
     views = store.list_feature_views()
     entity_names = sorted([e.name for e in entities])
@@ -783,8 +783,8 @@ def main() -> None:
         store=store,
         engine=engine,
         zone_ids=[161, 236],
-        demand_params={"n_estimators": 5, "min_child_samples": 2},
-        duration_params={"n_estimators": 5, "min_child_samples": 2},
+        demand_params={"n_estimators": 5, "min_child_samples": 1},
+        duration_params={"n_estimators": 5, "min_child_samples": 1},
         backup_to_r2=False,
         log_to_mlflow=True,
         promote_models=True,
@@ -813,6 +813,37 @@ def main() -> None:
         f"  Elapsed Pipeline Time:    {pipeline_summary['elapsed_seconds']:.2f}s",
         flush=True,
     )
+
+    # Ensure registered models have an active Production stage for online serving loader
+    import warnings
+
+    mlflow_client = get_mlflow_client()
+    demand_ver = pipeline_summary["demand"]["promotion"]["version"]
+    duration_ver = pipeline_summary["duration"]["promotion"]["version"]
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FutureWarning, module="mlflow.*")
+        if demand_ver:
+            mlflow_client.transition_model_version_stage(
+                name="demand_lightgbm_model",
+                version=str(demand_ver),
+                stage="Production",
+                archive_existing_versions=True,
+            )
+            print(
+                f"Explicitly promoted demand_lightgbm_model v{demand_ver} to 'Production' stage in MLflow registry.",
+                flush=True,
+            )
+        if duration_ver:
+            mlflow_client.transition_model_version_stage(
+                name="corridor_duration_lightgbm_model",
+                version=str(duration_ver),
+                stage="Production",
+                archive_existing_versions=True,
+            )
+            print(
+                f"Explicitly promoted corridor_duration_lightgbm_model v{duration_ver} to 'Production' stage in MLflow registry.",
+                flush=True,
+            )
 
     print(
         "\n=== Live Feast, MLflow, Baselines, Models & Pipeline Verification: ALL 19 CHECKS PASSED ===",

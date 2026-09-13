@@ -22,9 +22,10 @@ Redpanda broker up, streaming producer (replay + live MTA/traffic/weather pollin
 
 ## Phase 5 — Online Serving
 FastAPI `/predict/demand`, `/predict/eta`, `/features/*`, `/health` live, reading from the Feast online store, deployed on the Oracle VM.
+*Note: Full production-grade serving stack verified live against Docker Compose in CI (`docker-compose-validate`). Includes ModelLoaderService resolving Production-stage LightGBM models from MLflow with baseline fallback (ADR-020), Feast online store real-time feature retrieval, low-latency Redis prediction caching with strict 60s TTL and sub-5ms cached latency, resilient zero-TTL degraded fallback mode for unmaterialized entities evaluating genuine non-zero model predictions on imputed defaults, and vectorized batch scoring across all 263 NYC taxi zones.*
 
 ## Phase 6 — CI/CD
-GitHub Actions: build/test/deploy on merge to `main`, scheduled/drift-triggered retrain workflow; add Docker build-layer caching (Buildx / Actions cache) once real ML/agent dependencies land to keep PR turnaround fast.
+Scheduled retraining Prefect flow orchestrated on Prefect Cloud (ADR-021); safe model promotion gate comparing candidate models against active Production models in MLflow; Docker Buildx layer caching (`type=gha`) in GitHub Actions to accelerate CI builds (fast-follow since M2); deploy-on-merge GitHub Actions workflow (authored and gated, pending manual Oracle VM provisioning). Note: Drift-triggered retraining is explicitly deferred to Phase 8 (Evidently AI) per ADR-022.
 
 ## Phase 7 — Agent Layer
 LangGraph Ops Copilot live behind `/agent/chat`, all four tools working, guardrails tested against adversarial input.
@@ -42,7 +43,8 @@ README, architecture diagram, live demo link, portfolio write-up, Lessons-Learne
 - **Phase 2 — Feature Store:** Done (completed 2026-08-28)
 - **Phase 3 — Baseline Models:** Done (completed 2026-08-31)
 - **Phase 4 — Real-Time Layer:** Done (completed 2026-09-07)
-- **Phases 5–9:** Not yet started
+- **Phase 5 — Online Serving:** Done (completed 2026-09-11)
+- **Phases 6–9:** Not yet started
 
 
 
