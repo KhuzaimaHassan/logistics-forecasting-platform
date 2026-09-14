@@ -23,6 +23,8 @@ data/processed/
 # MLflow / model artifacts
 mlruns/
 mlartifacts/
+artifacts/
+*.faiss
 
 # Docker
 *.log

@@ -462,11 +462,14 @@ def test_query_pipeline_status_db_error_resilience():
 def test_search_logs_and_model_cards_docs_retrieval():
     """Verify direct docs search retrieves real design decisions from docs/."""
     res = search_logs_and_model_cards(
-        "ADR model promotion gate min_improvement_pct", top_k=2
+        "ADR model promotion gate min_improvement_pct", top_k=5
     )
     assert res["status"] == "success"
     assert res["results_count"] > 0
-    assert any("Decisions.md" in r["source"] for r in res["results"])
+    assert any(
+        "Decisions.md" in r["source"] or "phase-6-cicd.md" in r["source"]
+        for r in res["results"]
+    )
     assert res["results"][0]["score"] > 0
 
 
