@@ -126,8 +126,11 @@ def mock_serving_cache_environment():
     app.state.model_loader = mock_loader
     app.state.feast_client = mock_feast
     app.state.cache = cache
+    app.state.disable_prediction_logging = True
 
-    return client
+    yield client
+
+    app.state.disable_prediction_logging = False
 
 
 client = TestClient(app)
