@@ -141,7 +141,14 @@ Implement the automated continuous integration, continuous delivery, and model r
 
 ---
 
+## Tracked Fast-Follows
+- **Full-Scale Retraining Validation Baseline Verification:**
+  - M6-5's live smoke proof used CI's small seeded dataset (9 rows), where the naive baseline hit MAE=0.0000 — a small-sample artifact, not a meaningful baseline. The gate's decision logic is proven correct, but running it once against the real, full-scale validation set (M3-3's actual Jan 25-31 split) to confirm sane baseline/candidate numbers at production scale is worth doing before the first real weekly retraining fires for real.
+
+---
+
 ## Tracking & Issue Linkage
 - **Milestone:** `M6 - CI/CD` (Milestone #7)
 - **Tracking Issue:** Closes #122
 - **Branch Strategy:** `dev` -> `feature/m6-cicd` -> PR to `dev` -> merge to `main`
+
