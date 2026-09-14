@@ -434,3 +434,43 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Defer all retraining orchestration to Phase 8 — rejected. Automated retraining and model promotion gates are core MLOps CI/CD deliverables. Establishing a verified, scheduled retraining flow and promotion safety gate in Phase 6 provides the foundation that Phase 8 will invoke when drift alerts occur.
 
 **Consequences:** Phase 6 cleanly delivers the scheduled retraining flow and champion/challenger promotion gate without premature dependencies on Phase 8 monitoring infrastructure. In Phase 8, when Evidently AI drift analysis and alerting pipelines are built, triggering a retrain will be a simple deployment hook invoking the existing `retraining_flow`.
+
+---
+
+## ADR-023: LangGraph Ops Copilot & Read-Only Tool Allowlisting Security Boundary
+
+**Context:** Phase 7 introduces an operational assistant (Ops Copilot) to inspect forecasting pipeline health, diagnose prediction drift, explain architectural decisions, and query feature store representations. Because LLM agents with access to tools can be vulnerable to indirect prompt injection or hallucinated tool invocations, we must establish an unbreachable security boundary preventing destructive operations (e.g. dropping database tables, deleting MLflow models, triggering unauthorized retrains, or writing arbitrary files).
+
+**Decision:** Define a strictly read-only tool execution runtime. The copilot runtime is equipped exclusively with an immutable allowlist of four read-only query tools:
+1. `get_features`: Read-only online Feast feature store lookups for taxi zones and corridors.
+2. `query_recent_predictions`: Read-only SELECT query against `warehouse.predictions`.
+3. `query_pipeline_status`: Read-only SELECT query against `warehouse.pipeline_runs`.
+4. `search_logs_and_model_cards`: Read-only FAISS semantic index and documentation scanner.
+
+**Security Boundary Invariant:**
+- **Read-Only Tool Allowlisting is the Real Security Boundary:** Input prompt classification, keyword regex filters, and LLM guardrails are advisory defense-in-depth layers only. The definitive, non-bypassable security perimeter is architectural: the agent runtime possesses zero write capabilities, zero SQL mutation tools, zero shell/exec execution tools, and zero filesystem write handles. Even in the event of an adversarial prompt injection achieving complete subversion of the LLM context, the agent is physically incapable of mutating system state.
+- **Content Isolation:** Retrieved text from database tables or documentation is injected strictly as quoted reference data (`<context>` blocks) and never evaluated as procedural instructions.
+
+**Alternatives considered:**
+- Dynamic tool registration / write tools with human-in-the-loop confirmations — rejected. Operational copilot scope is diagnostic and explanatory. Adding mutative capabilities violates least privilege and complicates unattended operation.
+- Relying exclusively on system prompt guardrails / keyword filtering — rejected. LLMs can be tricked via jailbreaks, base64 obfuscation, and persona switches. Prompt filters cannot serve as security boundaries.
+
+**Consequences:** Complete architectural immunity to destructive tool abuse and data corruption. Operations personnel can safely query platform state through natural language.
+
+---
+
+## ADR-025: FAISS CPU Vector Index & Artifact Scoping
+
+**Context:** The Ops Copilot requires semantic retrieval across system design documents, ADR decisions, registered model cards, and pipeline run health histories to answer natural language operational inquiries. We need an indexing and retrieval architecture compatible with the Oracle Cloud Ampere A1 (ARM64) single-node deployment without adding cloud vector database costs or external SaaS latency.
+
+**Decision:** Implement a self-contained, CPU-backed FAISS vector store (`faiss.IndexFlatIP`) indexing strictly repository design artifacts (`docs/*.md`, MLflow model cards/registry metadata, and recent pipeline run summaries). Vectors are generated using lightweight ONNX embeddings (`fastembed` with `sentence-transformers/all-MiniLM-L6-v2` or `bge-small-en-v1.5`) with an automatic, deterministic subword/word n-gram hashing vectorizer fallback (`DeterministicVectorizer`, dimension 384, L2 normalized).
+
+**Alternatives considered:**
+- External Cloud Vector DB (Pinecone, Qdrant Cloud, Weaviate) — rejected. Introduces external network dependencies, recurring API subscription costs, credential management overhead, and potential query failure when offline.
+- Heavyweight PyTorch embedding pipelines — rejected. Loading multi-gigabyte PyTorch/HuggingFace dependencies consumes significant memory on the 24GB ARM64 VM and slows container build and startup times.
+- Pure keyword regex search without vectors — rejected as primary mechanism. Natural language queries ("Why NYC taxi demand and not Karachi?", "How does the model promotion hurdle rate work?") require semantic similarity across terminology and conceptual phrasing.
+
+**Consequences:**
+- Sub-millisecond similarity search executed purely on CPU with zero network latency.
+- Hermetic fallback ensures unit tests and CI pipelines execute reliably in under 15 seconds without internet access or ONNX weight downloads.
+- Compact index footprint (<10MB) serialized directly to `artifacts/rag_index/` and easily refreshed via `scripts/build_rag_index.py`.
