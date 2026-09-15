@@ -221,16 +221,20 @@ def _format_features_section(res: Dict[str, Any]) -> List[str]:
 
 
 def _format_predictions_section(res: Dict[str, Any]) -> List[str]:
-    count = res.get("count", 0)
+    count = res.get("prediction_count", res.get("count", 0))
+    entity_id = res.get("entity_id", "")
     preds = res.get("predictions", [])
     lines = [
         f"### Recent Predictions (`warehouse.predictions`) — {count} records found"
     ]
     if preds:
         for p in preds[:5]:
+            p_entity = p.get("entity_id", entity_id)
+            val = p.get("predicted_value")
+            val_str = f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
             lines.append(
-                f"- `{p.get('predicted_at')}` | Entity `{p.get('entity_id')}` | "
-                f"Value: **{p.get('predicted_value'):.2f}** | Model: `{p.get('model_version')}`"
+                f"- `{p.get('predicted_at')}` | Entity `{p_entity}` | "
+                f"Value: **{val_str}** | Model: `{p.get('model_version')}`"
             )
     else:
         lines.append(
@@ -241,16 +245,26 @@ def _format_predictions_section(res: Dict[str, Any]) -> List[str]:
 
 
 def _format_pipeline_section(res: Dict[str, Any]) -> List[str]:
-    overall = res.get("overall_status", "unknown").upper()
-    total_runs = res.get("total_runs", 0)
-    runs = res.get("runs", [])
+    overall = str(
+        res.get("overall_health") or res.get("overall_status") or "unknown"
+    ).upper()
+    runs = res.get("latest_runs") or res.get("runs", [])
+    total_runs = (
+        res.get("run_count")
+        if res.get("run_count") is not None
+        else res.get("total_runs", len(runs))
+    )
     lines = [f"### Pipeline Execution Health: `{overall}` ({total_runs} recent runs)"]
     for r in runs[:5]:
-        status_icon = "[OK]" if r.get("status") == "success" else "[FAILED]"
+        status = str(r.get("status", ""))
+        status_icon = "[OK]" if status in ("success", "completed") else "[FAILED]"
+        name = r.get("job_name") or r.get("pipeline_name", "pipeline")
+        duration = r.get("duration_seconds")
+        dur_str = f"{float(duration):.1f}s" if duration is not None else "N/A"
         lines.append(
-            f"- {status_icon} **{r.get('pipeline_name')}** ({r.get('run_type')}) | "
-            f"Status: `{r.get('status')}` | Processed: {r.get('records_processed')} rows | "
-            f"Duration: {r.get('duration_seconds'):.1f}s"
+            f"- {status_icon} **{name}** | "
+            f"Status: `{status}` | Processed: {r.get('records_processed', 0)} rows | "
+            f"Duration: {dur_str}"
         )
     lines.append("")
     return lines

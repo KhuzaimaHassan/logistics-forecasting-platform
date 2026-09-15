@@ -327,8 +327,11 @@ def query_pipeline_status() -> Dict[str, Any]:
         return {
             "status": "success",
             "overall_health": overall,
+            "overall_status": overall,
             "run_count": len(runs),
+            "total_runs": len(runs),
             "latest_runs": runs,
+            "runs": runs,
             "checked_at": now_utc.isoformat(),
         }
 
@@ -337,9 +340,12 @@ def query_pipeline_status() -> Dict[str, Any]:
         return {
             "status": "error",
             "overall_health": "unknown",
+            "overall_status": "unknown",
             "error": f"Database pipeline status query failed: {exc}",
             "run_count": 0,
+            "total_runs": 0,
             "latest_runs": [],
+            "runs": [],
             "checked_at": now_utc.isoformat(),
         }
 
