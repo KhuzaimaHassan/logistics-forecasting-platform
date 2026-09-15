@@ -459,6 +459,32 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 ---
 
+## ADR-024: Dual-Provider LLM Fallback & Hermetic Mock Engine
+
+**Context:** The Ops Copilot requires an LLM inference backend to interpret user intent, select tools, and synthesize diagnostic answers. In cloud deployments, external LLM APIs (Groq, Google Gemini) can experience rate limits, transient network outages, or model deprecations. Furthermore, CI/CD automated test suites and local offline development environments cannot depend on external internet connectivity or secret API tokens without risking flaky builds or credential exposure.
+
+**Decision:** Implement a three-tier cascading LLM provider architecture with an automatic fallback mechanism:
+1. **Primary LLM:** Groq Cloud (`llama-3.3-70b-versatile` default, `llama-3.1-8b-instant` fallback) providing sub-second inference speeds (<800ms) for real-time conversational ops.
+2. **Secondary LLM:** Google Gemini (`gemini-2.0-flash` default, `gemini-1.5-flash` fallback) providing high-availability redundancy in case of Groq service disruptions.
+3. **Hermetic Mock Engine:** Deterministic rule-based tool-dispatch and response synthesis engine (`MockLLMProvider`) executed automatically whenever external API credentials (`GROQ_API_KEY`, `GEMINI_API_KEY`) are absent or external calls fail.
+
+**Explicit Mock Labeling Specification:**
+- To ensure complete transparency and prevent automated tests or users from mistaking deterministic mock responses for live model generation, all responses synthesized by the mock engine must:
+  1. Set provider metadata to `provider: "mock"` and model metadata to `model_name: "mock-rule-engine"`.
+  2. Prepend the explicit header `[MOCK / OFFLINE MODE]` to the synthesized response text.
+
+**Alternatives considered:**
+- Single LLM provider (Groq only) — rejected. Single-provider architectures create a single point of failure where transient rate-limiting breaks operational observability.
+- Mocking via external HTTP stubbing libraries (vcrpy / responses) only — rejected. Unit tests need end-to-end integration across the LangGraph state machine, tool allowlist enforcement, and response synthesis without brittle HTTP monkey-patching.
+- Self-hosting an open-weights LLM (Ollama / vLLM) on the VM — rejected. Hosting a 7B+ LLM on the Oracle Cloud Ampere A1 instance would consume 8-16GB RAM and require continuous CPU/GPU resources, crowding out the feature store, database, and training pipelines.
+
+**Consequences:**
+- Resilient multi-cloud LLM inference with automated failover.
+- Hermetic, zero-credential CI execution where all 4 tools and graph state transitions are tested end-to-end in milliseconds.
+- Strict visual and programmatic distinction between live LLM inference and offline mock synthesis.
+
+---
+
 ## ADR-025: FAISS CPU Vector Index & Artifact Scoping
 
 **Context:** The Ops Copilot requires semantic retrieval across system design documents, ADR decisions, registered model cards, and pipeline run health histories to answer natural language operational inquiries. We need an indexing and retrieval architecture compatible with the Oracle Cloud Ampere A1 (ARM64) single-node deployment without adding cloud vector database costs or external SaaS latency.
