@@ -179,8 +179,9 @@ jobs:
         run: |
           uv run python -u scripts/verify_retraining_smoke.py
 
-      - name: Verify Live Ops Copilot against Real Infrastructure (M7-3)
+      - name: Verify Live Ops Copilot & Agent Serving Smoke (M7-5)
         env:
+          FASTAPI_URL: http://localhost
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: ci_test_password_do_not_use_in_prod
           POSTGRES_HOST: localhost
@@ -191,7 +192,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           MLFLOW_TRACKING_URI: http://localhost:5000
         run: |
-          uv run python -u scripts/verify_copilot_live_smoke.py
+          uv run python -u scripts/verify_agent_smoke.py
 
 
       - name: Verify Live Redpanda Topic Provisioning and Trip Replay Stream
