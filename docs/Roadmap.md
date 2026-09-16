@@ -30,6 +30,7 @@ Scheduled retraining Prefect flow orchestrated on Prefect Cloud (ADR-021); safe 
 
 ## Phase 7 — Agent Layer
 LangGraph Ops Copilot live behind `/agent/chat`, all four tools working, guardrails tested against adversarial input.
+*Note: Complete LangGraph Ops Copilot and Agent Serving layer verified in CI (`docker-compose-validate`). Includes 4 read-only diagnostic tools (`get_features` against Feast Redis, `query_recent_predictions` against PostgreSQL, `query_pipeline_status` against PostgreSQL, and `search_logs_and_model_cards` over FAISS CPU RAG index); strict read-only tool allowlisting security boundary (ADR-023) proven against adversarial prompt injection; dual-provider LLM fallback cascade (Groq `llama-3.3-70b-versatile`, Gemini `gemini-2.0-flash`, hermetic `MockLLMProvider` with explicit mock labeling) (ADR-024); sub-millisecond FAISS CPU vector index with deterministic hashing fallback (ADR-025); FastAPI `POST /agent/chat` endpoint with Pydantic request/response validation and error isolation; and interactive multi-tab Streamlit Ops Copilot UI with quick-action prompt chips, message thread, provider/model metadata badges, and tool/source inspection expanders.*
 
 ## Phase 8 — Monitoring
 Evidently drift reports scheduled via Prefect, surfaced on the UI dashboard, queryable by the agent.
@@ -46,7 +47,8 @@ README, architecture diagram, live demo link, portfolio write-up, Lessons-Learne
 - **Phase 4 — Real-Time Layer:** Done (completed 2026-09-07)
 - **Phase 5 — Online Serving:** Done (completed 2026-09-11)
 - **Phase 6 — CI/CD:** Done (completed 2026-09-13)
-- **Phases 7–9:** Not yet started
+- **Phase 7 — Agent Layer:** Done (completed 2026-09-16)
+- **Phases 8–9:** Not yet started
 
 
 
