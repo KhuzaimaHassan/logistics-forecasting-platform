@@ -164,12 +164,14 @@ def verify_rag_index_build_and_query() -> None:
     print(f"Running index builder command: {' '.join(cmd)}")
     proc = subprocess.run(cmd, capture_output=True, text=True)
     print("Build Script STDOUT:\n" + proc.stdout)
+    print("Build Script STDERR:\n" + proc.stderr)
     if proc.returncode != 0:
-        print("Build Script STDERR:\n" + proc.stderr)
         raise RuntimeError(f"build_rag_index.py failed with code {proc.returncode}")
 
     rag_dir = REPO_ROOT / "artifacts" / "rag_index"
-    assert (rag_dir / "faiss.index").exists(), "faiss.index was not generated."
+    assert (rag_dir / "index.faiss").exists() or (
+        rag_dir / "faiss.index"
+    ).exists(), "index.faiss was not generated."
     assert (rag_dir / "chunks.json").exists(), "chunks.json was not generated."
     assert (rag_dir / "metadata.json").exists(), "metadata.json was not generated."
     print(f">>> [PASS] FAISS index successfully built and persisted to {rag_dir}.")
