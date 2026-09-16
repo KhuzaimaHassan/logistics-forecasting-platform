@@ -11,19 +11,21 @@ Exposes low-latency online inference and inspection endpoints per docs/API.md an
 """
 
 import logging
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import redis
-from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from src.common.config import get_settings
 from src.common.db import check_database_connection, get_db_session
-from src.common.models import PipelineRun
+from src.common.models import PipelineRun, Prediction
 from src.features.client import (
     CorridorDurationOnlineFeatures,
     FeastOnlineClient,
@@ -41,10 +43,13 @@ from src.serving.model_loader import (
     ModelLoaderService,
 )
 from src.serving.schemas import (
+    AgentChatRequest,
+    AgentChatResponse,
     DemandBatchPredictionItem,
     DemandBatchPredictionRequest,
     DemandBatchPredictionResponse,
     DemandPredictionResponse,
+    ErrorResponse,
     ETABatchPredictionItem,
     ETABatchPredictionRequest,
     ETABatchPredictionResponse,
@@ -192,6 +197,77 @@ def get_prediction_cache(request: Optional[Request] = None) -> PredictionCache:
     return PredictionCache(redis_url=None)
 
 
+def log_prediction_background(
+    entity_type: str,
+    entity_id: str,
+    model_version: str,
+    predicted_value: float,
+    predicted_at: Optional[datetime] = None,
+) -> None:
+    """Record a single prediction into warehouse.predictions table asynchronously."""
+    try:
+        now_utc = predicted_at or datetime.now(timezone.utc)
+        pred_record = Prediction(
+            prediction_id=uuid.uuid4().hex,
+            entity_type=str(entity_type),
+            entity_id=str(entity_id),
+            model_version=str(model_version),
+            predicted_value=Decimal(str(round(float(predicted_value), 2))),
+            predicted_at=now_utc,
+        )
+        with get_db_session() as session:
+            session.add(pred_record)
+    except Exception as exc:
+        logger.warning(
+            "Failed to log background prediction for %s %s: %s",
+            entity_type,
+            entity_id,
+            exc,
+        )
+
+
+def log_predictions_batch_background(
+    records: List[Dict[str, Any]],
+) -> None:
+    """Record a batch of predictions into warehouse.predictions table asynchronously."""
+    if not records:
+        return
+    try:
+        db_records = []
+        for r in records:
+            now_utc = r.get("predicted_at") or datetime.now(timezone.utc)
+            db_records.append(
+                Prediction(
+                    prediction_id=uuid.uuid4().hex,
+                    entity_type=str(r["entity_type"]),
+                    entity_id=str(r["entity_id"]),
+                    model_version=str(r["model_version"]),
+                    predicted_value=Decimal(str(round(float(r["predicted_value"]), 2))),
+                    predicted_at=now_utc,
+                )
+            )
+        with get_db_session() as session:
+            session.add_all(db_records)
+    except Exception as exc:
+        logger.warning(
+            "Failed to log batch background predictions (%d items): %s",
+            len(records),
+            exc,
+        )
+
+
+def _is_prediction_logging_enabled(request: Optional[Request]) -> bool:
+    """Check whether background prediction logging is active or bypassed for cache benchmarks."""
+    if (
+        request is not None
+        and hasattr(request, "app")
+        and hasattr(request.app, "state")
+    ):
+        if getattr(request.app.state, "disable_prediction_logging", False):
+            return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -263,6 +339,7 @@ def predict_demand(
     zone_id: int,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     horizon_minutes: int = Query(default=15, ge=5, le=60),
 ) -> DemandPredictionResponse:
     """Predict taxi pickup demand for a single NYC taxi zone.
@@ -285,8 +362,19 @@ def predict_demand(
         cached.setdefault(
             "model_version", str(loader.get_model(DEMAND_MODEL_NAME).version)
         )
-        cached.setdefault("as_of", datetime.now(timezone.utc).isoformat())
-        return DemandPredictionResponse(**cached)
+        now_utc = datetime.now(timezone.utc)
+        cached.setdefault("as_of", now_utc.isoformat())
+        cached_resp = DemandPredictionResponse(**cached)
+        if background_tasks is not None and _is_prediction_logging_enabled(request):
+            background_tasks.add_task(
+                log_prediction_background,
+                "zone",
+                str(zone_id),
+                cached_resp.model_version,
+                cached_resp.predicted_pickups,
+                now_utc,
+            )
+        return cached_resp
 
     if response is not None:
         response.headers["X-Cache"] = "MISS"
@@ -332,6 +420,16 @@ def predict_demand(
     # Cache response if genuine (bypasses write if degraded_fallback per ADR-020)
     cache.set_demand(zone_id, horizon_minutes, result.model_dump(), status=status)
 
+    if background_tasks is not None and _is_prediction_logging_enabled(request):
+        background_tasks.add_task(
+            log_prediction_background,
+            "zone",
+            str(zone_id),
+            result.model_version,
+            result.predicted_pickups,
+            now_utc,
+        )
+
     return result
 
 
@@ -374,6 +472,7 @@ def predict_demand_batch(
     payload: DemandBatchPredictionRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
 ) -> DemandBatchPredictionResponse:
     """Batch demand prediction across multiple zones or entire city in a single vectorized call.
 
@@ -462,6 +561,19 @@ def predict_demand_batch(
         else:
             items.append(computed_items_map[zid])
 
+    if background_tasks is not None and _is_prediction_logging_enabled(request):
+        batch_log_items = [
+            {
+                "entity_type": "zone",
+                "entity_id": str(item.zone_id),
+                "model_version": str(demand_model.version),
+                "predicted_value": item.predicted_pickups,
+                "predicted_at": now_utc,
+            }
+            for item in items
+        ]
+        background_tasks.add_task(log_predictions_batch_background, batch_log_items)
+
     return DemandBatchPredictionResponse(
         predictions=items,
         model_version=str(demand_model.version),
@@ -474,6 +586,7 @@ def predict_demand_batch(
 def predict_eta(
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     origin: int = Query(..., description="Origin NYC TLC zone ID (1 to 263)"),
     dest: int = Query(..., description="Destination NYC TLC zone ID (1 to 263)"),
 ) -> ETAPredictionResponse:
@@ -502,8 +615,19 @@ def predict_eta(
         cached.setdefault(
             "model_version", str(loader.get_model(DURATION_MODEL_NAME).version)
         )
-        cached.setdefault("as_of", datetime.now(timezone.utc).isoformat())
-        return ETAPredictionResponse(**cached)
+        now_utc = datetime.now(timezone.utc)
+        cached.setdefault("as_of", now_utc.isoformat())
+        cached_resp = ETAPredictionResponse(**cached)
+        if background_tasks is not None and _is_prediction_logging_enabled(request):
+            background_tasks.add_task(
+                log_prediction_background,
+                "corridor",
+                cached_resp.corridor_id,
+                cached_resp.model_version,
+                cached_resp.predicted_duration_seconds,
+                now_utc,
+            )
+        return cached_resp
 
     if response is not None:
         response.headers["X-Cache"] = "MISS"
@@ -552,6 +676,16 @@ def predict_eta(
     # Cache response if genuine (bypasses write if degraded_fallback per ADR-020)
     cache.set_eta(origin, dest, result.model_dump(), status=status)
 
+    if background_tasks is not None and _is_prediction_logging_enabled(request):
+        background_tasks.add_task(
+            log_prediction_background,
+            "corridor",
+            result.corridor_id,
+            result.model_version,
+            result.predicted_duration_seconds,
+            now_utc,
+        )
+
     return result
 
 
@@ -560,6 +694,7 @@ def predict_eta_batch(
     payload: ETABatchPredictionRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
 ) -> ETABatchPredictionResponse:
     """Batch corridor trip duration prediction.
 
@@ -638,6 +773,19 @@ def predict_eta_batch(
             )
         else:
             items.append(computed_items_map[pair])
+
+    if background_tasks is not None and _is_prediction_logging_enabled(request):
+        batch_log_items = [
+            {
+                "entity_type": "corridor",
+                "entity_id": item.corridor_id,
+                "model_version": str(duration_model.version),
+                "predicted_value": item.predicted_duration_seconds,
+                "predicted_at": now_utc,
+            }
+            for item in items
+        ]
+        background_tasks.add_task(log_predictions_batch_background, batch_log_items)
 
     return ETABatchPredictionResponse(
         predictions=items,
@@ -760,3 +908,72 @@ def pipeline_status() -> PipelineStatusResponse:
         latest_runs=runs,
         checked_at=now_utc.isoformat(),
     )
+
+
+# ---------------------------------------------------------------------------
+# 7. Agent Ops Copilot Endpoint (M7-4)
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/agent/chat",
+    response_model=AgentChatResponse,
+    tags=["Agent Copilot"],
+    summary="Chat with LangGraph Ops Copilot",
+    description=(
+        "Submit an operational inquiry to the LangGraph Ops Copilot. The agent analyzes "
+        "NYC TLC demand and ETA state using strictly allowlisted read-only tools: "
+        "get_features (Feast Redis), query_recent_predictions (PostgreSQL), "
+        "query_pipeline_status (PostgreSQL), and search_logs_and_model_cards (FAISS RAG)."
+    ),
+    responses={
+        200: {
+            "description": "Synthesized operational copilot response with execution metadata",
+            "model": AgentChatResponse,
+        },
+        422: {
+            "description": "Validation error (e.g. empty or excessively long query)",
+            "model": ErrorResponse,
+        },
+    },
+)
+def agent_chat_endpoint(payload: AgentChatRequest) -> AgentChatResponse:
+    """Execute a conversational inquiry via the LangGraph Ops Copilot."""
+    from src.agents.graph import run_copilot
+
+    conv_id = payload.conversation_id or uuid.uuid4().hex
+    try:
+        copilot_res = run_copilot(
+            query=payload.query,
+            conversation_id=conv_id,
+            history=payload.history,
+        )
+        return AgentChatResponse(
+            response=copilot_res["response"],
+            conversation_id=conv_id,
+            tools_used=copilot_res.get("tools_used", []),
+            sources=copilot_res.get("sources", []),
+            provider=copilot_res.get("provider", "mock"),
+            model_name=copilot_res.get("model_name", "mock-rule-engine"),
+            latency_ms=float(copilot_res.get("latency_ms", 0.0)),
+            status=copilot_res.get("status", "success"),
+            error=copilot_res.get("error"),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error executing Ops Copilot turn: %s", exc)
+        return AgentChatResponse(
+            response=(
+                f"An internal error occurred while processing your request: {exc}. "
+                "The system remained safe and no data was modified."
+            ),
+            conversation_id=conv_id,
+            tools_used=[],
+            sources=[],
+            provider="unknown",
+            model_name="unknown",
+            latency_ms=0.0,
+            status="error",
+            error=str(exc),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )

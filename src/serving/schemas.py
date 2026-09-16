@@ -246,3 +246,65 @@ class PipelineStatusResponse(BaseModel):
         default_factory=list, description="Recent pipeline runs ordered latest first"
     )
     checked_at: str
+
+
+# ---------------------------------------------------------------------------
+# Agent Ops Copilot Schemas (M7-4)
+# ---------------------------------------------------------------------------
+
+
+class AgentChatRequest(BaseModel):
+    """Request payload for POST /agent/chat."""
+
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="User operational query or prompt.",
+        examples=["What is the current demand and feature state for zone 161?"],
+    )
+    conversation_id: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Optional client conversation/session identifier.",
+    )
+    history: Optional[List[Dict[str, str]]] = Field(
+        default=None,
+        description="Optional list of prior turn message dictionaries (role, content).",
+    )
+
+
+class AgentChatResponse(BaseModel):
+    """Structured response from LangGraph Ops Copilot."""
+
+    response: str = Field(..., description="Synthesized operational markdown response.")
+    conversation_id: Optional[str] = Field(
+        None, description="Echoed or generated conversation session identifier."
+    )
+    tools_used: List[str] = Field(
+        default_factory=list,
+        description="List of allowlisted read-only tools executed during this turn.",
+    )
+    sources: List[str] = Field(
+        default_factory=list,
+        description="List of external data sources or documentation cited.",
+    )
+    provider: str = Field(
+        ..., description="LLM provider name: 'groq' | 'gemini' | 'mock'."
+    )
+    model_name: str = Field(
+        ...,
+        description="Model identifier used (e.g. 'llama-3.3-70b-versatile', 'gemini-2.0-flash', 'mock-rule-engine').",
+    )
+    latency_ms: float = Field(
+        ..., description="End-to-end turn processing latency in milliseconds."
+    )
+    status: str = Field(
+        ..., description="Turn outcome status: 'success' | 'blocked' | 'error'."
+    )
+    error: Optional[str] = Field(
+        None, description="Error message if status is 'error'."
+    )
+    timestamp: str = Field(
+        ..., description="ISO 8601 UTC timestamp of response creation."
+    )
