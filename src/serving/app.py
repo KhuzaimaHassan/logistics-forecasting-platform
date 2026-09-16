@@ -43,10 +43,13 @@ from src.serving.model_loader import (
     ModelLoaderService,
 )
 from src.serving.schemas import (
+    AgentChatRequest,
+    AgentChatResponse,
     DemandBatchPredictionItem,
     DemandBatchPredictionRequest,
     DemandBatchPredictionResponse,
     DemandPredictionResponse,
+    ErrorResponse,
     ETABatchPredictionItem,
     ETABatchPredictionRequest,
     ETABatchPredictionResponse,
@@ -905,3 +908,72 @@ def pipeline_status() -> PipelineStatusResponse:
         latest_runs=runs,
         checked_at=now_utc.isoformat(),
     )
+
+
+# ---------------------------------------------------------------------------
+# 7. Agent Ops Copilot Endpoint (M7-4)
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/agent/chat",
+    response_model=AgentChatResponse,
+    tags=["Agent Copilot"],
+    summary="Chat with LangGraph Ops Copilot",
+    description=(
+        "Submit an operational inquiry to the LangGraph Ops Copilot. The agent analyzes "
+        "NYC TLC demand and ETA state using strictly allowlisted read-only tools: "
+        "get_features (Feast Redis), query_recent_predictions (PostgreSQL), "
+        "query_pipeline_status (PostgreSQL), and search_logs_and_model_cards (FAISS RAG)."
+    ),
+    responses={
+        200: {
+            "description": "Synthesized operational copilot response with execution metadata",
+            "model": AgentChatResponse,
+        },
+        422: {
+            "description": "Validation error (e.g. empty or excessively long query)",
+            "model": ErrorResponse,
+        },
+    },
+)
+def agent_chat_endpoint(payload: AgentChatRequest) -> AgentChatResponse:
+    """Execute a conversational inquiry via the LangGraph Ops Copilot."""
+    from src.agents.graph import run_copilot
+
+    conv_id = payload.conversation_id or uuid.uuid4().hex
+    try:
+        copilot_res = run_copilot(
+            query=payload.query,
+            conversation_id=conv_id,
+            history=payload.history,
+        )
+        return AgentChatResponse(
+            response=copilot_res["response"],
+            conversation_id=conv_id,
+            tools_used=copilot_res.get("tools_used", []),
+            sources=copilot_res.get("sources", []),
+            provider=copilot_res.get("provider", "mock"),
+            model_name=copilot_res.get("model_name", "mock-rule-engine"),
+            latency_ms=float(copilot_res.get("latency_ms", 0.0)),
+            status=copilot_res.get("status", "success"),
+            error=copilot_res.get("error"),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error executing Ops Copilot turn: %s", exc)
+        return AgentChatResponse(
+            response=(
+                f"An internal error occurred while processing your request: {exc}. "
+                "The system remained safe and no data was modified."
+            ),
+            conversation_id=conv_id,
+            tools_used=[],
+            sources=[],
+            provider="unknown",
+            model_name="unknown",
+            latency_ms=0.0,
+            status="error",
+            error=str(exc),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
