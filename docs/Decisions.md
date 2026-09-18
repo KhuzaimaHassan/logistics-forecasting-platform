@@ -500,3 +500,46 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Sub-millisecond similarity search executed purely on CPU with zero network latency.
 - Hermetic fallback ensures unit tests and CI pipelines execute reliably in under 15 seconds without internet access or ONNX weight downloads.
 - Compact index footprint (<10MB) serialized directly to `artifacts/rag_index/` and easily refreshed via `scripts/build_rag_index.py`.
+
+---
+
+## ADR-026: Evidently 0.7 Core API, Explicit Keyword Argument Convention, Hybrid Reference Windows, and Drift-Triggered Retraining Hook
+
+**Context:** Phase 8 implements statistical data drift, prediction distribution drift, and model performance decay monitoring using Evidently AI (`0.7.21`). Several architectural and implementation choices required empirical resolution before writing monitoring code:
+1. **Evidently API Evolution:** Evidently `0.7.x` reorganized its public interfaces. The legacy `evidently.report` and `evidently.metric_preset` packages were relocated to `evidently.legacy` and deprecated. The modern Core API uses `from evidently import Report, Dataset, DataDefinition, Regression` and `from evidently.presets import DataDriftPreset, RegressionPreset`.
+2. **Argument Ordering & Drift Directionality:** In `Report.run()`, parameter 1 is `current_data` (the target evaluation dataset) and parameter 2 is `reference_data` (the baseline dataset). Relying on positional argument ordering is vulnerable to accidental transposition, which would silently invert all statistical delta calculations (e.g., reporting negative drift instead of positive drift).
+3. **Reference Window Definition:** `docs/Monitoring.md` previously left open whether to use a static fixed training baseline or a rolling historical window. A purely static baseline produces false drift alerts due to recurring calendar seasonality (weekday vs. weekend commute shifts). Conversely, a purely rolling window with insufficient history fails on cold starts and risks "frog-boil" drift masking (gradual degradation going undetected).
+4. **Drift-Triggered Retraining (ADR-022 Closeout):** ADR-022 deferred automated drift-triggered retraining to Phase 8. A production-grade monitoring pipeline must connect drift detection directly to the existing Prefect `retraining_flow` while preventing runaway retraining loops.
+
+**Decision:**
+1. **Adopt Modern Evidently 0.7 Core API:**
+   - Instantiate reports using `from evidently import Report, Dataset, DataDefinition, Regression` and `from evidently.presets import DataDriftPreset, RegressionPreset`.
+   - Ingest data via `Dataset(data=df, data_definition=DataDefinition(...))` to support typed feature annotations, while allowing raw `pd.DataFrame` inputs as a fallback.
+   - Extract machine-readable metrics via `snapshot.dict()` (mapping metrics and statistical tests) and interactive HTML dashboards via `snapshot.get_html_str()` / `snapshot.save_html(path)`.
+2. **Mandatory Explicit Keyword Argument Standard:**
+   - Every invocation of `Report.run(...)` MUST pass arguments using explicit keywords:
+     `report.run(current_data=curr_dataset, reference_data=ref_dataset)`.
+   - Positional passing is strictly prohibited across the codebase and enforced in code reviews.
+3. **Hybrid Reference Window Strategy:**
+   - **Feature & Prediction Drift:** Use a 14-day rolling historical window (excluding the active 24-hour evaluation window). 14 days captures two full weekly cycles, eliminating false day-of-week seasonality drift. If `warehouse.predictions` contains fewer than 500 rows or under 7 days of history (cold start), the service automatically falls back to the static January 2024 training baseline split.
+   - **Performance Decay:** Benchmark rolling 24-hour actuals against the static champion model validation baseline metrics (MAE and RMSE) logged in MLflow.
+4. **Automated Drift-Triggered Retraining Hook (ADR-022 Fulfillment):**
+   - The daily Prefect monitoring flow evaluates drift conditions across features and predictions:
+     - **Dataset Drift:** Flagged if overall drift share $\ge 0.40$ (40% of monitored features drifted) OR if critical demand features (`pickup_count_last_1h`, `avg_trip_duration_last_1h`) exhibit drift with $p < 0.01$.
+     - **Performance Decay:** Flagged if current 24-hour MAE exceeds champion baseline MAE by $> 15\%$ (`current_mae > baseline_mae * 1.15`).
+   - When an alert condition is met, the monitoring flow invokes `retraining_flow` via Prefect with execution parameter `triggered_by="evidently_drift_alert"`.
+   - A 48-hour cooldown period (checked against `warehouse.pipeline_runs`) prevents runaway retraining loops.
+
+**Alternatives considered:**
+- Using `evidently.legacy.report.Report` — rejected. Relies on deprecated compatibility shims scheduled for removal in future Evidently releases.
+- Positional argument passing in `report.run()` — rejected. Vulnerable to silent inversion of evaluation target and baseline. Directionality was empirically verified with asymmetric values before committing to the keyword convention.
+- Purely static baseline (Jan 2024 only) — rejected. Flags normal day-of-week demand variance as false data drift.
+- Purely rolling window without fallback — rejected. Fails on cold start and masks gradual cumulative distribution drift over months.
+- Webhook / HTTP callback for retraining trigger — rejected. Direct Prefect flow execution provides end-to-end orchestration tracking, state locking, retry semantics, and unified logs in `warehouse.pipeline_runs`.
+
+**Consequences:**
+- Robust, type-safe monitoring pipeline leveraging the latest Evidently 0.7 Core architecture.
+- Immune to argument transposition bugs.
+- Reliable drift detection with zero false alarms from weekday/weekend seasonality and graceful cold-start handling.
+- ADR-022 is completely closed out: scheduled cron retraining and automated drift-triggered retraining operate through a unified, cooldown-protected pipeline.
+

@@ -22,6 +22,14 @@ Two distinct things, not to be conflated:
 - No external alerting service for v1 — a personal project doesn't need PagerDuty. Drift/failure surfaces on the dashboard and is queryable by the agent ("has anything drifted this week").
 - Worth revisiting only if the project moves toward the side-hustle-product direction mentioned as a possible purpose.
 
-## 5. Open questions
+## 5. Architectural Decisions & Reference Strategy (ADR-026)
 
-- Reference window definition (fixed baseline vs. rolling N-day-ago window) — rolling is more realistic for a live system, fixed is simpler to reason about; leaning rolling, to confirm once real drift patterns are visible.
+- **Reference Window Definition (Resolved):**
+  - *Feature & Prediction Drift:* A 14-day rolling historical window (excluding the active 24-hour evaluation window). Captures bi-weekly demand cycles and eliminates weekday/weekend seasonality false alarms. If historical records in `warehouse.predictions` are fewer than 500 rows (cold start), falls back automatically to the static training baseline split (January 2024).
+  - *Performance Decay:* Benchmark rolling 24-hour actuals against the static champion model validation baseline metrics (MAE/RMSE) logged in MLflow.
+- **Evidently 0.7 Core API & Calling Convention:**
+  - Uses `from evidently import Report, Dataset, DataDefinition, Regression` and `from evidently.presets import DataDriftPreset, RegressionPreset`.
+  - Strictly requires explicit keyword invocation: `report.run(current_data=curr_dataset, reference_data=ref_dataset)` to prevent target/reference transposition.
+- **Drift-Triggered Retraining Hook (ADR-022 Fulfillment):**
+  - If dataset drift share $\ge 0.40$ or critical demand features show drift at $p < 0.01$, or if MAE degrades by $> 15\%$, the Prefect daily flow automatically triggers `retraining_flow` with `triggered_by="evidently_drift_alert"`, guarded by a 48-hour cooldown period.
+
