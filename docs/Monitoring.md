@@ -31,5 +31,7 @@ Two distinct things, not to be conflated:
   - Uses `from evidently import Report, Dataset, DataDefinition, Regression` and `from evidently.presets import DataDriftPreset, RegressionPreset`.
   - Strictly requires explicit keyword invocation: `report.run(current_data=curr_dataset, reference_data=ref_dataset)` to prevent target/reference transposition.
 - **Drift-Triggered Retraining Hook (ADR-022 Fulfillment):**
-  - If dataset drift share $\ge 0.40$ or critical demand features show drift at $p < 0.01$, or if MAE degrades by $> 15\%$, the Prefect daily flow automatically triggers `retraining_flow` with `triggered_by="evidently_drift_alert"`, guarded by a 48-hour cooldown period.
+  - If dataset drift share $\ge 0.40$ or critical demand features show drift at $p < 0.01$, or if MAE degrades by $> 15\%$, the Prefect daily flow raises a structured alert (`retrain_recommended: true`).
+  - **Staged Safety Policy:** Defaults to alert-only (`AUTO_RETRAIN_ON_DRIFT=false`), logging the alert to `warehouse.monitoring_reports` and `warehouse.pipeline_runs`, and surfacing it on the UI and Ops Copilot for operator confirmation. Setting `AUTO_RETRAIN_ON_DRIFT=true` enables direct autonomous invocation of `retraining_flow`, guarded by a 48-hour cooldown.
+
 

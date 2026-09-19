@@ -14,8 +14,8 @@ Implement the data and model monitoring layer for the Logistics Demand & ETA For
      - *Feature & Prediction Drift:* 14-day rolling historical window (excluding the active 24-hour evaluation window) captures organic seasonality and day-of-week demand patterns without triggering false alarms. If fewer than 7 days of historical predictions exist in `warehouse.predictions`, fall back automatically to the fixed training baseline split (January 2024).
      - *Performance Decay:* Uses the champion model validation baseline recorded in MLflow (MAE/RMSE) as the static reference benchmark against rolling actuals in `warehouse.predictions`.
    - **Automated Drift-Triggered Retraining Hook (ADR-022 Closeout):**
-     - When daily monitoring detects `dataset_drift_detected == True` (drift share $\ge 0.40$ or critical demand features drift with $p < 0.01$) OR performance degrades by $> 15\%$ (`current_mae > baseline_mae * 1.15`), the monitoring flow triggers `retraining_flow` via Prefect Cloud deployment execution with parameter `triggered_by="evidently_drift_alert"`.
-     - A 48-hour cooldown throttle prevents runaway retraining loops.
+      - When daily monitoring detects `dataset_drift_detected == True` (drift share $\ge 0.40$ or critical demand features drift with $p < 0.01$) OR performance degrades by $> 15\%$ (`current_mae > baseline_mae * 1.15`), the monitoring flow records an alert with `retrain_recommended: true`.
+      - **Staged Rollout Policy:** Defaults to `AUTO_RETRAIN_ON_DRIFT=false` (logs high-severity alert to `warehouse.monitoring_reports` and `warehouse.pipeline_runs`, and surfaces recommendations to the Streamlit Dashboard and Ops Copilot for human confirmation). Setting `AUTO_RETRAIN_ON_DRIFT=true` enables direct autonomous invocation of `retraining_flow`, guarded by a 48-hour cooldown throttle.
 
 2. **Security & Read-Only Tool Boundary (ADR-023 Compliance)**:
    - The agent's new monitoring tool (`query_drift_reports`) is strictly read-only, querying `warehouse.monitoring_reports` via SQLAlchemy `text()` without modification handles. Added to `ALLOWLISTED_TOOL_NAMES`.
@@ -58,7 +58,7 @@ Implement the data and model monitoring layer for the Logistics Demand & ETA For
     - Task 1: Fetch and validate evaluation data.
     - Task 2: Run Data Drift, Prediction Drift, and Performance Decay analyzers.
     - Task 3: Persist reports and write HTML artifacts to `artifacts/monitoring_reports/`.
-    - Task 4: Evaluate drift alert conditions. If alert threshold exceeded, trigger `retraining_flow` deployment (closing ADR-022) with 48h cooldown guard.
+    - Task 4: Evaluate drift alert conditions. If alert threshold exceeded, record alert in `warehouse.monitoring_reports` (`retrain_recommended: true`); if `AUTO_RETRAIN_ON_DRIFT=true`, trigger `retraining_flow` deployment (closing ADR-022) with 48h cooldown guard.
   - Unit and integration tests in `tests/test_monitoring_flow.py` mocking DB and Prefect tasks.
 - **Per-Ticket Context:** `src/orchestration/flows/retraining_flow.py`, `src/common/models.py`.
 - **Files Touched:** `src/monitoring/service.py`, `src/orchestration/flows/monitoring_flow.py`, `tests/test_monitoring_flow.py`.
