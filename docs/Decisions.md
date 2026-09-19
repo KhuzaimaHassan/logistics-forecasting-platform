@@ -523,23 +523,26 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 3. **Hybrid Reference Window Strategy:**
    - **Feature & Prediction Drift:** Use a 14-day rolling historical window (excluding the active 24-hour evaluation window). 14 days captures two full weekly cycles, eliminating false day-of-week seasonality drift. If `warehouse.predictions` contains fewer than 500 rows or under 7 days of history (cold start), the service automatically falls back to the static January 2024 training baseline split.
    - **Performance Decay:** Benchmark rolling 24-hour actuals against the static champion model validation baseline metrics (MAE and RMSE) logged in MLflow.
-4. **Automated Drift-Triggered Retraining Hook (ADR-022 Fulfillment):**
+4. **Staged Retraining Architecture — Alert-First with Guarded Trigger (ADR-022 Fulfillment):**
    - The daily Prefect monitoring flow evaluates drift conditions across features and predictions:
      - **Dataset Drift:** Flagged if overall drift share $\ge 0.40$ (40% of monitored features drifted) OR if critical demand features (`pickup_count_last_1h`, `avg_trip_duration_last_1h`) exhibit drift with $p < 0.01$.
-     - **Performance Decay:** Flagged if current 24-hour MAE exceeds champion baseline MAE by $> 15\%$ (`current_mae > baseline_mae * 1.15`).
-   - When an alert condition is met, the monitoring flow invokes `retraining_flow` via Prefect with execution parameter `triggered_by="evidently_drift_alert"`.
-   - A 48-hour cooldown period (checked against `warehouse.pipeline_runs`) prevents runaway retraining loops.
+     - **Performance Decay:** Flagged if current 24-hour MAE exceeds champion baseline MAE (sourced strictly from MLflow Production model validation metrics) by $> 15\%$ (`current_mae > baseline_mae * 1.15`).
+   - **Staged Execution Policy (Safety Gate):**
+     - **Default Mode (`AUTO_RETRAIN_ON_DRIFT=false`):** When drift/decay is detected, the flow logs a high-severity alert to `warehouse.monitoring_reports` (`retrain_recommended: true`, `alert_severity: "CRITICAL"`), records `status: "completed_with_alerts"` in `warehouse.pipeline_runs`, and surfaces actionable recommendations to the Streamlit Monitoring Dashboard and Ops Copilot for human operator review before manual trigger.
+     - **Autonomous Mode (`AUTO_RETRAIN_ON_DRIFT=true`):** Programmatically invokes `scheduled_retraining_flow` via Prefect with `triggered_by="evidently_drift_alert"`, guarded by a 48-hour cooldown period.
+     - This staged policy eliminates runaway compute churn and alert fatigue on the resource-constrained VM during initial deployment while leaving the programmatic trigger fully built, tested, and ready to be toggled on once thresholds are empirically calibrated.
 
 **Alternatives considered:**
 - Using `evidently.legacy.report.Report` — rejected. Relies on deprecated compatibility shims scheduled for removal in future Evidently releases.
 - Positional argument passing in `report.run()` — rejected. Vulnerable to silent inversion of evaluation target and baseline. Directionality was empirically verified with asymmetric values before committing to the keyword convention.
 - Purely static baseline (Jan 2024 only) — rejected. Flags normal day-of-week demand variance as false data drift.
 - Purely rolling window without fallback — rejected. Fails on cold start and masks gradual cumulative distribution drift over months.
+- Unconditional autonomous retraining without human-in-the-loop — rejected. In early operation, uncalibrated drift detectors risk thrashing VM compute and producing alert fatigue. Staged rollout with `AUTO_RETRAIN_ON_DRIFT=false` default ensures safety while preserving full automation capability.
 - Webhook / HTTP callback for retraining trigger — rejected. Direct Prefect flow execution provides end-to-end orchestration tracking, state locking, retry semantics, and unified logs in `warehouse.pipeline_runs`.
 
 **Consequences:**
 - Robust, type-safe monitoring pipeline leveraging the latest Evidently 0.7 Core architecture.
 - Immune to argument transposition bugs.
 - Reliable drift detection with zero false alarms from weekday/weekend seasonality and graceful cold-start handling.
-- ADR-022 is completely closed out: scheduled cron retraining and automated drift-triggered retraining operate through a unified, cooldown-protected pipeline.
+- ADR-022 is closed out with built-in operational safety: scheduled cron retraining remains the reliable baseline, drift monitoring produces high-visibility alerts in the UI and Copilot, and automated retraining is available behind an explicit configuration toggle.
 
