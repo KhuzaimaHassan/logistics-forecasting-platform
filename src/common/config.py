@@ -60,6 +60,12 @@ class Settings(BaseSettings):
         default=None, alias="R2_SECRET_ACCESS_KEY"
     )
 
+    # Monitoring & Automated Retraining (ADR-026)
+    auto_retrain_on_drift: bool = Field(default=False, alias="AUTO_RETRAIN_ON_DRIFT")
+    drift_retrain_cooldown_hours: int = Field(
+        default=48, alias="DRIFT_RETRAIN_COOLDOWN_HOURS"
+    )
+
     @property
     def database_url(self) -> str:
         """Construct the PostgreSQL SQLAlchemy connection URL."""

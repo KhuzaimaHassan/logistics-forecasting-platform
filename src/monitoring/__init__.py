@@ -13,6 +13,13 @@ from src.monitoring.schemas import (
     PerformanceMetricSummary,
     ReportType,
 )
+from src.monitoring.service import (
+    fetch_mlflow_production_baseline,
+    fetch_monitoring_datasets,
+    is_retraining_in_cooldown,
+    record_pipeline_run,
+    save_monitoring_report_db,
+)
 
 __all__ = [
     "DataDriftAnalyzer",
@@ -24,4 +31,9 @@ __all__ = [
     "DriftMetricSummary",
     "PerformanceMetricSummary",
     "MonitoringReportSummary",
+    "is_retraining_in_cooldown",
+    "fetch_mlflow_production_baseline",
+    "fetch_monitoring_datasets",
+    "save_monitoring_report_db",
+    "record_pipeline_run",
 ]
