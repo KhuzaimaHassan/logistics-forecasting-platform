@@ -606,6 +606,10 @@ def extract_monitoring_report_summaries(
       ensuring older chunks are automatically dropped on each FAISS rebuild.
     - Emits 1 consolidated 14-day health overview chunk.
     - Falls back to baseline monitoring architecture specifications if DB is offline.
+    - Note: RAG index freshness is strictly coupled to the daily rebuild schedule succeeding;
+      if the rebuild job fails silently for N days, the index keeps serving whatever the last successful
+      build contained, aging past the stated 14-day window without further pruning, while live Copilot
+      queries bypass RAG via Tool 5 (query_drift_reports) directly against PostgreSQL.
 
     Args:
         db_session: Optional SQLAlchemy database session.
