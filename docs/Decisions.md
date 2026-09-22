@@ -521,7 +521,7 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
      `report.run(current_data=curr_dataset, reference_data=ref_dataset)`.
    - Positional passing is strictly prohibited across the codebase and enforced in code reviews.
 3. **Hybrid Reference Window Strategy:**
-   - **Feature & Prediction Drift:** Use a 14-day rolling historical window (excluding the active 24-hour evaluation window). 14 days captures two full weekly cycles, eliminating false day-of-week seasonality drift. If `warehouse.predictions` contains fewer than 500 rows or under 7 days of history (cold start), the service automatically falls back to the static January 2024 training baseline split.
+   - **Feature & Prediction Drift:** Use a 14-day rolling historical window (excluding the active 24-hour evaluation window). 14 days captures two full weekly cycles, eliminating false day-of-week seasonality drift. If `warehouse.predictions` contains fewer than 500 rows or under 7 days of history (cold start), the service automatically falls back to the static canonical training baseline split (January 2023 TLC dataset per ADR-016 / `src/training/dataset.py`, with January 2024 compatibility).
    - **Performance Decay:** Benchmark rolling 24-hour actuals against the static champion model validation baseline metrics (MAE and RMSE) logged in MLflow.
 4. **Staged Retraining Architecture — Alert-First with Guarded Trigger (ADR-022 Fulfillment):**
    - The daily Prefect monitoring flow evaluates drift conditions across features and predictions:

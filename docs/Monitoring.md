@@ -25,7 +25,7 @@ Two distinct things, not to be conflated:
 ## 5. Architectural Decisions & Reference Strategy (ADR-026)
 
 - **Reference Window Definition (Resolved):**
-  - *Feature & Prediction Drift:* A 14-day rolling historical window (excluding the active 24-hour evaluation window). Captures bi-weekly demand cycles and eliminates weekday/weekend seasonality false alarms. If historical records in `warehouse.predictions` are fewer than 500 rows (cold start), falls back automatically to the static training baseline split (January 2024).
+  - *Feature & Prediction Drift:* A 14-day rolling historical window (excluding the active 24-hour evaluation window). Captures bi-weekly demand cycles and eliminates weekday/weekend seasonality false alarms. If historical records in `warehouse.predictions` are fewer than 500 rows (cold start), falls back automatically to the static training baseline split (January 2023 TLC dataset, with January 2024 compatibility).
   - *Performance Decay:* Benchmark rolling 24-hour actuals against the static champion model validation baseline metrics (MAE/RMSE) logged in MLflow.
 - **Evidently 0.7 Core API & Calling Convention:**
   - Uses `from evidently import Report, Dataset, DataDefinition, Regression` and `from evidently.presets import DataDriftPreset, RegressionPreset`.

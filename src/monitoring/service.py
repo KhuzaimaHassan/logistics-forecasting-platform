@@ -26,6 +26,14 @@ from src.training.promotion import ModelPromotionGate
 
 logger = logging.getLogger(__name__)
 
+# Canonical training baseline fallback date ranges.
+# The platform's canonical TLC training data is January 2023 (src/training/dataset.py: DEFAULT_TRAIN_START = 2023-01-08).
+# January 2024 is also supported for future training batches.
+FALLBACK_BASELINE_START_2023 = "2023-01-01 00:00:00+00"
+FALLBACK_BASELINE_END_2023 = "2023-01-29 00:00:00+00"
+FALLBACK_BASELINE_START_2024 = "2024-01-01 00:00:00+00"
+FALLBACK_BASELINE_END_2024 = "2024-01-29 00:00:00+00"
+
 # Default monitoring parameters
 DEFAULT_COOLDOWN_HOURS = 48
 DEFAULT_CURRENT_HOURS = 24
@@ -254,12 +262,21 @@ def fetch_monitoring_datasets(
                 params={"start_time": ref_start, "end_time": ref_end},
             )
         else:
-            # Cold-start fallback: query historical offline feature table for January 2024
+            # Cold-start fallback: query historical offline feature table for canonical baseline
             logger.info(
-                "Reference window has %d predictions (< %d minimum). Falling back to January 2024 baseline.",
+                "Reference window has %d predictions (< %d minimum). Falling back to canonical baseline (Jan 2023 / Jan 2024).",
                 ref_pred_count,
                 min_reference_samples,
             )
+            s_2023 = (
+                "2023-01-01 00:00:00" if is_sqlite else FALLBACK_BASELINE_START_2023
+            )
+            e_2023 = "2023-01-29 00:00:00" if is_sqlite else FALLBACK_BASELINE_END_2023
+            s_2024 = (
+                "2024-01-01 00:00:00" if is_sqlite else FALLBACK_BASELINE_START_2024
+            )
+            e_2024 = "2024-01-29 00:00:00" if is_sqlite else FALLBACK_BASELINE_END_2024
+
             fallback_query = text(f"""
                 SELECT
                     zone_id,
@@ -277,20 +294,31 @@ def fetch_monitoring_datasets(
                     CAST(pickup_count_same_hour_last_week AS FLOAT) AS predicted_value,
                     CAST(pickup_count_last_1h AS FLOAT) AS actual_value
                 FROM {schema_prefix}zone_demand_features_hourly
-                WHERE pickup_datetime >= '2024-01-01 00:00:00+00'
-                  AND pickup_datetime < '2024-01-29 00:00:00+00'
+                WHERE (
+                    (pickup_datetime >= :start_2023 AND pickup_datetime < :end_2023)
+                    OR (pickup_datetime >= :start_2024 AND pickup_datetime < :end_2024)
+                )
                 ORDER BY pickup_datetime ASC
             """)
             try:
-                ref_df = pd.read_sql(fallback_query, conn)
+                ref_df = pd.read_sql(
+                    fallback_query,
+                    conn,
+                    params={
+                        "start_2023": s_2023,
+                        "end_2023": e_2023,
+                        "start_2024": s_2024,
+                        "end_2024": e_2024,
+                    },
+                )
             except Exception:
                 ref_df = pd.DataFrame()
 
             if ref_df.empty:
-                # Secondary fallback: if January 2024 feature table is not populated in this test/dev environment,
-                # check January 2023 or generate deterministic synthetic distribution for cold start
+                # Secondary fallback: if canonical feature window is not populated in this test/dev environment,
+                # check any available offline features or generate deterministic synthetic distribution for cold start
                 logger.info(
-                    "January 2024 offline feature table empty. Checking other offline features or building baseline."
+                    "Canonical offline feature table empty. Checking other offline features or building baseline."
                 )
                 alt_fallback_query = text(f"""
                     SELECT
