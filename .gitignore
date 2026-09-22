@@ -19,6 +19,8 @@ data/
 data/raw/
 data/processed/
 
+# Reports / Evaluation artifacts
+reports/
 
 # MLflow / model artifacts
 mlruns/
