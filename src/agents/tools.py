@@ -6,16 +6,17 @@ Strict allowlisting of these four tools serves as the primary architectural secu
 boundary against prompt-injection and unauthorized data mutation.
 """
 
+import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import tool
 
 from src.common.db import get_db_session
-from src.common.models import PipelineRun, Prediction
+from src.common.models import MonitoringReport, PipelineRun, Prediction
 
 logger = logging.getLogger(__name__)
 
@@ -444,18 +445,161 @@ def search_logs_and_model_cards(query: str, top_k: int = 3) -> Dict[str, Any]:
     }
 
 
+def query_drift_reports(
+    report_type: Optional[str] = None,
+    limit: int = 5,
+) -> Dict[str, Any]:
+    """Retrieve recent Evidently AI data drift, prediction drift, and model performance reports.
+
+    Args:
+        report_type: Optional filter by report type ('data_drift', 'prediction_drift', 'performance_decay', or None for all).
+        limit: Maximum number of recent reports to retrieve (default: 5, max: 20).
+
+    Returns:
+        Structured dictionary containing status, list of reports with drift status, drifted features, metrics, and alert recommendations.
+    """
+    safe_limit = max(1, min(int(limit or 5), 20))
+    clean_type = str(report_type).strip().lower() if report_type else None
+    valid_types = {"data_drift", "prediction_drift", "performance_decay"}
+    if clean_type and clean_type not in valid_types:
+        if any(
+            c in clean_type
+            for c in (
+                ";",
+                "'",
+                '"',
+                "--",
+                "/*",
+                "drop",
+                "select",
+                "delete",
+                "insert",
+                "update",
+            )
+        ):
+            # Adversarial or malformed input: preserve literal string so parameterized query safely matches 0 rows
+            pass
+        elif "feature" in clean_type or "data" in clean_type:
+            clean_type = "data_drift"
+        elif "pred" in clean_type:
+            clean_type = "prediction_drift"
+        elif "perf" in clean_type or "decay" in clean_type or "mae" in clean_type:
+            clean_type = "performance_decay"
+        else:
+            clean_type = None
+
+    try:
+        with get_db_session() as session:
+            query = session.query(MonitoringReport)
+            if clean_type:
+                query = query.filter(MonitoringReport.report_type == clean_type)
+            records = (
+                query.order_by(MonitoringReport.generated_at.desc())
+                .limit(safe_limit)
+                .all()
+            )
+
+            reports_list: List[Dict[str, Any]] = []
+            for r in records:
+                s_dict: Dict[str, Any] = {}
+                if r.summary_json:
+                    if isinstance(r.summary_json, dict):
+                        s_dict = r.summary_json
+                    elif isinstance(r.summary_json, str):
+                        try:
+                            s_dict = json.loads(r.summary_json)
+                        except Exception:
+                            s_dict = {}
+
+                drift_detected = s_dict.get("drift_detected", False)
+                retrain_recommended = s_dict.get("retrain_recommended", False)
+                alert_severity = s_dict.get("alert_severity")
+                alert_reasons = s_dict.get("alert_reasons", [])
+                drift_share = s_dict.get("drift_share")
+                num_drifted_cols = s_dict.get("number_of_drifted_columns")
+                total_cols = s_dict.get("number_of_columns")
+
+                drifted_features: List[str] = []
+                metrics_summary: List[Dict[str, Any]] = []
+                for m in s_dict.get("metrics", []):
+                    if isinstance(m, dict):
+                        col = m.get("column_name")
+                        is_drifted = m.get("drift_detected", False)
+                        if is_drifted and col and col not in drifted_features:
+                            drifted_features.append(col)
+                        metrics_summary.append(
+                            {
+                                "metric_name": m.get("metric_name"),
+                                "column_name": col,
+                                "drift_detected": is_drifted,
+                                "drift_score": m.get("drift_score"),
+                                "current_value": m.get("current_value"),
+                                "reference_value": m.get("reference_value"),
+                                "decay_ratio": m.get("decay_ratio"),
+                            }
+                        )
+
+                reports_list.append(
+                    {
+                        "report_id": str(r.report_id),
+                        "report_type": str(r.report_type),
+                        "generated_at": (
+                            r.generated_at.isoformat() if r.generated_at else None
+                        ),
+                        "drift_detected": bool(drift_detected),
+                        "retrain_recommended": bool(retrain_recommended),
+                        "alert_severity": alert_severity,
+                        "alert_reasons": alert_reasons,
+                        "drift_share": drift_share,
+                        "number_of_drifted_columns": num_drifted_cols,
+                        "number_of_columns": total_cols,
+                        "drifted_features": drifted_features,
+                        "metrics": metrics_summary[:10],
+                        "file_path": r.file_path,
+                    }
+                )
+
+            status = "success" if reports_list else "empty"
+            has_active_alerts = any(
+                p["retrain_recommended"] or p["drift_detected"] for p in reports_list
+            )
+            return {
+                "status": status,
+                "reports_count": len(reports_list),
+                "reports": reports_list,
+                "has_active_alerts": has_active_alerts,
+                "filter_applied": clean_type,
+                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                "source": "warehouse.monitoring_reports",
+            }
+    except Exception as exc:
+        logger.warning("Failed to query monitoring reports from database: %s", exc)
+        return {
+            "status": "empty",
+            "reports_count": 0,
+            "reports": [],
+            "has_active_alerts": False,
+            "filter_applied": clean_type,
+            "error": str(exc),
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "source": "warehouse.monitoring_reports",
+        }
+
+
 # LangChain StructuredTool wrappers for LangGraph integration
 get_features_tool = tool(get_features)
 query_recent_predictions_tool = tool(query_recent_predictions)
 query_pipeline_status_tool = tool(query_pipeline_status)
 search_logs_and_model_cards_tool = tool(search_logs_and_model_cards)
+query_drift_reports_tool = tool(query_drift_reports)
 
-# Registry of allowable tools
+# Registry of allowable tools (ADR-023: strictly 5 read-only tools)
 AGENT_TOOLS = [
     get_features_tool,
     query_recent_predictions_tool,
     query_pipeline_status_tool,
     search_logs_and_model_cards_tool,
+    query_drift_reports_tool,
 ]
 
 # Read-only Allowlist dictionary (ADR-023 Definitive Security Boundary)

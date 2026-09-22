@@ -308,3 +308,41 @@ class AgentChatResponse(BaseModel):
     timestamp: str = Field(
         ..., description="ISO 8601 UTC timestamp of response creation."
     )
+
+
+# ---------------------------------------------------------------------------
+# Monitoring Reports Schemas (M8-3)
+# ---------------------------------------------------------------------------
+
+
+class MonitoringReportItem(BaseModel):
+    """Metadata and summary of an Evidently AI monitoring report."""
+
+    report_id: str
+    report_type: str
+    generated_at: str
+    drift_detected: bool = False
+    retrain_recommended: bool = False
+    alert_severity: Optional[str] = None
+    alert_reasons: List[str] = Field(default_factory=list)
+    drift_share: Optional[float] = None
+    number_of_drifted_columns: Optional[int] = None
+    number_of_columns: Optional[int] = None
+    drifted_features: List[str] = Field(default_factory=list)
+    file_path: Optional[str] = None
+    summary_json: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MonitoringReportsListResponse(BaseModel):
+    """Response schema for GET /monitoring/reports."""
+
+    status: str = Field(
+        ..., description="Query outcome status: 'success' | 'empty' | 'error'"
+    )
+    count: int = Field(..., description="Number of reports returned")
+    has_active_alerts: bool = Field(
+        False,
+        description="True if any returned report triggered drift or retraining",
+    )
+    reports: List[MonitoringReportItem] = Field(default_factory=list)
+    retrieved_at: str

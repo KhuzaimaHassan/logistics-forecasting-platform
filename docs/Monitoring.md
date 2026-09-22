@@ -15,7 +15,7 @@ Two distinct things, not to be conflated:
 ## 3. Scheduling
 
 - Run daily via Prefect, not on every request — drift is a slow-moving signal, no need for per-prediction overhead.
-- Reports written to a `monitoring_reports` table/directory, surfaced on the UI's Monitoring Dashboard and readable by the agent's `search_logs_and_model_cards` tool.
+- Reports written to a `monitoring_reports` table/directory, surfaced on the UI's Model Monitoring tab and directly queryable by the agent's `query_drift_reports` tool and FAISS RAG knowledge base.
 
 ## 4. Alerting (lightweight, v1)
 
@@ -33,5 +33,24 @@ Two distinct things, not to be conflated:
 - **Drift-Triggered Retraining Hook (ADR-022 Fulfillment):**
   - If dataset drift share $\ge 0.40$ or critical demand features show drift at $p < 0.01$, or if MAE degrades by $> 15\%$, the Prefect daily flow raises a structured alert (`retrain_recommended: true`).
   - **Staged Safety Policy:** Defaults to alert-only (`AUTO_RETRAIN_ON_DRIFT=false`), logging the alert to `warehouse.monitoring_reports` and `warehouse.pipeline_runs`, and surfacing it on the UI and Ops Copilot for operator confirmation. Setting `AUTO_RETRAIN_ON_DRIFT=true` enables direct autonomous invocation of `retraining_flow`, guarded by a 48-hour cooldown.
+
+## 6. Ops Copilot & Dashboard Integration (M8-3)
+
+- **Ops Copilot Tool 5 (`query_drift_reports`):**
+  - Implements an allowlisted read-only query tool executing parameterized SELECT queries against `warehouse.monitoring_reports`.
+  - Supports filtering by `report_type` (`data_drift`, `prediction_drift`, `performance_decay`) and `limit` clamping ($1 \le \text{limit} \le 20$).
+  - Neutralizes SQL injection attempts through SQLAlchemy ORM parameterization and strictly prevents schema inspection or state mutation.
+- **FAISS RAG Ingestion & Pruning Policy:**
+  - Ingests recent monitoring report summaries alongside documentation, model cards, and pipeline runs.
+  - Retention is bounded to a strict 14-day rolling window with at most 10 reports per type (max 30 individual report chunks) plus 1 consolidated rolling health overview chunk (`monitoring_health_summary_14d`).
+  - Pruning is atomic on each index rebuild. If a daily re-index job fails, the index remains bounded at the prior build's 30 chunks without unbounded growth, while live Copilot queries bypass the vector index and retrieve fresh state directly from PostgreSQL.
+- **Streamlit Model Monitoring Tab (`ui/app.py`):**
+  - Four KPI scorecards: active data drift, prediction drift, MAE performance decay, and retraining recommendation status.
+  - Trend charts tracking drift share percentages and count of drifted features over time.
+  - Interactive Evidently HTML report viewer embedded via `streamlit.components.v1.html`, complete with report selection and one-click HTML download.
+- **Serving Endpoints (`src/serving/app.py`):**
+  - `GET /monitoring/reports`: Lists recent monitoring report summaries with active alert indicators.
+  - `GET /monitoring/reports/{report_id}/html`: Returns full standalone interactive Evidently HTML reports.
+
 
 

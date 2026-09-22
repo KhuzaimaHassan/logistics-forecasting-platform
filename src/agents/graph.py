@@ -181,6 +181,8 @@ def tool_execution_node(state: CopilotState) -> Dict[str, Any]:
                 sources.append("warehouse.predictions")
             elif tool_name == "query_pipeline_status":
                 sources.append("warehouse.pipeline_runs")
+            elif tool_name == "query_drift_reports":
+                sources.append("warehouse.monitoring_reports")
             elif tool_name == "search_logs_and_model_cards":
                 for item in res.get("results", []):
                     if "source" in item and item["source"] not in sources:
@@ -285,6 +287,69 @@ def _format_rag_section(res: Dict[str, Any]) -> List[str]:
     return lines
 
 
+def _format_drift_reports_section(res: Dict[str, Any]) -> List[str]:
+    reports = res.get("reports", [])
+    count = len(reports)
+    has_alerts = res.get("has_active_alerts", False)
+    overall_badge = "🔴 DRIFT / DECAY DETECTED" if has_alerts else "🟢 ALL NORMAL"
+
+    lines = [
+        f"### Model Drift & Performance Monitoring: {overall_badge} ({count} reports evaluated)"
+    ]
+    if not reports:
+        lines.append(
+            "- *No monitoring reports found in `warehouse.monitoring_reports`.*"
+        )
+        lines.append("")
+        return lines
+
+    for r in reports[:5]:
+        rtype = r.get("report_type", "unknown").replace("_", " ").title()
+        drift_flag = r.get("drift_detected", False)
+        retrain_flag = r.get("retrain_recommended", False)
+        sev = r.get("alert_severity") or ("WARNING" if drift_flag else "INFO")
+        status_icon = "🔴" if drift_flag else "🟢"
+        gen_time = r.get("generated_at", "Unknown")
+
+        drift_share = r.get("drift_share")
+        share_str = (
+            f" | Drift Share: {drift_share * 100:.1f}%"
+            if drift_share is not None
+            else ""
+        )
+        lines.append(
+            f"- {status_icon} **{rtype}** (`{gen_time}`) | Severity: `{sev}`{share_str}"
+        )
+
+        if retrain_flag:
+            lines.append(
+                "  - ⚠️ **Retraining Recommended**: ADR-026 trigger criteria met."
+            )
+
+        if r.get("alert_reasons"):
+            for reason in r.get("alert_reasons", [])[:3]:
+                lines.append(f"  - Alert: *{reason}*")
+
+        if r.get("drifted_features"):
+            features_str = ", ".join(f"`{f}`" for f in r.get("drifted_features")[:5])
+            lines.append(f"  - Drifted Features: {features_str}")
+
+        # Highlight performance metrics if performance decay report
+        for m in r.get("metrics", []):
+            if m.get("metric_name") in ("MAE", "RMSE", "mean_error"):
+                c_val = m.get("current_value")
+                r_val = m.get("reference_value")
+                decay = m.get("decay_ratio")
+                if c_val is not None and r_val is not None:
+                    decay_pct = f" (+{decay * 100:.1f}%)" if decay is not None else ""
+                    lines.append(
+                        f"  - Metric **{m.get('metric_name')}**: Current `{c_val:.2f}` vs Baseline `{r_val:.2f}`{decay_pct}"
+                    )
+
+    lines.append("")
+    return lines
+
+
 def synthesis_node(state: CopilotState) -> Dict[str, Any]:
     """Synthesize natural language response, incorporate citations, and apply mock labeling."""
     provider_name = state.get("provider", "mock")
@@ -327,6 +392,8 @@ def synthesis_node(state: CopilotState) -> Dict[str, Any]:
             sections.extend(_format_predictions_section(res))
         elif tname == "query_pipeline_status":
             sections.extend(_format_pipeline_section(res))
+        elif tname == "query_drift_reports":
+            sections.extend(_format_drift_reports_section(res))
         elif tname == "search_logs_and_model_cards":
             sections.extend(_format_rag_section(res))
 

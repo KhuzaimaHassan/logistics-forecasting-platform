@@ -336,6 +336,39 @@ class MockLLMProvider(BaseLLMProvider):
                     },
                 }
             )
+        elif any(
+            k in query_lower
+            for k in [
+                "drift",
+                "decay",
+                "distribution shift",
+                "evidently",
+                "feature drift",
+                "prediction drift",
+                "data drift",
+                "model decay",
+                "performance decay",
+            ]
+        ):
+            report_type = None
+            if "feature" in query_lower or "data" in query_lower:
+                report_type = "data_drift"
+            elif "prediction" in query_lower:
+                report_type = "prediction_drift"
+            elif any(d in query_lower for d in ["performance", "decay", "mae", "rmse"]):
+                report_type = "performance_decay"
+
+            tool_calls.append(
+                {
+                    "id": "mock_call_drift_reports",
+                    "name": "query_drift_reports",
+                    "args": (
+                        {"report_type": report_type, "limit": 5}
+                        if report_type
+                        else {"limit": 5}
+                    ),
+                }
+            )
         elif "prediction" in query_lower:
             if zone_match:
                 tool_calls.append(
@@ -457,14 +490,15 @@ class MockLLMProvider(BaseLLMProvider):
             body = (
                 "Greetings! I am the Logistics Demand & ETA Ops Copilot. "
                 "I can inspect live feature values from Feast Redis, query recent predictions from PostgreSQL, "
-                "summarize pipeline execution health, or explain architectural decisions from platform documentation. "
+                "summarize pipeline execution health, inspect Evidently drift and model performance reports, "
+                "or explain architectural decisions from platform documentation. "
                 "How can I assist your operations today?"
             )
         else:
             body = (
                 f"I processed your query: '{query}'. "
                 "In offline/mock mode, operational queries regarding taxi zone demand, corridor trip durations, "
-                "pipeline runs, or architecture decisions are routed through read-only tools."
+                "pipeline runs, model drift reports, or architecture decisions are routed through read-only tools."
             )
 
         return f"{self.MOCK_HEADER} {body}"

@@ -1,5 +1,6 @@
 """Unit and integration tests for FAISS RAG indexer, vector store, and retriever."""
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -9,6 +10,7 @@ from src.agents.rag.indexer import (
     DocumentChunk,
     extract_markdown_chunks,
     extract_mlflow_model_cards,
+    extract_monitoring_report_summaries,
     extract_pipeline_run_summaries,
 )
 from src.agents.rag.retriever import RAGRetriever
@@ -168,6 +170,102 @@ class TestModelCardsAndPipelineSummaries:
         assert summary.title == "Pipeline Health Summary: retraining_flow"
         assert "Completed: 1, Failed: 1" in summary.content
         assert summary.metadata["flow_name"] == "retraining_flow"
+
+    def test_extract_monitoring_report_summaries_fallback(self):
+        """When DB is unavailable, returns baseline monitoring architecture catalog."""
+        with patch("src.agents.rag.indexer._is_tcp_port_open", return_value=False):
+            summaries = extract_monitoring_report_summaries(db_session=None)
+            assert len(summaries) >= 2
+            titles = [s.title for s in summaries]
+            assert any("Evidently AI Drift Analyzers" in t for t in titles)
+            assert any("Staged Drift Retraining Gate" in t for t in titles)
+            for s in summaries:
+                assert s.metadata.get("is_baseline") is True
+
+    def test_extract_monitoring_report_summaries_with_mock_db_retention_and_pruning(
+        self,
+    ):
+        """Validates ADR-026 14-day rolling window, consolidated overview chunk, and report metadata."""
+        now = datetime(2026, 9, 22, 12, 0, 0, tzinfo=timezone.utc)
+        mock_session = MagicMock()
+
+        # Report within 14-day window (generated 2 days ago)
+        report_recent = MagicMock(
+            report_id="rep_recent_01",
+            report_type="data_drift",
+            generated_at=now - timedelta(days=2),
+            summary_json={
+                "drift_detected": True,
+                "retrain_recommended": True,
+                "drift_share": 0.45,
+                "alert_severity": "CRITICAL",
+                "alert_reasons": ["Feature drift share 45.0% exceeded threshold 40.0%"],
+                "metrics": [{"column_name": "passenger_count", "drift_detected": True}],
+            },
+            file_path="artifacts/monitoring_reports/rep_recent_01.html",
+        )
+
+        mock_query = MagicMock()
+        # Query filter mock returns only the recent report (matching SQL filter >= cutoff)
+        mock_query.filter.return_value.order_by.return_value.all.return_value = [
+            report_recent
+        ]
+        mock_session.query.return_value = mock_query
+        mock_session.__enter__.return_value = mock_session
+
+        chunks = extract_monitoring_report_summaries(db_session=mock_session, now=now)
+
+        # Expected: 1 consolidated health overview chunk + 1 individual report chunk = 2 chunks
+        assert len(chunks) == 2
+        overview = chunks[0]
+        assert overview.title == "14-Day Monitoring Health Overview"
+        assert overview.metadata["doc_type"] == "monitoring_summary_14d"
+        assert overview.metadata["active_alerts"] == 1
+        assert overview.metadata["total_reports"] == 1
+        assert "Average Feature Drift Share: 45.0%" in overview.content
+        assert "Retraining Recommended" in overview.content
+
+        rep_chunk = chunks[1]
+        assert "Monitoring Report: data_drift" in rep_chunk.title
+        assert rep_chunk.metadata["report_id"] == "rep_recent_01"
+        assert rep_chunk.metadata["drift_detected"] is True
+        assert rep_chunk.metadata["retrain_recommended"] is True
+        assert "Drifted Columns: passenger_count" in rep_chunk.content
+
+    def test_extract_monitoring_report_summaries_capping_max_10_per_type(self):
+        """Proves maximum 10 reports per type retention bound (max 30 total across 3 types)."""
+        now = datetime(2026, 9, 22, 12, 0, 0, tzinfo=timezone.utc)
+        mock_session = MagicMock()
+
+        # 15 data_drift reports generated within window
+        data_drift_reports = [
+            MagicMock(
+                report_id=f"rep_dd_{i:02d}",
+                report_type="data_drift",
+                generated_at=now - timedelta(hours=i),
+                summary_json={"drift_detected": False, "drift_share": 0.10},
+                file_path=None,
+            )
+            for i in range(15)
+        ]
+
+        mock_query = MagicMock()
+        mock_query.filter.return_value.order_by.return_value.all.return_value = (
+            data_drift_reports
+        )
+        mock_session.query.return_value = mock_query
+        mock_session.__enter__.return_value = mock_session
+
+        chunks = extract_monitoring_report_summaries(db_session=mock_session, now=now)
+
+        # 1 consolidated summary chunk + max 10 individual report chunks = 11 chunks
+        assert len(chunks) == 11
+        # Overview chunk + 10 data_drift chunks
+        assert chunks[0].title == "14-Day Monitoring Health Overview"
+        individual_chunks = chunks[1:]
+        assert len(individual_chunks) == 10
+        for c in individual_chunks:
+            assert c.metadata["report_type"] == "data_drift"
 
 
 class TestVectorizers:

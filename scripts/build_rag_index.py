@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 from src.agents.rag.indexer import (  # noqa: E402
     extract_markdown_chunks,
     extract_mlflow_model_cards,
+    extract_monitoring_report_summaries,
     extract_pipeline_run_summaries,
 )
 from src.agents.rag.store import VectorStore, get_vectorizer  # noqa: E402
@@ -59,6 +60,11 @@ def parse_args() -> argparse.Namespace:
         "--skip-db",
         action="store_true",
         help="Skip querying database pipeline runs (use static pipeline topology)",
+    )
+    parser.add_argument(
+        "--skip-monitoring",
+        action="store_true",
+        help="Skip querying database monitoring reports (use static monitoring spec)",
     )
     parser.add_argument(
         "--chunk-size",
@@ -126,8 +132,24 @@ def main() -> int:
         pipe_chunks = extract_pipes(db_session=None)
     logger.info("Extracted %d pipeline summary chunks.", len(pipe_chunks))
 
-    # 4. Combine all chunks
-    all_chunks = md_chunks + model_chunks + pipe_chunks
+    # 4. Extract monitoring report summaries (14-day rolling window)
+    logger.info(
+        "Extracting monitoring report summaries (skip_live=%s)...",
+        args.skip_monitoring,
+    )
+    mon_chunks = (
+        extract_monitoring_report_summaries() if not args.skip_monitoring else []
+    )
+    if not mon_chunks:
+        from src.agents.rag.indexer import (
+            extract_monitoring_report_summaries as extract_mon,
+        )
+
+        mon_chunks = extract_mon(db_session=None)
+    logger.info("Extracted %d monitoring report chunks.", len(mon_chunks))
+
+    # 5. Combine all chunks
+    all_chunks = md_chunks + model_chunks + pipe_chunks + mon_chunks
     if not all_chunks:
         logger.error(
             "No chunks extracted! Ensure docs directory exists and contains markdown files."
