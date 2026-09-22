@@ -441,21 +441,23 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Context:** Phase 7 introduces an operational assistant (Ops Copilot) to inspect forecasting pipeline health, diagnose prediction drift, explain architectural decisions, and query feature store representations. Because LLM agents with access to tools can be vulnerable to indirect prompt injection or hallucinated tool invocations, we must establish an unbreachable security boundary preventing destructive operations (e.g. dropping database tables, deleting MLflow models, triggering unauthorized retrains, or writing arbitrary files).
 
-**Decision:** Define a strictly read-only tool execution runtime. The copilot runtime is equipped exclusively with an immutable allowlist of four read-only query tools:
+**Decision:** Define a strictly read-only tool execution runtime. The copilot runtime is equipped exclusively with an immutable allowlist of five read-only query tools:
 1. `get_features`: Read-only online Feast feature store lookups for taxi zones and corridors.
 2. `query_recent_predictions`: Read-only SELECT query against `warehouse.predictions`.
 3. `query_pipeline_status`: Read-only SELECT query against `warehouse.pipeline_runs`.
 4. `search_logs_and_model_cards`: Read-only FAISS semantic index and documentation scanner.
+5. `query_drift_reports`: Read-only SELECT query against `warehouse.monitoring_reports` for feature drift, prediction drift, and performance decay alerts.
 
 **Security Boundary Invariant:**
 - **Read-Only Tool Allowlisting is the Real Security Boundary:** Input prompt classification, keyword regex filters, and LLM guardrails are advisory defense-in-depth layers only. The definitive, non-bypassable security perimeter is architectural: the agent runtime possesses zero write capabilities, zero SQL mutation tools, zero shell/exec execution tools, and zero filesystem write handles. Even in the event of an adversarial prompt injection achieving complete subversion of the LLM context, the agent is physically incapable of mutating system state.
+- **Monitoring RAG Retention & Pruning Invariant:** Monitoring report summaries ingested into FAISS adhere to a strict 14-day rolling window, capped at 10 reports per type (max 30 total), plus 1 consolidated health overview chunk. Pruning occurs atomically on each index rebuild. If a daily re-index job fails or is delayed, the vector index remains bounded at the prior build's 30 chunks (aging past 14 days without unbounded memory growth), while live Copilot queries bypass the vector index and retrieve fresh state directly from PostgreSQL via `query_drift_reports`.
 - **Content Isolation:** Retrieved text from database tables or documentation is injected strictly as quoted reference data (`<context>` blocks) and never evaluated as procedural instructions.
 
 **Alternatives considered:**
 - Dynamic tool registration / write tools with human-in-the-loop confirmations — rejected. Operational copilot scope is diagnostic and explanatory. Adding mutative capabilities violates least privilege and complicates unattended operation.
 - Relying exclusively on system prompt guardrails / keyword filtering — rejected. LLMs can be tricked via jailbreaks, base64 obfuscation, and persona switches. Prompt filters cannot serve as security boundaries.
 
-**Consequences:** Complete architectural immunity to destructive tool abuse and data corruption. Operations personnel can safely query platform state through natural language.
+**Consequences:** Complete architectural immunity to destructive tool abuse and data corruption. Operations personnel can safely query platform state and drift reports through natural language.
 
 ---
 

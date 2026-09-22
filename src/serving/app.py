@@ -10,22 +10,24 @@ Exposes low-latency online inference and inspection endpoints per docs/API.md an
 - GET  /pipeline/status: Orchestration pipeline run history
 """
 
+import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import redis
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from src.common.config import get_settings
 from src.common.db import check_database_connection, get_db_session
-from src.common.models import PipelineRun, Prediction
+from src.common.models import MonitoringReport, PipelineRun, Prediction
 from src.features.client import (
     CorridorDurationOnlineFeatures,
     FeastOnlineClient,
@@ -58,6 +60,8 @@ from src.serving.schemas import (
     HealthCheckResponse,
     HealthDependencyStatus,
     ModelHealthInfo,
+    MonitoringReportItem,
+    MonitoringReportsListResponse,
     PipelineRunItem,
     PipelineStatusResponse,
 )
@@ -977,3 +981,138 @@ def agent_chat_endpoint(payload: AgentChatRequest) -> AgentChatResponse:
             error=str(exc),
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
+
+
+# ---------------------------------------------------------------------------
+# Monitoring Reports Endpoints (M8-3)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/monitoring/reports", response_model=MonitoringReportsListResponse)
+def get_monitoring_reports_endpoint(
+    report_type: Optional[str] = Query(
+        None,
+        description="Filter by report type ('data_drift', 'prediction_drift', 'performance_decay')",
+    ),
+    limit: int = Query(
+        10, ge=1, le=50, description="Maximum number of reports to retrieve"
+    ),
+) -> MonitoringReportsListResponse:
+    """Retrieve recent Evidently AI monitoring reports from warehouse.monitoring_reports."""
+    clean_type = report_type.strip().lower() if report_type else None
+    reports_out: List[MonitoringReportItem] = []
+    now_utc = datetime.now(timezone.utc)
+
+    try:
+        with get_db_session() as session:
+            query = session.query(MonitoringReport)
+            if clean_type:
+                query = query.filter(MonitoringReport.report_type == clean_type)
+            db_reps = (
+                query.order_by(MonitoringReport.generated_at.desc()).limit(limit).all()
+            )
+
+            for r in db_reps:
+                s_dict: Dict[str, Any] = {}
+                if r.summary_json:
+                    if isinstance(r.summary_json, dict):
+                        s_dict = r.summary_json
+                    elif isinstance(r.summary_json, str):
+                        try:
+                            s_dict = json.loads(r.summary_json)
+                        except Exception:
+                            s_dict = {}
+
+                drifted_cols = []
+                for m in s_dict.get("metrics", []):
+                    if isinstance(m, dict) and m.get("drift_detected"):
+                        c_name = m.get("column_name")
+                        if c_name and c_name not in drifted_cols:
+                            drifted_cols.append(c_name)
+
+                reports_out.append(
+                    MonitoringReportItem(
+                        report_id=str(r.report_id),
+                        report_type=str(r.report_type),
+                        generated_at=(
+                            r.generated_at.isoformat() if r.generated_at else ""
+                        ),
+                        drift_detected=bool(s_dict.get("drift_detected", False)),
+                        retrain_recommended=bool(
+                            s_dict.get("retrain_recommended", False)
+                        ),
+                        alert_severity=s_dict.get("alert_severity"),
+                        alert_reasons=s_dict.get("alert_reasons", []),
+                        drift_share=s_dict.get("drift_share"),
+                        number_of_drifted_columns=s_dict.get(
+                            "number_of_drifted_columns"
+                        ),
+                        number_of_columns=s_dict.get("number_of_columns"),
+                        drifted_features=drifted_cols,
+                        file_path=r.file_path,
+                        summary_json=s_dict,
+                    )
+                )
+
+        status_str = "success" if reports_out else "empty"
+        has_alerts = any(p.drift_detected or p.retrain_recommended for p in reports_out)
+        return MonitoringReportsListResponse(
+            status=status_str,
+            count=len(reports_out),
+            has_active_alerts=has_alerts,
+            reports=reports_out,
+            retrieved_at=now_utc.isoformat(),
+        )
+    except Exception as exc:
+        logger.warning("Error fetching monitoring reports: %s", exc)
+        return MonitoringReportsListResponse(
+            status="error",
+            count=0,
+            has_active_alerts=False,
+            reports=[],
+            retrieved_at=now_utc.isoformat(),
+        )
+
+
+@app.get("/monitoring/reports/{report_id}/html", response_class=HTMLResponse)
+def get_monitoring_report_html_endpoint(report_id: str) -> HTMLResponse:
+    """Retrieve and render the full interactive Evidently HTML report."""
+    try:
+        with get_db_session() as session:
+            record = (
+                session.query(MonitoringReport)
+                .filter(MonitoringReport.report_id == report_id)
+                .first()
+            )
+            if not record:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Monitoring report '{report_id}' not found.",
+                )
+
+            if not record.file_path:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No HTML file path associated with report '{report_id}'.",
+                )
+
+            html_path = Path(record.file_path)
+            if not html_path.exists():
+                repo_relative = (
+                    Path(__file__).resolve().parent.parent.parent / html_path
+                )
+                if repo_relative.exists():
+                    html_path = repo_relative
+                else:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"HTML report file '{record.file_path}' does not exist on disk.",
+                    )
+
+            html_content = html_path.read_text(encoding="utf-8")
+            return HTMLResponse(content=html_content, status_code=200)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to read monitoring report HTML: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

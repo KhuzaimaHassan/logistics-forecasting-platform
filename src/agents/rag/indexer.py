@@ -1,10 +1,12 @@
 """Document ingestion, markdown chunking, and knowledge base extraction for FAISS RAG."""
 
 import hashlib
+import json
 import logging
 import os
 import re
 from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -542,17 +544,243 @@ def extract_pipeline_run_summaries(
     return chunks
 
 
+def _get_baseline_monitoring_architecture() -> List[DocumentChunk]:
+    """Return fallback baseline monitoring architecture chunks when database is offline."""
+    logger.info("Using baseline monitoring architecture catalog.")
+    baseline_chunks = [
+        {
+            "id": "monitoring_evidently_spec",
+            "title": "Monitoring Architecture: Evidently AI Drift Analyzers (ADR-026)",
+            "source": "docs/Monitoring.md",
+            "heading": "Statistical Drift Analyzers & Hybrid Reference Windows",
+            "content": (
+                "Monitoring Framework: Evidently AI 0.7 Core API.\n"
+                "Three Core Analyzers:\n"
+                "1. DataDriftAnalyzer: Evaluates tabular feature distributions (pickup counts, weather, calendar) "
+                "using Kolmogorov-Smirnov and Wasserstein distance tests. Dataset drift triggered if drift_share >= 0.40.\n"
+                "2. PredictionDriftAnalyzer: Tracks zone demand and corridor ETA output distributions over rolling windows.\n"
+                "3. PerformanceDecayAnalyzer: Compares current 24-hour MAE/RMSE against active MLflow Production champion "
+                "validation metrics. Decay triggered if MAE increases by > 15.0%.\n"
+                "Reference Window: 14-day rolling historical window with cold-start fallback to canonical January 2023 baseline."
+            ),
+        },
+        {
+            "id": "monitoring_retraining_trigger_spec",
+            "title": "Monitoring Architecture: Staged Drift Retraining Gate (ADR-022, ADR-026)",
+            "source": "docs/Decisions.md",
+            "heading": "Alert-First Safety Gate and Guarded Retraining Trigger",
+            "content": (
+                "Retraining Trigger Architecture: Staged execution policy.\n"
+                "Default Mode (AUTO_RETRAIN_ON_DRIFT=false): High-severity drift alerts logged to "
+                "warehouse.monitoring_reports and warehouse.pipeline_runs for human review via Streamlit "
+                "Monitoring Dashboard and Ops Copilot.\n"
+                "Autonomous Mode (AUTO_RETRAIN_ON_DRIFT=true): Programmatically triggers Prefect scheduled_retraining_flow "
+                "with parameter triggered_by='evidently_drift_alert'.\n"
+                "Cooldown Guard: Mandatory 48-hour cooldown period querying warehouse.pipeline_runs suppresses redundant "
+                "back-to-back retrains regardless of trigger source (scheduled or drift-triggered)."
+            ),
+        },
+    ]
+
+    return [
+        DocumentChunk(
+            chunk_id=b["id"],
+            title=b["title"],
+            source=b["source"],
+            heading=b["heading"],
+            content=b["content"],
+            metadata={"doc_type": "monitoring_spec", "is_baseline": True},
+        )
+        for b in baseline_chunks
+    ]
+
+
+def extract_monitoring_report_summaries(
+    db_session: Optional[Any] = None,
+    now: Optional[datetime] = None,
+) -> List[DocumentChunk]:
+    """Summarize recent Evidently monitoring reports from warehouse.monitoring_reports.
+
+    Enforces ADR-026 14-day rolling retention and atomic pruning:
+    - Reports older than 14 days or exceeding 10 reports per type are excluded,
+      ensuring older chunks are automatically dropped on each FAISS rebuild.
+    - Emits 1 consolidated 14-day health overview chunk.
+    - Falls back to baseline monitoring architecture specifications if DB is offline.
+
+    Args:
+        db_session: Optional SQLAlchemy database session.
+        now: Optional reference timestamp (defaults to UTC now).
+
+    Returns:
+        List of DocumentChunk instances.
+    """
+    chunks: List[DocumentChunk] = []
+    eval_now = now or datetime.now(timezone.utc)
+    cutoff = eval_now - timedelta(days=14)
+
+    try:
+        from contextlib import nullcontext
+
+        from src.common.config import get_settings
+        from src.common.db import get_db_session
+        from src.common.models import MonitoringReport
+
+        session_ctx = None
+        if db_session is not None:
+            session_ctx = (
+                db_session
+                if hasattr(db_session, "__enter__")
+                else nullcontext(db_session)
+            )
+        else:
+            settings = get_settings()
+            if _is_tcp_port_open(
+                settings.postgres_host, settings.postgres_port, timeout=0.3
+            ):
+                session_ctx = get_db_session()
+
+        if session_ctx:
+            with session_ctx as session:
+                reports = (
+                    session.query(MonitoringReport)
+                    .filter(MonitoringReport.generated_at >= cutoff)
+                    .order_by(MonitoringReport.generated_at.desc())
+                    .all()
+                )
+
+                if reports:
+                    # Partition by report_type and enforce max 10 per type (max 30 total)
+                    by_type: Dict[str, List[Any]] = {}
+                    for r in reports:
+                        by_type.setdefault(r.report_type, []).append(r)
+
+                    total_in_window = 0
+                    alerts_in_window = 0
+                    drift_shares = []
+
+                    for rtype, rlist in by_type.items():
+                        capped_reports = rlist[:10]
+                        for rep in capped_reports:
+                            total_in_window += 1
+                            s_dict = {}
+                            if rep.summary_json:
+                                if isinstance(rep.summary_json, dict):
+                                    s_dict = rep.summary_json
+                                elif isinstance(rep.summary_json, str):
+                                    try:
+                                        s_dict = json.loads(rep.summary_json)
+                                    except Exception:
+                                        s_dict = {}
+
+                            drift_det = s_dict.get("drift_detected", False)
+                            retrain_rec = s_dict.get("retrain_recommended", False)
+                            if drift_det or retrain_rec:
+                                alerts_in_window += 1
+
+                            d_share = s_dict.get("drift_share")
+                            if d_share is not None:
+                                drift_shares.append(float(d_share))
+
+                            drifted_cols = []
+                            for m in s_dict.get("metrics", []):
+                                if isinstance(m, dict) and m.get("drift_detected"):
+                                    c_name = m.get("column_name")
+                                    if c_name and c_name not in drifted_cols:
+                                        drifted_cols.append(c_name)
+
+                            t_str = (
+                                rep.generated_at.isoformat()
+                                if rep.generated_at
+                                else "Unknown"
+                            )
+                            content = (
+                                f"Monitoring Report: {rtype}\n"
+                                f"Report ID: {rep.report_id}\n"
+                                f"Generated At: {t_str}\n"
+                                f"Drift Detected: {drift_det}\n"
+                                f"Retrain Recommended: {retrain_rec}\n"
+                                f"Alert Severity: {s_dict.get('alert_severity', 'INFO')}\n"
+                                f"Drift Share: {f'{d_share*100:.1f}%' if d_share is not None else 'N/A'}\n"
+                                f"Drifted Columns: {', '.join(drifted_cols) or 'None'}\n"
+                                f"Alert Reasons: {', '.join(s_dict.get('alert_reasons', [])) or 'None'}\n"
+                                f"Report HTML Path: {rep.file_path or 'None'}"
+                            )
+                            chunk_id = hashlib.sha256(
+                                f"monitoring::{rep.report_id}".encode("utf-8")
+                            ).hexdigest()[:16]
+                            chunks.append(
+                                DocumentChunk(
+                                    chunk_id=chunk_id,
+                                    title=f"Monitoring Report: {rtype} ({t_str})",
+                                    source=f"db://warehouse/monitoring_reports/{rep.report_id}",
+                                    heading=f"Evidently AI Report ({rtype})",
+                                    content=content,
+                                    metadata={
+                                        "doc_type": "monitoring_report",
+                                        "report_type": rtype,
+                                        "report_id": rep.report_id,
+                                        "drift_detected": drift_det,
+                                        "retrain_recommended": retrain_rec,
+                                    },
+                                )
+                            )
+
+                    # 1 Consolidated rolling health overview chunk
+                    avg_share = (
+                        sum(drift_shares) / len(drift_shares) if drift_shares else 0.0
+                    )
+                    summary_content = (
+                        f"14-Day Monitoring Health Overview\n"
+                        f"Evaluation Window: {cutoff.isoformat()} to {eval_now.isoformat()}\n"
+                        f"Total Reports Evaluated: {total_in_window}\n"
+                        f"Reports with Active Alerts: {alerts_in_window}\n"
+                        f"Average Feature Drift Share: {avg_share*100:.1f}%\n"
+                        f"Active Recommendation: {'Retraining Recommended' if alerts_in_window > 0 else 'All Normal'}\n"
+                        f"Retention Policy: 14-day rolling window, maximum 10 reports per type (max 30 total). "
+                        f"Older records pruned atomically on each index rebuild."
+                    )
+                    sum_chunk_id = hashlib.sha256(
+                        f"monitoring::health_summary_14d::{cutoff.date()}".encode(
+                            "utf-8"
+                        )
+                    ).hexdigest()[:16]
+                    chunks.insert(
+                        0,
+                        DocumentChunk(
+                            chunk_id=sum_chunk_id,
+                            title="14-Day Monitoring Health Overview",
+                            source="db://warehouse/monitoring_reports/summary_14d",
+                            heading="Rolling 14-Day Model Drift & Performance Health",
+                            content=summary_content,
+                            metadata={
+                                "doc_type": "monitoring_summary_14d",
+                                "active_alerts": alerts_in_window,
+                                "total_reports": total_in_window,
+                            },
+                        ),
+                    )
+    except Exception as exc:
+        logger.debug("Database monitoring reports query unavailable: %s", exc)
+
+    if not chunks:
+        chunks = _get_baseline_monitoring_architecture()
+
+    return chunks
+
+
 def build_knowledge_base(
     docs_dir: Optional[Path] = None,
     include_mlflow: bool = True,
     include_db: bool = True,
+    include_monitoring: bool = True,
 ) -> List[DocumentChunk]:
-    """Assemble all documentation, model cards, and operational summaries into a unified knowledge base.
+    """Assemble all documentation, model cards, operational summaries, and monitoring reports into a unified knowledge base.
 
     Args:
         docs_dir: Optional custom path to docs/ directory.
         include_mlflow: Whether to query MLflow registry/catalog.
         include_db: Whether to query database pipeline execution status.
+        include_monitoring: Whether to query database monitoring report summaries.
 
     Returns:
         Unified list of DocumentChunk instances.
@@ -575,6 +803,11 @@ def build_knowledge_base(
     if include_db:
         pipe_chunks = extract_pipeline_run_summaries()
         all_chunks.extend(pipe_chunks)
+
+    # 4. Monitoring report summaries (ADR-026: 14-day rolling window, max 30 chunks)
+    if include_monitoring:
+        mon_chunks = extract_monitoring_report_summaries()
+        all_chunks.extend(mon_chunks)
 
     logger.info("Assembled complete knowledge base with %d chunks.", len(all_chunks))
     return all_chunks

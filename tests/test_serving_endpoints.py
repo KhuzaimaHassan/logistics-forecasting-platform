@@ -10,7 +10,8 @@ Tests all contracts in docs/API.md and ADR-020 using FastAPI TestClient:
 - GET  /pipeline/status (database query, graceful empty handling)
 """
 
-from unittest.mock import MagicMock
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -493,3 +494,98 @@ def test_pipeline_status(mock_serving_environment):
     assert data["status"] in ("healthy", "degraded", "empty")
     assert "latest_runs" in data
     assert "checked_at" in data
+
+
+# ---------------------------------------------------------------------------
+# Monitoring Reports Endpoint Tests (M8-3)
+# ---------------------------------------------------------------------------
+
+
+def test_get_monitoring_reports_empty_or_healthy(mock_serving_environment):
+    """Test GET /monitoring/reports returns valid schema even when empty or healthy."""
+    response = client.get("/monitoring/reports")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert "status" in data
+    assert data["status"] in ("success", "empty", "error")
+    assert "count" in data
+    assert "reports" in data
+    assert "has_active_alerts" in data
+    assert isinstance(data["reports"], list)
+
+
+def test_get_monitoring_reports_with_filter_and_limit(mock_serving_environment):
+    """Test GET /monitoring/reports accepts report_type filter and limit."""
+    mock_report = MagicMock()
+    mock_report.report_id = "mock_dd_01"
+    mock_report.report_type = "data_drift"
+    mock_report.generated_at = datetime.now(timezone.utc)
+    mock_report.file_path = None
+    mock_report.summary_json = {
+        "drift_detected": False,
+        "retrain_recommended": False,
+        "metrics": [],
+    }
+
+    mock_session = MagicMock()
+    mock_query = mock_session.query.return_value
+    mock_query.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [
+        mock_report
+    ]
+    mock_session.__enter__.return_value = mock_session
+
+    with patch("src.serving.app.get_db_session", return_value=mock_session):
+        response = client.get("/monitoring/reports?report_type=data_drift&limit=5")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert "reports" in data
+        assert len(data["reports"]) == 1
+        for r in data["reports"]:
+            assert r["report_type"] == "data_drift"
+
+
+def test_get_monitoring_report_html_not_found(mock_serving_environment):
+    """Test GET /monitoring/reports/{report_id}/html returns 404 for unknown report."""
+    mock_session = MagicMock()
+    mock_session.query.return_value.filter.return_value.first.return_value = None
+    mock_session.__enter__.return_value = mock_session
+
+    with patch("src.serving.app.get_db_session", return_value=mock_session):
+        response = client.get("/monitoring/reports/nonexistent_report_id_404/html")
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+
+def test_get_monitoring_report_html_db_error(mock_serving_environment):
+    """Test GET /monitoring/reports/{report_id}/html returns 500 when database connection fails."""
+    with patch(
+        "src.serving.app.get_db_session", side_effect=Exception("DB connection refused")
+    ):
+        response = client.get("/monitoring/reports/rep_123/html")
+        assert response.status_code == 500
+        assert "db connection refused" in response.json()["detail"].lower()
+
+
+def test_get_monitoring_report_html_success(tmp_path, mock_serving_environment):
+    """Test GET /monitoring/reports/{report_id}/html returns HTML content for valid report."""
+    html_file = tmp_path / "test_report.html"
+    html_file.write_text(
+        "<html><body><h1>Evidently Test Report</h1></body></html>", encoding="utf-8"
+    )
+
+    mock_report = MagicMock(
+        report_id="test_html_rep_01",
+        file_path=str(html_file),
+    )
+
+    mock_session = MagicMock()
+    mock_session.query.return_value.filter.return_value.first.return_value = mock_report
+    mock_session.__enter__.return_value = mock_session
+
+    with patch("src.serving.app.get_db_session", return_value=mock_session):
+        response = client.get("/monitoring/reports/test_html_rep_01/html")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Evidently Test Report" in response.text

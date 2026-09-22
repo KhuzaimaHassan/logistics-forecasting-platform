@@ -51,7 +51,7 @@ ADVISORY_INJECTION_PATTERNS = [
     re.compile(r"system\s+override\s*:\s*enable", re.IGNORECASE),
     # Explicit SQL mutation attempts
     re.compile(
-        r"\b(drop\s+table|delete\s+from|truncate\s+table|drop\s+database|alter\s+table)\b",
+        r"\b(drop\s+table|delete\s+from|truncate\s+table|drop\s+database|alter\s+table|purge\s+monitoring|purge\s+drift)\b",
         re.IGNORECASE,
     ),
     # Explicit shell / destructive system commands

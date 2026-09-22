@@ -10,10 +10,12 @@ Features:
 
 import os
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 # Configure page settings
 st.set_page_config(
@@ -94,6 +96,58 @@ def get_pipeline_status(base_url: str) -> Dict[str, Any]:
         return {"success": False, "error": str(exc)}
 
 
+def get_monitoring_reports(
+    base_url: str,
+    report_type: Optional[str] = None,
+    limit: int = 20,
+) -> Dict[str, Any]:
+    """Query GET /monitoring/reports for recent Evidently AI drift and performance reports."""
+    url = f"{base_url.rstrip('/')}/monitoring/reports"
+    params: Dict[str, Any] = {"limit": limit}
+    if report_type:
+        params["report_type"] = report_type
+    try:
+        resp = requests.get(url, params=params, timeout=5.0)
+        if resp.status_code == 200:
+            return {"success": True, "data": resp.json()}
+        return {
+            "success": False,
+            "error": f"HTTP {resp.status_code}: {resp.text[:100]}",
+        }
+    except Exception as exc:
+        err_msg = str(exc) or exc.__class__.__name__
+        return {"success": False, "error": err_msg}
+
+
+def get_monitoring_report_html(base_url: str, report_id: str) -> Optional[str]:
+    """Retrieve full interactive Evidently HTML report from backend or local filesystem."""
+    url = f"{base_url.rstrip('/')}/monitoring/reports/{report_id}/html"
+    try:
+        resp = requests.get(url, timeout=10.0)
+        if resp.status_code == 200:
+            return resp.text
+    except Exception:
+        pass
+
+    # Fallback to local artifacts directory if running co-located
+    local_candidates = [
+        Path("artifacts/monitoring_reports") / f"{report_id}.html",
+        (
+            Path(__file__).resolve().parent.parent
+            / "artifacts"
+            / "monitoring_reports"
+            / f"{report_id}.html"
+        ),
+    ]
+    for p in local_candidates:
+        if p.exists():
+            try:
+                return p.read_text(encoding="utf-8")
+            except Exception:
+                pass
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Sidebar Navigation & Platform Status
 # ---------------------------------------------------------------------------
@@ -143,6 +197,7 @@ with st.sidebar:
             2. `query_recent_predictions`: PostgreSQL predictions log
             3. `query_pipeline_status`: PostgreSQL pipeline runs log
             4. `search_logs_and_model_cards`: FAISS CPU vector index
+            5. `query_drift_reports`: PostgreSQL monitoring reports & drift alerts
             """)
 
     st.markdown("---")
@@ -161,11 +216,12 @@ st.markdown(
     "Real-time NYC taxi demand and corridor trip duration forecasting with integrated LangGraph Ops Copilot."
 )
 
-tab_copilot, tab_map, tab_pipeline = st.tabs(
+tab_copilot, tab_map, tab_pipeline, tab_monitoring = st.tabs(
     [
         "🤖 Ops Copilot",
         "🗺️ Live Forecasts & Map",
         "📈 Pipeline Observability",
+        "📉 Model Monitoring",
     ]
 )
 
@@ -188,7 +244,7 @@ with tab_copilot:
 
     # Quick-Action Prompt Chips
     st.markdown("**Quick Operational Queries:**")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     quick_query = None
 
     with col1:
@@ -203,6 +259,9 @@ with tab_copilot:
         if st.button("🔄 Retraining Status", use_container_width=True):
             quick_query = "Did the model retraining pipeline run this week?"
     with col4:
+        if st.button("📉 Drift Alerts", use_container_width=True):
+            quick_query = "Have any feature drift or model performance decay alerts been detected recently?"
+    with col5:
         if st.button("📋 Promotion Hurdle (ADR-021)", use_container_width=True):
             quick_query = "How does the model promotion hurdle rate work in ADR-021?"
 
@@ -372,3 +431,213 @@ with tab_pipeline:
             )
     else:
         st.warning(f"Could not retrieve pipeline status: {pipe_info.get('error')}")
+
+
+# ---------------------------------------------------------------------------
+# TAB 4: Model Monitoring (Evidently AI Drift & Performance)
+# ---------------------------------------------------------------------------
+
+with tab_monitoring:
+    st.subheader("Evidently AI Model & Data Drift Observability")
+    st.caption(
+        "Real-time evaluation of feature data drift, prediction distribution drift, and model performance decay (ADR-026)."
+    )
+
+    mon_data_res = get_monitoring_reports(api_url, limit=20)
+    if mon_data_res["success"]:
+        m_payload = mon_data_res["data"]
+        reports_list = m_payload.get("reports", [])
+        has_active_alerts = m_payload.get("has_active_alerts", False)
+
+        # 1. High-Level Scorecards Row
+        st.markdown("### High-Level Drift & Performance Scorecards")
+        card_col1, card_col2, card_col3 = st.columns(3)
+
+        latest_data_drift = next(
+            (r for r in reports_list if r["report_type"] == "data_drift"), None
+        )
+        latest_pred_drift = next(
+            (r for r in reports_list if r["report_type"] == "prediction_drift"),
+            None,
+        )
+        latest_perf_decay = next(
+            (r for r in reports_list if r["report_type"] == "performance_decay"),
+            None,
+        )
+
+        with card_col1:
+            if latest_data_drift:
+                is_drift = latest_data_drift.get("drift_detected", False)
+                share = latest_data_drift.get("drift_share")
+                share_pct = f"{share * 100:.1f}%" if share is not None else "N/A"
+                drifted_cols = latest_data_drift.get("number_of_drifted_columns", 0)
+                tot_cols = latest_data_drift.get("number_of_columns", 0)
+                badge = "🔴 Drift Detected" if is_drift else "🟢 Normal"
+                st.metric(
+                    "Feature Data Drift",
+                    badge,
+                    f"{share_pct} share ({drifted_cols}/{tot_cols} cols)",
+                )
+            else:
+                st.metric("Feature Data Drift", "⚪ No Data", "Awaiting flow run")
+
+        with card_col2:
+            if latest_pred_drift:
+                is_drift = latest_pred_drift.get("drift_detected", False)
+                badge = "🔴 Drift Detected" if is_drift else "🟢 Normal"
+                pred_metrics = latest_pred_drift.get("summary_json", {}).get(
+                    "metrics", []
+                )
+                p_score = next(
+                    (
+                        m.get("drift_score")
+                        for m in pred_metrics
+                        if m.get("drift_score") is not None
+                    ),
+                    None,
+                )
+                subtext = (
+                    f"p-val: {p_score:.4f}" if p_score is not None else "Evaluated"
+                )
+                st.metric("Prediction Drift", badge, subtext)
+            else:
+                st.metric("Prediction Drift", "⚪ No Data", "Awaiting flow run")
+
+        with card_col3:
+            if latest_perf_decay:
+                is_decay = latest_perf_decay.get("drift_detected", False)
+                badge = "🔴 Performance Decay" if is_decay else "🟢 Normal"
+                perf_metrics = latest_perf_decay.get("summary_json", {}).get(
+                    "metrics", []
+                )
+                mae_m = next(
+                    (m for m in perf_metrics if m.get("metric_name") == "MAE"),
+                    None,
+                )
+                if mae_m and mae_m.get("current_value") is not None:
+                    curr_mae = mae_m.get("current_value")
+                    ref_mae = mae_m.get("reference_value", 0.0)
+                    decay_rat = mae_m.get("decay_ratio", 0.0)
+                    subtext = f"MAE {curr_mae:.2f} vs Base {ref_mae:.2f} (+{decay_rat*100:.1f}%)"
+                else:
+                    subtext = "Evaluated"
+                st.metric("Model MAE Decay", badge, subtext)
+            else:
+                st.metric("Model MAE Decay", "⚪ No Data", "Awaiting flow run")
+
+        if has_active_alerts:
+            retrain_recs = [r for r in reports_list if r.get("retrain_recommended")]
+            if retrain_recs:
+                st.warning(
+                    f"⚠️ **Action Required: Model Retraining Recommended!**\n\n"
+                    f"{len(retrain_recs)} recent monitoring reports triggered automated retraining alerts. "
+                    "Under ADR-026 Alert-First policy, review the drift reports below or confirm retraining via Prefect."
+                )
+
+        st.markdown("---")
+
+        if reports_list:
+            st.markdown("### Historical Drift & Performance Trends")
+            trend_rows = []
+            for r in reversed(reports_list):
+                gen_at = r.get("generated_at", "")
+                t_label = gen_at[:19].replace("T", " ") if gen_at else "Unknown"
+                d_share = r.get("drift_share")
+                d_cols = r.get("number_of_drifted_columns", 0)
+                is_drift = 1 if r.get("drift_detected") else 0
+                trend_rows.append(
+                    {
+                        "Timestamp": t_label,
+                        "Report Type": r.get("report_type"),
+                        "Drift Share (%)": (
+                            (d_share * 100) if d_share is not None else 0.0
+                        ),
+                        "Drifted Columns": d_cols or 0,
+                        "Drift Flag": is_drift,
+                    }
+                )
+
+            import pandas as pd
+
+            df_trends = pd.DataFrame(trend_rows)
+
+            trend_col1, trend_col2 = st.columns(2)
+            with trend_col1:
+                st.caption("📈 Feature Drift Share Trend (%)")
+                df_share = df_trends[df_trends["Report Type"] == "data_drift"]
+                if not df_share.empty:
+                    st.line_chart(df_share.set_index("Timestamp")["Drift Share (%)"])
+                else:
+                    st.line_chart(df_trends.set_index("Timestamp")["Drift Share (%)"])
+
+            with trend_col2:
+                st.caption("📊 Drifted Columns Count")
+                if not df_share.empty:
+                    st.bar_chart(df_share.set_index("Timestamp")["Drifted Columns"])
+                else:
+                    st.bar_chart(df_trends.set_index("Timestamp")["Drifted Columns"])
+
+            st.markdown("---")
+
+            st.markdown("### Interactive Evidently AI HTML Report Viewer")
+
+            report_options = {
+                f"{r['report_type'].upper()} | {r['generated_at'][:19].replace('T', ' ')} | {'🔴 ALERT' if r['drift_detected'] else '🟢 NORMAL'} (ID: {r['report_id'][:8]})": r[
+                    "report_id"
+                ]
+                for r in reports_list
+            }
+            selected_label = st.selectbox(
+                "Select a monitoring report to inspect:",
+                options=list(report_options.keys()),
+            )
+            selected_id = report_options[selected_label]
+            selected_record = next(
+                r for r in reports_list if r["report_id"] == selected_id
+            )
+
+            det_col1, det_col2, det_col3, det_col4 = st.columns(4)
+            with det_col1:
+                st.write(f"**Report Type**: `{selected_record['report_type']}`")
+            with det_col2:
+                st.write(
+                    f"**Severity**: `{selected_record.get('alert_severity', 'INFO')}`"
+                )
+            with det_col3:
+                st.write(
+                    f"**Retrain Recommended**: `{selected_record.get('retrain_recommended')}`"
+                )
+            with det_col4:
+                st.write(
+                    f"**HTML Artifact**: `{selected_record.get('file_path', 'N/A')}`"
+                )
+
+            if selected_record.get("alert_reasons"):
+                with st.expander("🚨 View Alert Reasons", expanded=True):
+                    for reason in selected_record["alert_reasons"]:
+                        st.markdown(f"- {reason}")
+
+            html_str = get_monitoring_report_html(api_url, selected_id)
+            if html_str:
+                st.download_button(
+                    label="📥 Download HTML Report",
+                    data=html_str,
+                    file_name=f"evidently_{selected_record['report_type']}_{selected_id[:8]}.html",
+                    mime="text/html",
+                )
+                components.html(html_str, height=800, scrolling=True)
+            else:
+                st.info(
+                    f"Interactive HTML content not found for report `{selected_id}`. "
+                    "Ensure monitoring reports are generated with save_html=True."
+                )
+
+        else:
+            st.info(
+                "No monitoring reports recorded yet in `warehouse.monitoring_reports`. "
+                "Trigger the monitoring flow via Prefect or verify_monitoring_live_e2e.py to populate reports."
+            )
+    else:
+        st.error(
+            f"Could not connect to monitoring backend: {mon_data_res.get('error')}"
+        )
