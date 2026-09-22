@@ -212,6 +212,53 @@ def test_fetch_monitoring_datasets_cold_start_fallback(sqlite_engine):
     assert datasets_loaded["reference_count"] == 550
 
 
+def test_fetch_monitoring_datasets_cold_start_extracts_canonical_baseline(
+    sqlite_engine,
+):
+    """ADR-026: Verify cold start directly extracts canonical January 2023 training baseline features."""
+    now = datetime(2026, 9, 21, 12, 0, 0, tzinfo=timezone.utc)
+
+    # 1. Populate zone_demand_features_hourly with January 2023 canonical training baseline data
+    feature_records = []
+    for d in range(10, 20):
+        feature_records.append(
+            {
+                "zone_id": 161,
+                "pickup_datetime": f"2023-01-{d:02d} 12:00:00",
+                "pickup_count_last_15m": 5,
+                "pickup_count_last_1h": 22,
+                "pickup_count_last_24h": 450,
+                "pickup_count_same_hour_last_week": 20,
+                "hour_of_day": 12,
+                "day_of_week": 2,
+                "is_weekend": False,
+                "is_holiday": False,
+                "avg_temp_last_1h": 8.5,
+                "is_precipitating": False,
+            }
+        )
+    with sqlite_engine.begin() as conn:
+        pd.DataFrame(feature_records).to_sql(
+            "zone_demand_features_hourly", conn, if_exists="append", index=False
+        )
+
+    # 2. Query datasets with 0 predictions -> forces cold-start fallback
+    datasets = fetch_monitoring_datasets(
+        sqlite_engine, now=now, min_reference_samples=500
+    )
+
+    assert datasets["is_cold_start_fallback"] is True
+    assert datasets["current_count"] == 0
+    assert (
+        datasets["reference_count"] == 10
+    )  # Exactly the 10 January 2023 baseline rows
+    assert "2023-01-10" in str(datasets["reference_df"]["pickup_datetime"].min())
+    assert "2023-01-19" in str(datasets["reference_df"]["pickup_datetime"].max())
+    assert "pickup_count_last_1h" in datasets["reference_df"].columns
+    assert "predicted_value" in datasets["reference_df"].columns
+    assert "actual_value" in datasets["reference_df"].columns
+
+
 def test_fetch_mlflow_production_baseline_success():
     """Verify production baseline MAE is retrieved directly from MLflow model metadata."""
     with patch("src.monitoring.service.ModelPromotionGate") as mock_gate_cls:

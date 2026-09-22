@@ -18,7 +18,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 
 from src.features.offline_extractor import extract_and_load_offline_features
-from src.monitoring.service import is_retraining_in_cooldown
+from src.monitoring.service import fetch_monitoring_datasets, is_retraining_in_cooldown
 from src.orchestration.flows.monitoring_flow import run_monitoring_lifecycle
 
 
@@ -394,6 +394,78 @@ def run_verification() -> None:
                 "  [OK] Confirmed scheduled_retraining_flow called with triggered_by='evidently_drift_alert'!"
             )
 
+        # -------------------------------------------------------------------------
+        # PART 4: Cold-Start Fallback Live Demonstration (Insufficient Predictions)
+        # -------------------------------------------------------------------------
+        log("\n" + "=" * 80)
+        log(
+            "=== PART 4: Cold-Start Fallback Live Demonstration (< 500 predictions) ==="
+        )
+        log("=" * 80)
+
+        # 1. Seed January 2023 canonical training baseline features into warehouse.zone_demand_features_hourly
+        jan_2023_features = []
+        for d in range(10, 25):
+            jan_2023_features.append(
+                {
+                    "zone_id": 161,
+                    "pickup_datetime": datetime(2023, 1, d, 12, 0, tzinfo=timezone.utc),
+                    "pickup_count_last_15m": 6,
+                    "pickup_count_last_1h": 24,
+                    "pickup_count_last_24h": 480,
+                    "pickup_count_same_hour_last_week": 22,
+                    "hour_of_day": 12,
+                    "day_of_week": 2,
+                    "is_weekend": False,
+                    "is_holiday": False,
+                    "avg_temp_last_1h": 7.2,
+                    "is_precipitating": False,
+                }
+            )
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM warehouse.zone_demand_features_hourly WHERE pickup_datetime >= '2023-01-01 00:00:00+00' AND pickup_datetime <= '2023-01-31 23:59:59+00';"
+                )
+            )
+            pd.DataFrame(jan_2023_features).to_sql(
+                "zone_demand_features_hourly",
+                conn,
+                schema="warehouse",
+                if_exists="append",
+                index=False,
+            )
+
+        # 2. Query monitoring datasets for an evaluation time with 0 reference predictions
+        cold_eval_time = datetime(2025, 6, 1, 12, 0, tzinfo=timezone.utc)
+        ds_cold = fetch_monitoring_datasets(
+            engine=engine, now=cold_eval_time, min_reference_samples=500
+        )
+
+        log("Part 4 Cold-Start Evaluation:")
+        log(f"  is_cold_start_fallback: {ds_cold['is_cold_start_fallback']}")
+        log(f"  current_count: {ds_cold['current_count']}")
+        log(f"  reference_count: {ds_cold['reference_count']}")
+        log(
+            f"  reference min pickup_datetime: {ds_cold['reference_df']['pickup_datetime'].min()}"
+        )
+        log(
+            f"  reference max pickup_datetime: {ds_cold['reference_df']['pickup_datetime'].max()}"
+        )
+
+        assert (
+            ds_cold["is_cold_start_fallback"] is True
+        ), "Expected is_cold_start_fallback=True when predictions < 500"
+        assert (
+            ds_cold["reference_count"] == 15
+        ), f"Expected 15 baseline rows from Jan 2023, got {ds_cold['reference_count']}"
+        assert str(ds_cold["reference_df"]["pickup_datetime"].min()).startswith(
+            "2023-01-10"
+        ), "Expected Jan 2023 baseline data"
+        log(
+            "  [OK] Confirmed cold-start fallback directly returned canonical January 2023 baseline features!"
+        )
+
         log("\n" + "=" * 80)
         log("=== ALL M8-2 LIVE MONITORING & RETRAINING GATE CHECKS PASSED ===")
         log("=" * 80)
@@ -407,6 +479,11 @@ def run_verification() -> None:
             conn.execute(
                 text(
                     "DELETE FROM warehouse.predictions WHERE prediction_id LIKE 'live-m8-2-%';"
+                )
+            )
+            conn.execute(
+                text(
+                    "DELETE FROM warehouse.zone_demand_features_hourly WHERE pickup_datetime >= '2023-01-01 00:00:00+00' AND pickup_datetime <= '2023-01-31 23:59:59+00';"
                 )
             )
             if "prior_retrain_id" in locals():
