@@ -43,7 +43,7 @@ Two distinct things, not to be conflated:
 - **FAISS RAG Ingestion & Pruning Policy:**
   - Ingests recent monitoring report summaries alongside documentation, model cards, and pipeline runs.
   - Retention is bounded to a strict 14-day rolling window with at most 10 reports per type (max 30 individual report chunks) plus 1 consolidated rolling health overview chunk (`monitoring_health_summary_14d`).
-  - Pruning is atomic on each index rebuild. If a daily re-index job fails, the index remains bounded at the prior build's 30 chunks without unbounded growth, while live Copilot queries bypass the vector index and retrieve fresh state directly from PostgreSQL.
+  - Pruning is atomic on each index rebuild. *Operational Note:* RAG index freshness is strictly coupled to the daily rebuild schedule succeeding — i.e., if the rebuild job fails silently for N days, the index keeps serving whatever the last successful build contained, aging past the stated 14-day window without further pruning, while live Copilot queries bypass RAG via Tool 5 (`query_drift_reports`) directly against PostgreSQL.
 - **Streamlit Model Monitoring Tab (`ui/app.py`):**
   - Four KPI scorecards: active data drift, prediction drift, MAE performance decay, and retraining recommendation status.
   - Trend charts tracking drift share percentages and count of drifted features over time.
