@@ -34,6 +34,7 @@ LangGraph Ops Copilot live behind `/agent/chat`, all four tools working, guardra
 
 ## Phase 8 — Monitoring
 Evidently drift reports scheduled via Prefect, surfaced on the UI dashboard, queryable by the agent.
+*Note: Full Evidently AI 0.7.x model and data monitoring layer verified end-to-end against live PostgreSQL. Includes DataDriftAnalyzer, PredictionDriftAnalyzer, and PerformanceDecayAnalyzer with explicit keyword convention and hybrid 14-day rolling reference windows (with January 2023 training baseline cold-start fallback) (ADR-026); daily Prefect monitoring flow (`daily_model_monitoring_flow`) scheduled at 02:00 UTC daily (`0 2 * * *`); dual-policy retraining trigger supporting default alert-first safety mode (`AUTO_RETRAIN_ON_DRIFT=false`) and guarded-trigger mode (`AUTO_RETRAIN_ON_DRIFT=true`) throttled by a 48-hour universal cooldown across scheduled and drift-triggered runs; Tool 5 `query_drift_reports` registered in the immutable read-only agent allowlist (ADR-023); LangGraph Ops Copilot drift detection and markdown synthesis; FAISS CPU RAG ingestion with 14-day rolling retention and atomic rebuild pruning; FastAPI `/monitoring/reports` and `/monitoring/reports/{id}/html` serving endpoints; and dedicated Streamlit Model Monitoring dashboard tab with real-time scorecards, feature drift trend charts, and embedded interactive Evidently HTML reports.*
 
 ## Phase 9 — Polish
 README, architecture diagram, live demo link, portfolio write-up, Lessons-Learned.md filled in retrospectively.
@@ -48,7 +49,8 @@ README, architecture diagram, live demo link, portfolio write-up, Lessons-Learne
 - **Phase 5 — Online Serving:** Done (completed 2026-09-11)
 - **Phase 6 — CI/CD:** Done (completed 2026-09-13)
 - **Phase 7 — Agent Layer:** Done (completed 2026-09-16)
-- **Phases 8–9:** Not yet started
+- **Phase 8 — Monitoring:** Done (completed 2026-09-23)
+- **Phase 9 — Polish:** Up next
 
 
 

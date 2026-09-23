@@ -441,21 +441,23 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 
 **Context:** Phase 7 introduces an operational assistant (Ops Copilot) to inspect forecasting pipeline health, diagnose prediction drift, explain architectural decisions, and query feature store representations. Because LLM agents with access to tools can be vulnerable to indirect prompt injection or hallucinated tool invocations, we must establish an unbreachable security boundary preventing destructive operations (e.g. dropping database tables, deleting MLflow models, triggering unauthorized retrains, or writing arbitrary files).
 
-**Decision:** Define a strictly read-only tool execution runtime. The copilot runtime is equipped exclusively with an immutable allowlist of four read-only query tools:
+**Decision:** Define a strictly read-only tool execution runtime. The copilot runtime is equipped exclusively with an immutable allowlist of five read-only query tools:
 1. `get_features`: Read-only online Feast feature store lookups for taxi zones and corridors.
 2. `query_recent_predictions`: Read-only SELECT query against `warehouse.predictions`.
 3. `query_pipeline_status`: Read-only SELECT query against `warehouse.pipeline_runs`.
 4. `search_logs_and_model_cards`: Read-only FAISS semantic index and documentation scanner.
+5. `query_drift_reports`: Read-only SELECT query against `warehouse.monitoring_reports` for feature drift, prediction drift, and performance decay alerts.
 
 **Security Boundary Invariant:**
 - **Read-Only Tool Allowlisting is the Real Security Boundary:** Input prompt classification, keyword regex filters, and LLM guardrails are advisory defense-in-depth layers only. The definitive, non-bypassable security perimeter is architectural: the agent runtime possesses zero write capabilities, zero SQL mutation tools, zero shell/exec execution tools, and zero filesystem write handles. Even in the event of an adversarial prompt injection achieving complete subversion of the LLM context, the agent is physically incapable of mutating system state.
+- **Monitoring RAG Retention & Pruning Invariant:** Monitoring report summaries ingested into FAISS adhere to a strict 14-day rolling window, capped at 10 reports per type (max 30 total), plus 1 consolidated health overview chunk. Pruning occurs atomically on each index rebuild. If a daily re-index job fails or is delayed, the vector index remains bounded at the prior build's 30 chunks (aging past 14 days without unbounded memory growth), while live Copilot queries bypass the vector index and retrieve fresh state directly from PostgreSQL via `query_drift_reports`.
 - **Content Isolation:** Retrieved text from database tables or documentation is injected strictly as quoted reference data (`<context>` blocks) and never evaluated as procedural instructions.
 
 **Alternatives considered:**
 - Dynamic tool registration / write tools with human-in-the-loop confirmations — rejected. Operational copilot scope is diagnostic and explanatory. Adding mutative capabilities violates least privilege and complicates unattended operation.
 - Relying exclusively on system prompt guardrails / keyword filtering — rejected. LLMs can be tricked via jailbreaks, base64 obfuscation, and persona switches. Prompt filters cannot serve as security boundaries.
 
-**Consequences:** Complete architectural immunity to destructive tool abuse and data corruption. Operations personnel can safely query platform state through natural language.
+**Consequences:** Complete architectural immunity to destructive tool abuse and data corruption. Operations personnel can safely query platform state and drift reports through natural language.
 
 ---
 
@@ -500,3 +502,49 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Sub-millisecond similarity search executed purely on CPU with zero network latency.
 - Hermetic fallback ensures unit tests and CI pipelines execute reliably in under 15 seconds without internet access or ONNX weight downloads.
 - Compact index footprint (<10MB) serialized directly to `artifacts/rag_index/` and easily refreshed via `scripts/build_rag_index.py`.
+
+---
+
+## ADR-026: Evidently 0.7 Core API, Explicit Keyword Argument Convention, Hybrid Reference Windows, and Drift-Triggered Retraining Hook
+
+**Context:** Phase 8 implements statistical data drift, prediction distribution drift, and model performance decay monitoring using Evidently AI (`0.7.21`). Several architectural and implementation choices required empirical resolution before writing monitoring code:
+1. **Evidently API Evolution:** Evidently `0.7.x` reorganized its public interfaces. The legacy `evidently.report` and `evidently.metric_preset` packages were relocated to `evidently.legacy` and deprecated. The modern Core API uses `from evidently import Report, Dataset, DataDefinition, Regression` and `from evidently.presets import DataDriftPreset, RegressionPreset`.
+2. **Argument Ordering & Drift Directionality:** In `Report.run()`, parameter 1 is `current_data` (the target evaluation dataset) and parameter 2 is `reference_data` (the baseline dataset). Relying on positional argument ordering is vulnerable to accidental transposition, which would silently invert all statistical delta calculations (e.g., reporting negative drift instead of positive drift).
+3. **Reference Window Definition:** `docs/Monitoring.md` previously left open whether to use a static fixed training baseline or a rolling historical window. A purely static baseline produces false drift alerts due to recurring calendar seasonality (weekday vs. weekend commute shifts). Conversely, a purely rolling window with insufficient history fails on cold starts and risks "frog-boil" drift masking (gradual degradation going undetected).
+4. **Drift-Triggered Retraining (ADR-022 Closeout):** ADR-022 deferred automated drift-triggered retraining to Phase 8. A production-grade monitoring pipeline must connect drift detection directly to the existing Prefect `retraining_flow` while preventing runaway retraining loops.
+
+**Decision:**
+1. **Adopt Modern Evidently 0.7 Core API:**
+   - Instantiate reports using `from evidently import Report, Dataset, DataDefinition, Regression` and `from evidently.presets import DataDriftPreset, RegressionPreset`.
+   - Ingest data via `Dataset(data=df, data_definition=DataDefinition(...))` to support typed feature annotations, while allowing raw `pd.DataFrame` inputs as a fallback.
+   - Extract machine-readable metrics via `snapshot.dict()` (mapping metrics and statistical tests) and interactive HTML dashboards via `snapshot.get_html_str()` / `snapshot.save_html(path)`.
+2. **Mandatory Explicit Keyword Argument Standard:**
+   - Every invocation of `Report.run(...)` MUST pass arguments using explicit keywords:
+     `report.run(current_data=curr_dataset, reference_data=ref_dataset)`.
+   - Positional passing is strictly prohibited across the codebase and enforced in code reviews.
+3. **Hybrid Reference Window Strategy:**
+   - **Feature & Prediction Drift:** Use a 14-day rolling historical window (excluding the active 24-hour evaluation window). 14 days captures two full weekly cycles, eliminating false day-of-week seasonality drift. If `warehouse.predictions` contains fewer than 500 rows or under 7 days of history (cold start), the service automatically falls back to the static canonical training baseline split (January 2023 TLC dataset per ADR-016 / `src/training/dataset.py`, with January 2024 compatibility).
+   - **Performance Decay:** Benchmark rolling 24-hour actuals against the static champion model validation baseline metrics (MAE and RMSE) logged in MLflow.
+4. **Staged Retraining Architecture — Alert-First with Guarded Trigger (ADR-022 Fulfillment):**
+   - The daily Prefect monitoring flow evaluates drift conditions across features and predictions:
+     - **Dataset Drift:** Flagged if overall drift share $\ge 0.40$ (40% of monitored features drifted) OR if critical demand features (`pickup_count_last_1h`, `avg_trip_duration_last_1h`) exhibit drift with $p < 0.01$.
+     - **Performance Decay:** Flagged if current 24-hour MAE exceeds champion baseline MAE (sourced strictly from MLflow Production model validation metrics) by $> 15\%$ (`current_mae > baseline_mae * 1.15`).
+   - **Staged Execution Policy (Safety Gate):**
+     - **Default Mode (`AUTO_RETRAIN_ON_DRIFT=false`):** When drift/decay is detected, the flow logs a high-severity alert to `warehouse.monitoring_reports` (`retrain_recommended: true`, `alert_severity: "CRITICAL"`), records `status: "completed_with_alerts"` in `warehouse.pipeline_runs`, and surfaces actionable recommendations to the Streamlit Monitoring Dashboard and Ops Copilot for human operator review before manual trigger.
+     - **Autonomous Mode (`AUTO_RETRAIN_ON_DRIFT=true`):** Programmatically invokes `scheduled_retraining_flow` via Prefect with `triggered_by="evidently_drift_alert"`, guarded by a 48-hour cooldown period.
+     - This staged policy eliminates runaway compute churn and alert fatigue on the resource-constrained VM during initial deployment while leaving the programmatic trigger fully built, tested, and ready to be toggled on once thresholds are empirically calibrated.
+
+**Alternatives considered:**
+- Using `evidently.legacy.report.Report` — rejected. Relies on deprecated compatibility shims scheduled for removal in future Evidently releases.
+- Positional argument passing in `report.run()` — rejected. Vulnerable to silent inversion of evaluation target and baseline. Directionality was empirically verified with asymmetric values before committing to the keyword convention.
+- Purely static baseline (Jan 2024 only) — rejected. Flags normal day-of-week demand variance as false data drift.
+- Purely rolling window without fallback — rejected. Fails on cold start and masks gradual cumulative distribution drift over months.
+- Unconditional autonomous retraining without human-in-the-loop — rejected. In early operation, uncalibrated drift detectors risk thrashing VM compute and producing alert fatigue. Staged rollout with `AUTO_RETRAIN_ON_DRIFT=false` default ensures safety while preserving full automation capability.
+- Webhook / HTTP callback for retraining trigger — rejected. Direct Prefect flow execution provides end-to-end orchestration tracking, state locking, retry semantics, and unified logs in `warehouse.pipeline_runs`.
+
+**Consequences:**
+- Robust, type-safe monitoring pipeline leveraging the latest Evidently 0.7 Core architecture.
+- Immune to argument transposition bugs.
+- Reliable drift detection with zero false alarms from weekday/weekend seasonality and graceful cold-start handling.
+- ADR-022 is closed out with built-in operational safety: scheduled cron retraining remains the reliable baseline, drift monitoring produces high-visibility alerts in the UI and Copilot, and automated retraining is available behind an explicit configuration toggle.
+

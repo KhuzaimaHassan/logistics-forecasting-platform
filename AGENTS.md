@@ -46,6 +46,7 @@ logistics-forecasting-platform/
    - Single PostgreSQL 16 instance with distinct schemas: `raw`, `warehouse`, `feast`, `mlflow`.
    - Use precomputed numeric centroids (`centroid_lat`, `centroid_lon`) for taxi zones.
    - All predictions and monitoring reports must be logged to their respective tables (`predictions`, `monitoring_reports`).
+   - RAG index freshness is coupled to the daily rebuild schedule; if rebuild fails, the index serves the prior build's chunks aging past 14 days without further pruning, while live Copilot queries bypass RAG via Tool 5 against PostgreSQL.
 4. **Networking & Security**:
    - Only Caddy ports `80` and `443` are exposed externally with automated TLS.
    - Internal services (Postgres, Redis, Redpanda, FastAPI, Streamlit, MLflow) communicate exclusively over the internal Docker bridge network.

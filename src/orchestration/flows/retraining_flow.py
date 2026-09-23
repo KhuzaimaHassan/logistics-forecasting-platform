@@ -17,6 +17,7 @@ Orchestrates the complete scheduled retraining lifecycle:
 import argparse
 import logging
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -368,17 +369,36 @@ def run_scheduled_retraining(
     engine: Optional[Engine] = None,
     store: Optional[FeatureStore] = None,
     client: Optional[MlflowClient] = None,
+    triggered_by: str = "cron",
 ) -> Dict[str, Any]:
     """Execute scheduled retraining logic with tasks."""
     t_start = time.perf_counter()
+    flow_start_dt = datetime.now(timezone.utc)
+    flow_run_id = f"retrain-{uuid.uuid4().hex[:12]}"
     logger.info(
-        "=== Starting Scheduled Retraining Flow (lookback_days=%d, val_days=%d, hurdle=%.1f%%) ===",
+        "=== Starting Scheduled Retraining Flow (run_id=%s, triggered_by=%s, lookback_days=%d, val_days=%d, hurdle=%.1f%%) ===",
+        flow_run_id,
+        triggered_by,
         lookback_days,
         val_days,
         min_improvement_pct * 100.0,
     )
 
     eng = engine or get_engine()
+    try:
+        from src.monitoring.service import record_pipeline_run
+
+        record_pipeline_run(
+            engine=eng,
+            run_id=flow_run_id,
+            job_name="scheduled-model-retraining-flow",
+            status="running",
+            started_at=flow_start_dt,
+            triggered_by=triggered_by,
+        )
+    except Exception as pr_err:
+        logger.debug("Could not record initial pipeline_run: %s", pr_err)
+
     feat_store = store or get_feature_store()
 
     mlflow_client = None
@@ -463,6 +483,25 @@ def run_scheduled_retraining(
         elapsed_seconds=elapsed,
     )
     summary["reconcile_stats"] = reconcile_stats
+
+    try:
+        from src.monitoring.service import record_pipeline_run
+
+        record_pipeline_run(
+            engine=eng,
+            run_id=flow_run_id,
+            job_name="scheduled-model-retraining-flow",
+            status="completed",
+            started_at=flow_start_dt,
+            finished_at=datetime.now(timezone.utc),
+            duration_seconds=elapsed,
+            records_processed=len(datasets.get("demand_train", []))
+            + len(datasets.get("corridor_train", [])),
+            triggered_by=triggered_by,
+        )
+    except Exception as pr_err:
+        logger.debug("Could not record completed pipeline_run: %s", pr_err)
+
     return summary
 
 
@@ -479,6 +518,7 @@ def scheduled_retraining_flow(
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     split_timestamp: Optional[datetime] = None,
+    triggered_by: str = "cron",
 ) -> Dict[str, Any]:
     """Top-level Prefect flow for scheduled model retraining."""
     return run_scheduled_retraining(
@@ -493,6 +533,7 @@ def scheduled_retraining_flow(
         start_time=start_time,
         end_time=end_time,
         split_timestamp=split_timestamp,
+        triggered_by=triggered_by,
     )
 
 

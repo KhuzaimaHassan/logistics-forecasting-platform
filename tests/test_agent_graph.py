@@ -96,6 +96,19 @@ class TestAgentGraphWorkflow:
         assert len(result["sources"]) > 0
         assert result["response"].startswith("[MOCK / OFFLINE MODE]")
 
+    def test_run_copilot_drift_reports_query(self):
+        """Drift and monitoring queries trigger query_drift_reports."""
+        result = run_copilot(
+            "Has feature or prediction drift been detected this week?",
+            force_provider="mock",
+        )
+
+        assert result["status"] == "success"
+        assert result["provider"] == "mock"
+        assert "query_drift_reports" in result["tools_used"]
+        assert "warehouse.monitoring_reports" in result["sources"]
+        assert result["response"].startswith("[MOCK / OFFLINE MODE]")
+
     def test_run_copilot_advisory_guardrail_blocks_prompt_injection(self):
         """Known hostile prompt triggers advisory guardrail and halts before tool execution."""
         hostile_query = (
@@ -143,6 +156,41 @@ class TestAgentGraphWorkflow:
         # Confirm blocked tool result records security violation
         blocked_entry = [
             r for r in updated_state["tool_results"] if r.get("tool") == "drop_table"
+        ]
+        assert len(blocked_entry) == 1
+        assert blocked_entry[0]["status"] == "security_blocked"
+        assert "not in the read-only allowlist" in blocked_entry[0]["error"]
+
+    def test_structural_guardrail_blocks_mutative_monitoring_tool(self):
+        """Adversarial check: Mutative monitoring tool calls are strictly intercepted."""
+        poisoned_state: CopilotState = {
+            "query": "Purge monitoring records",
+            "tool_calls": [
+                {
+                    "id": "call_malicious_monitoring",
+                    "name": "drop_monitoring_reports",
+                    "args": {"cascade": True},
+                },
+                {
+                    "id": "call_legitimate",
+                    "name": "query_drift_reports",
+                    "args": {"report_type": "data_drift"},
+                },
+            ],
+            "tools_used": [],
+            "sources": [],
+            "tool_results": [],
+        }
+
+        updated_state = tool_execution_node(poisoned_state)
+
+        assert "query_drift_reports" in updated_state["tools_used"]
+        assert "drop_monitoring_reports" not in updated_state["tools_used"]
+
+        blocked_entry = [
+            r
+            for r in updated_state["tool_results"]
+            if r.get("tool") == "drop_monitoring_reports"
         ]
         assert len(blocked_entry) == 1
         assert blocked_entry[0]["status"] == "security_blocked"

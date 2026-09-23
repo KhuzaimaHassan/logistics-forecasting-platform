@@ -82,6 +82,46 @@ def deploy_scheduled_retraining_flow(
         )
 
 
+def deploy_daily_monitoring_flow(
+    work_pool_name: str = "default-agent-pool",
+    cron_schedule: str = "0 2 * * *",
+) -> None:
+    """Deploy the daily model monitoring flow to the Prefect work pool."""
+    from src.orchestration.flows.monitoring_flow import daily_model_monitoring_flow
+
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+    )
+    logger.info(
+        f"Registering 'daily-model-monitoring' deployment to work pool '{work_pool_name}' "
+        f"with schedule '{cron_schedule}'..."
+    )
+
+    try:
+        deployment = daily_model_monitoring_flow.to_deployment(
+            name="daily-model-monitoring",
+            parameters={
+                "current_hours": 24,
+                "reference_days": 14,
+                "cooldown_hours": 48,
+            },
+            cron=cron_schedule,
+            work_pool_name=work_pool_name,
+            tags=["monitoring", "evidently", "drift", "mlops"],
+            description="Daily automated monitoring of data drift, prediction drift, and performance decay with staged retraining gate.",
+        )
+        deployment_id = deployment.apply()
+        logger.info(
+            f"Successfully registered daily monitoring deployment (ID: {deployment_id})."
+        )
+    except Exception as e:
+        logger.warning(
+            f"Prefect monitoring deployment registration skipped or encountered non-fatal notice ({e}). "
+            "Flow can be run directly via CLI or Prefect server."
+        )
+
+
 if __name__ == "__main__":
     deploy_historical_etl_flow()
     deploy_scheduled_retraining_flow()
+    deploy_daily_monitoring_flow()

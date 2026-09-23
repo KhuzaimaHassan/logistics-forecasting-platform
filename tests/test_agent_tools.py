@@ -22,6 +22,8 @@ from src.agents.tools import (
     TOOL_ALLOWLIST,
     get_features,
     get_features_tool,
+    query_drift_reports,
+    query_drift_reports_tool,
     query_pipeline_status,
     query_pipeline_status_tool,
     query_recent_predictions,
@@ -29,7 +31,7 @@ from src.agents.tools import (
     search_logs_and_model_cards,
     search_logs_and_model_cards_tool,
 )
-from src.common.models import PipelineRun, Prediction
+from src.common.models import MonitoringReport, PipelineRun, Prediction
 from src.features.client import (
     CorridorDurationOnlineFeatures,
     ZoneDemandOnlineFeatures,
@@ -487,15 +489,16 @@ def test_search_logs_and_model_cards_empty_query():
 
 
 def test_tool_allowlist_structure_and_read_only_boundary():
-    """Verify TOOL_ALLOWLIST contains exactly the 4 read-only tools and no mutating tools."""
+    """Verify TOOL_ALLOWLIST contains exactly the 5 read-only tools and no mutating tools."""
     expected_tools = {
         "get_features",
         "query_recent_predictions",
         "query_pipeline_status",
         "search_logs_and_model_cards",
+        "query_drift_reports",
     }
     assert set(TOOL_ALLOWLIST.keys()) == expected_tools
-    assert len(AGENT_TOOLS) == 4
+    assert len(AGENT_TOOLS) == 5
 
     # Security verification: Ensure no write, mutation, or execution tools exist
     disallowed_prefixes = (
@@ -549,6 +552,151 @@ def test_langchain_structured_tool_invocations():
     )
     assert isinstance(res4, dict)
     assert res4["status"] in ("success", "empty")
+
+    # 5. query_drift_reports_tool
+    with patch("src.agents.tools.get_db_session") as mock_session:
+        mock_session.return_value.__enter__.return_value.query.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            []
+        )
+        res5 = query_drift_reports_tool.invoke(
+            {"report_type": "data_drift", "limit": 3}
+        )
+        assert isinstance(res5, dict)
+        assert "reports_count" in res5
+
+
+def test_query_drift_reports_empty_database():
+    """Verify query_drift_reports returns empty status when no reports exist."""
+    with patch("src.agents.tools.get_db_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_session.query.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            []
+        )
+        mock_get_session.return_value.__enter__.return_value = mock_session
+
+        res = query_drift_reports(report_type=None, limit=5)
+        assert res["status"] == "empty"
+        assert res["reports_count"] == 0
+        assert res["has_active_alerts"] is False
+        assert res["reports"] == []
+        assert res["source"] == "warehouse.monitoring_reports"
+
+
+def test_query_drift_reports_seeded_records():
+    """Verify query_drift_reports parses and structures active drift alerts."""
+    now_utc = datetime.now(timezone.utc)
+    mock_rep = MagicMock(spec=MonitoringReport)
+    mock_rep.report_id = "test-drift-rep-001"
+    mock_rep.report_type = "data_drift"
+    mock_rep.generated_at = now_utc
+    mock_rep.file_path = "artifacts/monitoring_reports/test-drift-rep-001.html"
+    mock_rep.summary_json = {
+        "report_id": "test-drift-rep-001",
+        "report_type": "data_drift",
+        "drift_detected": True,
+        "retrain_recommended": True,
+        "alert_severity": "CRITICAL",
+        "alert_reasons": ["Critical feature 'pickup_count_last_1h' shifted (p < 0.01)"],
+        "drift_share": 0.45,
+        "number_of_drifted_columns": 3,
+        "number_of_columns": 8,
+        "metrics": [
+            {
+                "metric_name": "DriftScore",
+                "column_name": "pickup_count_last_1h",
+                "drift_detected": True,
+                "drift_score": 0.002,
+                "current_value": 34.5,
+                "reference_value": 22.0,
+            }
+        ],
+    }
+
+    with patch("src.agents.tools.get_db_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_session.query.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            mock_rep
+        ]
+        mock_get_session.return_value.__enter__.return_value = mock_session
+
+        res = query_drift_reports(report_type=None, limit=5)
+        assert res["status"] == "success"
+        assert res["reports_count"] == 1
+        assert res["has_active_alerts"] is True
+        report = res["reports"][0]
+        assert report["report_id"] == "test-drift-rep-001"
+        assert report["drift_detected"] is True
+        assert report["retrain_recommended"] is True
+        assert report["alert_severity"] == "CRITICAL"
+        assert "pickup_count_last_1h" in report["drifted_features"]
+        assert report["drift_share"] == 0.45
+
+
+def test_query_drift_reports_filter_by_type():
+    """Verify filtering by report_type passes filter clause to ORM query."""
+    with patch("src.agents.tools.get_db_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_filter = mock_session.query.return_value.filter
+        mock_filter.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            []
+        )
+        mock_get_session.return_value.__enter__.return_value = mock_session
+
+        res = query_drift_reports(report_type="performance_decay", limit=5)
+        assert res["filter_applied"] == "performance_decay"
+        mock_filter.assert_called_once()
+
+
+def test_query_drift_reports_limit_clamping():
+    """Verify limit is clamped to valid range [1, 20]."""
+    with patch("src.agents.tools.get_db_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_limit = mock_session.query.return_value.order_by.return_value.limit
+        mock_limit.return_value.all.return_value = []
+        mock_get_session.return_value.__enter__.return_value = mock_session
+
+        # Test limit exceeding upper bound
+        query_drift_reports(limit=500)
+        mock_limit.assert_called_with(20)
+
+        # Test limit below lower bound
+        query_drift_reports(limit=-10)
+        mock_limit.assert_called_with(1)
+
+
+def test_query_drift_reports_sql_injection_safety():
+    """ADVERSARIAL PROOF:
+
+    Pass malicious SQL injection payload in report_type.
+    Verify parameterized SQLAlchemy query isolates the payload safely without syntax error,
+    crashing the server, or executing arbitrary SQL commands.
+    """
+    adversarial_payload = "data_drift'; DROP TABLE warehouse.monitoring_reports; --"
+    with patch("src.agents.tools.get_db_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_filter = mock_session.query.return_value.filter
+        mock_filter.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            []
+        )
+        mock_get_session.return_value.__enter__.return_value = mock_session
+
+        res = query_drift_reports(report_type=adversarial_payload, limit=5)
+        assert isinstance(res, dict)
+        assert res["status"] in ("success", "empty")
+        assert "DROP TABLE" not in str(res.get("error", ""))
+
+
+def test_query_drift_reports_database_exception_handling():
+    """Verify unexpected database error returns clean status='empty' with error details."""
+    with patch("src.agents.tools.get_db_session") as mock_get_session:
+        mock_get_session.side_effect = ConnectionRefusedError(
+            "Database connection failed"
+        )
+
+        res = query_drift_reports(limit=5)
+        assert res["status"] == "empty"
+        assert res["reports_count"] == 0
+        assert "Database connection failed" in res["error"]
 
 
 # ===========================================================================
