@@ -453,7 +453,7 @@ def verify_deadletter_routing(
     snapshot_deadlettered = 0
     start_poll = time.time()
     while time.time() - start_poll < 20.0 and snapshot_deadlettered < 3:
-        dl_res = snapshot_consumer.consume_batch(max_messages=50, timeout_seconds=3.0)
+        dl_res = snapshot_consumer.consume_batch(max_messages=100, timeout_seconds=3.0)
         snapshot_deadlettered += dl_res["deadlettered"]
         print(
             f"Consumer (Snapshots) processed batch: {dl_res} (cumulative snapshot deadlettered: {snapshot_deadlettered})"

@@ -341,6 +341,7 @@ class StreamConsumerService:
         )
 
         self._shutdown_requested = False
+        self._buffered_messages: List[Any] = []
 
     def route_to_deadletter(
         self,
@@ -615,6 +616,14 @@ class StreamConsumerService:
         start_time = time.time()
         batch_size = 50
 
+        # Drain any messages previously fetched from poll() that exceeded max_messages
+        while self._buffered_messages:
+            msg = self._buffered_messages.pop(0)
+            self._process_single_message(msg, counts)
+            total_handled = counts["processed"] + counts["deadlettered"]
+            if max_messages and total_handled >= max_messages:
+                return counts
+
         while True:
             total_handled = counts["processed"] + counts["deadlettered"]
             if max_messages and total_handled >= max_messages:
@@ -626,20 +635,24 @@ class StreamConsumerService:
             if not records_dict:
                 continue
 
-            for messages in records_dict.values():
-                for msg in messages:
-                    self._process_single_message(msg, counts)
-                    if (
-                        max_messages
-                        and (counts["processed"] + counts["deadlettered"])
-                        >= max_messages
-                    ):
-                        break
+            all_msgs: List[Any] = []
+            for partition_msgs in records_dict.values():
+                all_msgs.extend(partition_msgs)
+
+            for i, msg in enumerate(all_msgs):
                 if (
                     max_messages
                     and (counts["processed"] + counts["deadlettered"]) >= max_messages
                 ):
+                    self._buffered_messages.extend(all_msgs[i:])
                     break
+                self._process_single_message(msg, counts)
+
+            if (
+                max_messages
+                and (counts["processed"] + counts["deadlettered"]) >= max_messages
+            ):
+                break
 
         return counts
 
