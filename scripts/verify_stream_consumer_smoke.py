@@ -453,7 +453,7 @@ def verify_deadletter_routing(
     snapshot_deadlettered = 0
     start_poll = time.time()
     while time.time() - start_poll < 20.0 and snapshot_deadlettered < 3:
-        dl_res = snapshot_consumer.consume_batch(max_messages=50, timeout_seconds=3.0)
+        dl_res = snapshot_consumer.consume_batch(max_messages=100, timeout_seconds=3.0)
         snapshot_deadlettered += dl_res["deadlettered"]
         print(
             f"Consumer (Snapshots) processed batch: {dl_res} (cumulative snapshot deadlettered: {snapshot_deadlettered})"
@@ -488,9 +488,10 @@ def verify_deadletter_routing(
     for msg in raw_dl_consumer:
         deadletter_records.append(msg)
         topics_quarantined = {m.value.get("topic") for m in deadletter_records}
-        if required_topics.issubset(topics_quarantined) or (
-            time.time() - start_poll > 10
-        ):
+        if (
+            len(deadletter_records) >= 5
+            and required_topics.issubset(topics_quarantined)
+        ) or (time.time() - start_poll > 10):
             break
     raw_dl_consumer.close()
 
