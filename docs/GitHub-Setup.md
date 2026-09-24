@@ -22,7 +22,7 @@ logistics-forecasting-platform/
 - `dev` — integration branch for the current milestone.
 - `feature/<milestone-number>-<short-name>` — e.g. `feature/02-historical-etl`. Branched from `dev`, PR'd back into `dev`.
 - Fixes to already-merged milestone infrastructure (security, correctness) sync `dev` → `main` promptly via PR, same as any other PR; the "merge at milestone completion" rule applies to accumulating new milestone feature work, not patching what's already shipped.
-- Immediately after every `dev` → `main` squash-merge, sync `dev` with a "chore: sync dev with main after squash-merge" PR merging `origin/main` into `dev` — before starting any new feature work on `dev`. This is a required standing step at the close of every milestone because squash-merging creates a new commit on `main`.
+- Immediately after every `dev` → `main` squash-merge, independently verify that `main` is a strict subset of `dev` (`git diff origin/main..dev`), then sync `dev` with a "chore: sync dev with main after squash-merge" PR using `git merge -s ours origin/main` — before starting any new feature work on `dev`. (Critical rule: `-s ours` does not inspect content or verify containment itself; running it without confirming `main` has no unintegrated commits risks silently dropping changes from `dev` without warning.)
 
 
 
