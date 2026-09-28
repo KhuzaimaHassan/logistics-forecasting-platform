@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/**
+      - 'feature/**'
       - dev
 
 jobs:
@@ -33,19 +33,19 @@ jobs:
         include:
           - service: serving
             dockerfile: src/serving/Dockerfile
-            test_cmd: python -c "import lightgbm, faiss, psycopg, uvicorn; print('Serving ARM64 OK: lightgbm', lightgbm.__version__, 'faiss', faiss.__version__, 'psycopg', psycopg.__version__)"
+            packages: "lightgbm faiss psycopg uvicorn"
           - service: orchestration
             dockerfile: src/orchestration/Dockerfile
-            test_cmd: python -c "import prefect, lightgbm, feast, psycopg; print('Orchestration ARM64 OK: prefect', prefect.__version__, 'lightgbm', lightgbm.__version__)"
+            packages: "prefect lightgbm feast psycopg"
           - service: extract
             dockerfile: src/extract/Dockerfile
-            test_cmd: python -c "import pyarrow, requests; print('Extract ARM64 OK: pyarrow', pyarrow.__version__)"
+            packages: "pyarrow requests"
           - service: transform
             dockerfile: src/transform/Dockerfile
-            test_cmd: python -c "import feast, psycopg; print('Transform ARM64 OK: feast', feast.__version__, 'psycopg', psycopg.__version__)"
+            packages: "feast psycopg"
           - service: ui
             dockerfile: ui/Dockerfile
-            test_cmd: python -c "import streamlit; print('UI ARM64 OK: streamlit', streamlit.__version__)"
+            packages: "streamlit"
 
     steps:
       - name: Checkout repository
@@ -76,4 +76,15 @@ jobs:
           echo "Detected container architecture: $ARCH"
           test "$ARCH" = "aarch64"
           echo "Running package import test in ARM64 container..."
-          docker run --platform linux/arm64 --rm test-${{ matrix.service }}:arm64 ${{ matrix.test_cmd }}
+          docker run --platform linux/arm64 --rm test-${{ matrix.service }}:arm64 python -c "
+          import sys
+          packages = '${{ matrix.packages }}'.split()
+          for pkg in packages:
+              try:
+                  mod = __import__(pkg)
+                  ver = getattr(mod, '__version__', 'ok')
+                  print(f'Successfully imported {pkg} (version: {ver})')
+              except Exception as e:
+                  print(f'Failed to import {pkg}: {e}')
+                  sys.exit(1)
+          "
