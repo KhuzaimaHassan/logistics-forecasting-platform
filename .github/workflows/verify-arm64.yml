@@ -1,0 +1,79 @@
+name: Verify ARM64 Compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/**
+      - dev
+
+jobs:
+  check-wheels:
+    name: Check Critical Wheels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Wheel Inspection Script
+        run: |
+          python scripts/check_arm64_wheels.py
+
+  build-arm64-images:
+    name: Build ARM64 Image (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: serving
+            dockerfile: src/serving/Dockerfile
+            test_cmd: python -c "import lightgbm, faiss, psycopg, uvicorn; print('Serving ARM64 OK: lightgbm', lightgbm.__version__, 'faiss', faiss.__version__, 'psycopg', psycopg.__version__)"
+          - service: orchestration
+            dockerfile: src/orchestration/Dockerfile
+            test_cmd: python -c "import prefect, lightgbm, feast, psycopg; print('Orchestration ARM64 OK: prefect', prefect.__version__, 'lightgbm', lightgbm.__version__)"
+          - service: extract
+            dockerfile: src/extract/Dockerfile
+            test_cmd: python -c "import pyarrow, requests; print('Extract ARM64 OK: pyarrow', pyarrow.__version__)"
+          - service: transform
+            dockerfile: src/transform/Dockerfile
+            test_cmd: python -c "import feast, psycopg; print('Transform ARM64 OK: feast', feast.__version__, 'psycopg', psycopg.__version__)"
+          - service: ui
+            dockerfile: ui/Dockerfile
+            test_cmd: python -c "import streamlit; print('UI ARM64 OK: streamlit', streamlit.__version__)"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ARM64 image for ${{ matrix.service }}
+        run: |
+          echo "Building ${{ matrix.service }} with Dockerfile ${{ matrix.dockerfile }} for linux/arm64..."
+          docker buildx build \
+            --platform linux/arm64 \
+            -f ${{ matrix.dockerfile }} \
+            -t test-${{ matrix.service }}:arm64 \
+            --load \
+            .
+
+      - name: Verify Architecture and Smoke Test Package Imports
+        run: |
+          echo "Verifying container architecture is aarch64..."
+          ARCH=$(docker run --platform linux/arm64 --rm test-${{ matrix.service }}:arm64 uname -m)
+          echo "Detected container architecture: $ARCH"
+          test "$ARCH" = "aarch64"
+          echo "Running package import test in ARM64 container..."
+          docker run --platform linux/arm64 --rm test-${{ matrix.service }}:arm64 ${{ matrix.test_cmd }}
