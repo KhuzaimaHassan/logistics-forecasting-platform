@@ -548,3 +548,31 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Reliable drift detection with zero false alarms from weekday/weekend seasonality and graceful cold-start handling.
 - ADR-022 is closed out with built-in operational safety: scheduled cron retraining remains the reliable baseline, drift monitoring produces high-visibility alerts in the UI and Copilot, and automated retraining is available behind an explicit configuration toggle.
 
+---
+
+## ADR-027: Deployment Target Migration — Hetzner Cloud CAX21 (ARM64) over Oracle Cloud Always Free A1.Flex
+
+**Context:** ADR-002 initially selected Oracle Cloud Always Free Ampere A1 (2 OCPU / 12GB RAM) to minimize operational cost for an indefinite personal project. However, empirical attempts to launch a `VM.Standard.A1.Flex` instance in region `us-chicago-1` triggered persistent "Out of host capacity" (499/500) rejections across all three Availability Domains (`XXhT:US-CHICAGO-1-AD-1`, `AD-2`, `AD-3`) over 70+ automated retry cycles.
+
+Direct inspection via the OCI Limits and Resource-Availability APIs confirmed that the account's service quotas were correctly allocated (`standard-a1-core-count: 2`, `standard-a1-memory-count: 12`, `used: 0`). The root bottleneck is architectural to OCI's scheduling policy: in saturated regions, host capacity is reserved for enterprise and Pay-As-You-Go accounts, while Free-Trial accounts are placed in the lowest priority queue and throttled during high datacenter utilization.
+
+Upgrading the OCI tenancy to Pay-As-You-Go would elevate scheduling priority and resolve provisioning at $0/month (Always Free allowances persist under PAYG), but was declined. The project required a deterministic, production-grade cloud deployment target rather than remaining indefinitely blocked by an external scheduling queue.
+
+**Decision:** Migrate the primary deployment target from Oracle Always Free A1.Flex to Hetzner Cloud **CAX21** (ARM64 Ampere, 4 vCPU / 8GB RAM / 80GB NVMe SSD / 20TB traffic, ~€5.99/month, billed hourly at ~€0.009/hr).
+
+This decision plainly trades Oracle's theoretical free-forever ceiling for actual, immediate availability — a small, real operational cost in exchange for avoiding an indefinite capacity queue outside our control.
+
+**Alternatives considered:**
+- Indefinite OCI retry loop — rejected. Over 70 launch cycles across 3 ADs and multiple fault domains yielded zero capacity. An un-guaranteed queue without SLA creates unbounded delay.
+- Upgrading OCI to Pay-As-You-Go — declined by operator. While maintaining $0/mo cost within free limits, it requires credit card identity verification and temporary hold.
+- OCI `VM.Standard.E2.1.Micro` (AMD x86, 1GB RAM) — rejected. 1GB RAM cannot co-host the 7-container Docker stack (Redpanda alone requires 1GB, plus Postgres, MLflow, FastAPI, Redis, Streamlit).
+- Alternative US cloud providers (AWS EC2 / GCP) — rejected. Significantly higher cost per GB of memory without multi-year commitments.
+
+**Consequences:**
+- **Deterministic Provisioning:** Hetzner instances provision within 30–60 seconds with dedicated resource allocations and fixed public IPv4.
+- **Architecture Continuity:** Hetzner CAX21 runs native ARM64 (Ampere architecture), preserving full multi-arch container compatibility (`linux/arm64`) verified in Phase 6/9 and ADR-002 without requiring image rebuilds or x86 cross-compilation.
+- **Resource Budget Tuning:** The RAM budget shifts from 12GB to 8GB. The Docker Compose stack is co-located with a 2GB–4GB host swapfile on NVMe to provide memory headroom during batch training and peak load.
+- **Topology Invariance:** All container definitions, Caddy automated TLS reverse proxy configuration (ports 80/443), Postgres/Redis data volumes, and health probes remain 100% cloud-agnostic.
+- **Provisioning Script Precedence:** The duplicate `infra/oracle-vm/provision.sh` was deleted; `infra/provision.sh` is confirmed as the sole canonical provisioning script going forward, while `infra/oracle-vm/launch_ampere_retry.py` is retained under `infra/oracle-vm/` purely as a historical record of the abandoned OCI capacity attempt.
+
+
