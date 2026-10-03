@@ -53,8 +53,10 @@ See `.github/ISSUE_TEMPLATE/milestone.md` — every milestone tracking issue use
 
 | Secret | Used for |
 |---|---|
-| `ORACLE_VM_SSH_KEY` | Deploy workflow |
-| `ORACLE_VM_HOST` | Deploy workflow |
+| `DEPLOY_VM_SSH_KEY` | Deploy workflow private SSH key (replaces `ORACLE_SSH_KEY` per ADR-027) |
+| `DEPLOY_VM_HOST` | Deploy workflow host public IP / DNS (replaces `ORACLE_HOST` per ADR-027) |
+| `DEPLOY_VM_USER` | Deploy workflow SSH user (optional, default: `root` on Hetzner, `ubuntu`) |
+| `DEPLOY_VM_PORT` | Deploy workflow SSH port (optional, default: `22`) |
 | `PREFECT_API_KEY` | Prefect Cloud auth & worker flow registration |
 | `PREFECT_API_URL` | Prefect Cloud workspace API endpoint |
 | `GROQ_API_KEY` | Agent tests/CI (if any live-call tests exist) |

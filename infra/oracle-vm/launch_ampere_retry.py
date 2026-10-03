@@ -23,15 +23,37 @@ def log(msg: str):
     print(f"[{timestamp}] {msg}", flush=True)
 
 
+OCI_BIN = None
+
+
+def get_oci_binary() -> str:
+    global OCI_BIN
+    if OCI_BIN:
+        return OCI_BIN
+    path = shutil.which("oci")
+    if path:
+        OCI_BIN = path
+        return OCI_BIN
+    # Check ~/.local/bin on Windows / Linux
+    local_bin = Path(os.path.expanduser("~/.local/bin/oci.exe"))
+    if local_bin.exists():
+        OCI_BIN = str(local_bin)
+        return OCI_BIN
+    local_bin_noext = Path(os.path.expanduser("~/.local/bin/oci"))
+    if local_bin_noext.exists():
+        OCI_BIN = str(local_bin_noext)
+        return OCI_BIN
+    log("ERROR: OCI CLI ('oci') not found in PATH or ~/.local/bin.")
+    log("Please install the OCI CLI first. See setup instructions.")
+    sys.exit(1)
+
+
 def check_oci_cli():
-    if not shutil.which("oci"):
-        log("ERROR: OCI CLI ('oci') not found in PATH.")
-        log("Please install the OCI CLI first. See setup instructions.")
-        sys.exit(1)
+    get_oci_binary()
 
 
 def run_oci_json(args: list[str]) -> tuple[int, dict | str]:
-    cmd = ["oci"] + args + ["--output", "json"]
+    cmd = [get_oci_binary()] + args + ["--output", "json"]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         return proc.returncode, proc.stderr.strip()
@@ -79,7 +101,6 @@ def get_latest_ubuntu_arm_image(compartment_id: str) -> str | None:
         return None
 
     images = out.get("data", [])
-    # Look for Ubuntu 24.04 or 22.04 LTS aarch64
     for img in images:
         display_name = img.get("display-name", "")
         if "aarch64" in display_name.lower() or "arm64" in display_name.lower():
@@ -105,6 +126,152 @@ def get_subnets(compartment_id: str) -> list[dict]:
     return out.get("data", [])
 
 
+def ensure_network_infrastructure(compartment_id: str) -> str:
+    log("Checking for existing VCN and subnets...")
+    subnets = get_subnets(compartment_id)
+    if subnets:
+        if len(subnets) == 1:
+            log(
+                f"Auto-selected available subnet: {subnets[0].get('display-name')} ({subnets[0]['id']})"
+            )
+            return subnets[0]["id"]
+        log("Multiple subnets found in compartment:")
+        for s in subnets:
+            print(f"  - {s.get('display-name')}: {s['id']}")
+        log(f"Defaulting to: {subnets[0].get('display-name')} ({subnets[0]['id']})")
+        return subnets[0]["id"]
+
+    log(
+        "No subnets found. Automatically provisioning standard Always Free VCN and Public Subnet..."
+    )
+    # 1. Create VCN
+    log("Creating VCN 'logistics-vcn' (10.0.0.0/16)...")
+    code, vcn_res = run_oci_json(
+        [
+            "network",
+            "vcn",
+            "create",
+            "--compartment-id",
+            compartment_id,
+            "--cidr-block",
+            "10.0.0.0/16",
+            "--display-name",
+            "logistics-vcn",
+            "--dns-label",
+            "logistics",
+        ]
+    )
+    if code != 0 or not isinstance(vcn_res, dict):
+        log(f"ERROR creating VCN: {vcn_res}")
+        sys.exit(1)
+    vcn_id = vcn_res["data"]["id"]
+    default_rt_id = vcn_res["data"]["default-route-table-id"]
+    default_sl_id = vcn_res["data"]["default-security-list-id"]
+    log(f"Created VCN: {vcn_id}")
+
+    # 2. Create Internet Gateway
+    log("Creating Internet Gateway 'logistics-igw'...")
+    code, igw_res = run_oci_json(
+        [
+            "network",
+            "internet-gateway",
+            "create",
+            "--compartment-id",
+            compartment_id,
+            "--vcn-id",
+            vcn_id,
+            "--is-enabled",
+            "true",
+            "--display-name",
+            "logistics-igw",
+        ]
+    )
+    if code != 0 or not isinstance(igw_res, dict):
+        log(f"ERROR creating Internet Gateway: {igw_res}")
+        sys.exit(1)
+    igw_id = igw_res["data"]["id"]
+    log(f"Created Internet Gateway: {igw_id}")
+
+    # 3. Add default route (0.0.0.0/0 -> IGW)
+    log("Configuring default route to Internet Gateway...")
+    route_rules = json.dumps([{"cidrBlock": "0.0.0.0/0", "networkEntityId": igw_id}])
+    run_oci_json(
+        [
+            "network",
+            "route-table",
+            "update",
+            "--rt-id",
+            default_rt_id,
+            "--route-rules",
+            route_rules,
+            "--force",
+        ]
+    )
+
+    # 4. Configure Security List for ports 22, 80, 443
+    log("Updating Security List for ports 22 (SSH), 80 (HTTP), 443 (HTTPS)...")
+    ingress_rules = json.dumps(
+        [
+            {
+                "protocol": "6",
+                "source": "0.0.0.0/0",
+                "tcpOptions": {"destinationPortRange": {"min": 22, "max": 22}},
+                "description": "SSH",
+            },
+            {
+                "protocol": "6",
+                "source": "0.0.0.0/0",
+                "tcpOptions": {"destinationPortRange": {"min": 80, "max": 80}},
+                "description": "HTTP (Caddy TLS)",
+            },
+            {
+                "protocol": "6",
+                "source": "0.0.0.0/0",
+                "tcpOptions": {"destinationPortRange": {"min": 443, "max": 443}},
+                "description": "HTTPS (Caddy)",
+            },
+        ]
+    )
+    run_oci_json(
+        [
+            "network",
+            "security-list",
+            "update",
+            "--security-list-id",
+            default_sl_id,
+            "--ingress-security-rules",
+            ingress_rules,
+            "--force",
+        ]
+    )
+
+    # 5. Create Public Subnet
+    log("Creating Public Subnet 'logistics-public-subnet' (10.0.0.0/24)...")
+    code, subnet_res = run_oci_json(
+        [
+            "network",
+            "subnet",
+            "create",
+            "--compartment-id",
+            compartment_id,
+            "--vcn-id",
+            vcn_id,
+            "--cidr-block",
+            "10.0.0.0/24",
+            "--display-name",
+            "logistics-public-subnet",
+            "--dns-label",
+            "public",
+        ]
+    )
+    if code != 0 or not isinstance(subnet_res, dict):
+        log(f"ERROR creating Subnet: {subnet_res}")
+        sys.exit(1)
+    subnet_id = subnet_res["data"]["id"]
+    log(f"Created Public Subnet: {subnet_id}")
+    return subnet_id
+
+
 def attempt_launch(
     compartment_id: str,
     availability_domain: str,
@@ -119,7 +286,7 @@ def attempt_launch(
     shape_config = json.dumps({"ocpus": ocpus, "memoryInGBs": memory_in_gbs})
 
     cmd = [
-        "oci",
+        get_oci_binary(),
         "compute",
         "instance",
         "launch",
@@ -184,12 +351,13 @@ def parse_args():
     parser.add_argument(
         "--subnet-id",
         required=False,
-        help="Subnet OCID for the primary VNIC. If omitted, will auto-detect from compartment.",
+        help="Subnet OCID for the primary VNIC. If omitted, will auto-detect or create.",
     )
     parser.add_argument(
         "--ssh-key-file",
-        required=True,
-        help="Path to public SSH key file (e.g. ~/.ssh/id_rsa.pub or ~/.ssh/id_ed25519.pub).",
+        required=False,
+        default=None,
+        help="Path to public SSH key file (e.g. ~/.ssh/id_rsa.pub or ~/.ssh/id_ed25519.pub). If omitted, auto-detects from ~/.ssh.",
     )
     parser.add_argument(
         "--image-id",
@@ -232,36 +400,33 @@ def main():
     check_oci_cli()
     args = parse_args()
 
-    ssh_key = Path(os.path.expanduser(args.ssh_key_file)).resolve()
+    if args.ssh_key_file:
+        ssh_key = Path(os.path.expanduser(args.ssh_key_file)).resolve()
+    else:
+        candidates = [
+            Path(os.path.expanduser("~/.ssh/id_ed25519.pub")),
+            Path(os.path.expanduser("~/.ssh/id_rsa.pub")),
+            Path(os.path.expanduser("~/.ssh/id_ecdsa.pub")),
+        ]
+        ssh_key = next((c for c in candidates if c.exists()), None)
+        if not ssh_key:
+            log(
+                "ERROR: No SSH public key found in ~/.ssh/ (checked id_ed25519.pub, id_rsa.pub)."
+            )
+            log("Please specify --ssh-key-file <path_to_key.pub> explicitly.")
+            sys.exit(1)
+        log(f"Auto-detected SSH public key: {ssh_key}")
+
     if not ssh_key.exists():
         log(f"ERROR: SSH public key file not found at: {ssh_key}")
         sys.exit(1)
 
     compartment_id = args.compartment_id
 
-    # Auto-detect or validate subnet
+    # Auto-detect or provision subnet
     subnet_id = args.subnet_id
     if not subnet_id:
-        log("Querying subnets in compartment...")
-        subnets = get_subnets(compartment_id)
-        if not subnets:
-            log(
-                "ERROR: No subnets found in compartment. Please create a VCN and public subnet, or specify --subnet-id."
-            )
-            sys.exit(1)
-        if len(subnets) == 1:
-            subnet_id = subnets[0]["id"]
-            log(
-                f"Auto-selected only available subnet: {subnets[0].get('display-name')} ({subnet_id})"
-            )
-        else:
-            log("Multiple subnets found:")
-            for s in subnets:
-                print(f"  - {s.get('display-name')}: {s['id']}")
-            subnet_id = subnets[0]["id"]
-            log(
-                f"Defaulting to first subnet: {subnets[0].get('display-name')} ({subnet_id}). Pass --subnet-id to override."
-            )
+        subnet_id = ensure_network_infrastructure(compartment_id)
 
     # Image ID resolution
     image_id = args.image_id
@@ -319,10 +484,16 @@ def main():
                 log(f"Display Name:  {instance_data.get('display-name')}")
                 log(f"Lifecycle:     {instance_data.get('lifecycle-state')}")
 
-                # Attempt to query public IP
+                # Query assigned public IP
                 time.sleep(10)
                 vnic_code, vnic_out = run_oci_json(
-                    ["compute", "instance", "list-vnics", "--instance-id", instance_id]
+                    [
+                        "compute",
+                        "instance",
+                        "list-vnics",
+                        "--instance-id",
+                        instance_id,
+                    ]
                 )
                 if vnic_code == 0 and isinstance(vnic_out, dict):
                     vnics = vnic_out.get("data", [])
@@ -341,7 +512,6 @@ def main():
                 )
             else:
                 log(f"Encountered non-capacity error on {ad_label}: {error_msg}")
-                # If error is a fundamental config flaw (e.g., auth failure), stop early
                 if (
                     "notauthorized" in error_msg.lower()
                     or "invalidparameter" in error_msg.lower()

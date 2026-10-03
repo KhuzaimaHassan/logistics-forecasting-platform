@@ -7,43 +7,43 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy-to-oracle-vm:
-    name: Deploy to Oracle Ampere VM
+  deploy-to-prod-vm:
+    name: Deploy to Production ARM64 VM
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check Oracle VM Secrets Availability
+      - name: Check Production VM Secrets Availability
         id: secret-guard
         env:
-          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
-          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          DEPLOY_VM_HOST: ${{ secrets.DEPLOY_VM_HOST || secrets.ORACLE_HOST }}
+          DEPLOY_VM_SSH_KEY: ${{ secrets.DEPLOY_VM_SSH_KEY || secrets.ORACLE_SSH_KEY }}
         run: |
-          if [ -z "$ORACLE_HOST" ] || [ -z "$ORACLE_SSH_KEY" ]; then
+          if [ -z "$DEPLOY_VM_HOST" ] || [ -z "$DEPLOY_VM_SSH_KEY" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Deployment Skipped::Oracle VM credentials (ORACLE_HOST and/or ORACLE_SSH_KEY) are not set in GitHub repository secrets. Automatic VM deployment skipped gracefully."
-            echo "Oracle VM host credentials not configured; skipping automatic deployment."
+            echo "::notice title=Deployment Skipped::Production VM credentials (DEPLOY_VM_HOST and/or DEPLOY_VM_SSH_KEY) are not set in GitHub repository secrets. Automatic VM deployment skipped gracefully."
+            echo "Production VM host credentials not configured; skipping automatic deployment."
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
-            echo "Oracle VM credentials present. Proceeding with deployment."
+            echo "Production VM credentials present. Proceeding with deployment."
           fi
 
-      - name: Deploy via SSH to Oracle VM
+      - name: Deploy via SSH to Production VM
         if: steps.secret-guard.outputs.configured == 'true'
         env:
-          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
-          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
-          ORACLE_USER: ${{ secrets.ORACLE_USER || 'ubuntu' }}
-          ORACLE_PORT: ${{ secrets.ORACLE_PORT || '22' }}
+          DEPLOY_VM_HOST: ${{ secrets.DEPLOY_VM_HOST || secrets.ORACLE_HOST }}
+          DEPLOY_VM_SSH_KEY: ${{ secrets.DEPLOY_VM_SSH_KEY || secrets.ORACLE_SSH_KEY }}
+          DEPLOY_VM_USER: ${{ secrets.DEPLOY_VM_USER || secrets.ORACLE_USER || 'root' }}
+          DEPLOY_VM_PORT: ${{ secrets.DEPLOY_VM_PORT || secrets.ORACLE_PORT || '22' }}
         run: |
           mkdir -p ~/.ssh
-          echo "$ORACLE_SSH_KEY" > ~/.ssh/id_rsa
+          echo "$DEPLOY_VM_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p "$ORACLE_PORT" "$ORACLE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p "$DEPLOY_VM_PORT" "$DEPLOY_VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          ssh -i ~/.ssh/id_rsa -p "$ORACLE_PORT" "$ORACLE_USER@$ORACLE_HOST" << 'EOF'
+          ssh -i ~/.ssh/id_rsa -p "$DEPLOY_VM_PORT" "$DEPLOY_VM_USER@$DEPLOY_VM_HOST" << 'EOF'
             set -euo pipefail
             echo "===> Navigating to repository root..."
             cd ~/logistics-forecasting-platform
