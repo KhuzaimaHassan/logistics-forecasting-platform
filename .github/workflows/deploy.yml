@@ -18,8 +18,8 @@ jobs:
       - name: Check Production VM Secrets Availability
         id: secret-guard
         env:
-          DEPLOY_VM_HOST: ${{ secrets.DEPLOY_VM_HOST || secrets.ORACLE_HOST }}
-          DEPLOY_VM_SSH_KEY: ${{ secrets.DEPLOY_VM_SSH_KEY || secrets.ORACLE_SSH_KEY }}
+          DEPLOY_VM_HOST: ${{ secrets.DEPLOY_VM_HOST }}
+          DEPLOY_VM_SSH_KEY: ${{ secrets.DEPLOY_VM_SSH_KEY }}
         run: |
           if [ -z "$DEPLOY_VM_HOST" ] || [ -z "$DEPLOY_VM_SSH_KEY" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
@@ -33,10 +33,10 @@ jobs:
       - name: Deploy via SSH to Production VM
         if: steps.secret-guard.outputs.configured == 'true'
         env:
-          DEPLOY_VM_HOST: ${{ secrets.DEPLOY_VM_HOST || secrets.ORACLE_HOST }}
-          DEPLOY_VM_SSH_KEY: ${{ secrets.DEPLOY_VM_SSH_KEY || secrets.ORACLE_SSH_KEY }}
-          DEPLOY_VM_USER: ${{ secrets.DEPLOY_VM_USER || secrets.ORACLE_USER || 'root' }}
-          DEPLOY_VM_PORT: ${{ secrets.DEPLOY_VM_PORT || secrets.ORACLE_PORT || '22' }}
+          DEPLOY_VM_HOST: ${{ secrets.DEPLOY_VM_HOST }}
+          DEPLOY_VM_SSH_KEY: ${{ secrets.DEPLOY_VM_SSH_KEY }}
+          DEPLOY_VM_USER: ${{ secrets.DEPLOY_VM_USER || 'root' }}
+          DEPLOY_VM_PORT: ${{ secrets.DEPLOY_VM_PORT || '22' }}
         run: |
           mkdir -p ~/.ssh
           echo "$DEPLOY_VM_SSH_KEY" > ~/.ssh/id_rsa
