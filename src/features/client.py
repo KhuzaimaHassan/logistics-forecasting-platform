@@ -5,7 +5,9 @@ with explicit cache hit/miss detection and typing for downstream serving.
 """
 
 import logging
+import os
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -15,6 +17,19 @@ from src.features.config import get_feature_store
 from src.features.entities import build_corridor_id
 
 logger = logging.getLogger(__name__)
+
+
+def _online_dict(response):
+    if os.getenv("DEPLOYMENT_MODE") == "cloud":
+        return response.to_dict(include_event_timestamps=True)
+    return response.to_dict()
+
+
+def _observed_at(data, index, field):
+    values = data.get(field + "__ts")
+    value = values[index] if values and index < len(values) else None
+    return datetime.fromtimestamp(value, timezone.utc) if value else None
+
 
 ZONE_DEMAND_FEATURE_NAMES = [
     "zone_demand_features:pickup_count_last_15m",
@@ -98,6 +113,7 @@ class ZoneDemandOnlineFeatures:
     avg_temp_last_1h: Optional[float] = None
     is_precipitating: Optional[bool] = None
     cache_hit: bool = False
+    observed_at: Optional[datetime] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dictionary."""
@@ -115,6 +131,7 @@ class CorridorDurationOnlineFeatures:
     origin_zone_demand_pressure: Optional[int] = None
     avg_traffic_speed_current: Optional[float] = None
     cache_hit: bool = False
+    observed_at: Optional[datetime] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dictionary."""
@@ -174,7 +191,7 @@ class FeastOnlineClient:
         use_push_features: bool,
     ) -> tuple[Dict[str, List[Any]], bool]:
         """Fetch raw zone feature dictionary from Feast store."""
-        if use_push_features:
+        if use_push_features and os.getenv("DEPLOYMENT_MODE") != "cloud":
             try:
                 features_to_query = (
                     ZONE_DEMAND_FEATURE_NAMES + ZONE_DEMAND_PUSH_FEATURE_NAMES
@@ -184,7 +201,7 @@ class FeastOnlineClient:
                     entity_rows=entity_rows,
                     full_feature_names=True,
                 )
-                return response.to_dict(), True
+                return _online_dict(response), True
             except Exception as exc:
                 logger.debug("Falling back to batch-only zone features: %s", exc)
 
@@ -192,7 +209,7 @@ class FeastOnlineClient:
             features=ZONE_DEMAND_FEATURE_NAMES,
             entity_rows=entity_rows,
         )
-        return response.to_dict(), False
+        return _online_dict(response), False
 
     def _fetch_corridor_features(
         self,
@@ -200,7 +217,7 @@ class FeastOnlineClient:
         use_push_features: bool,
     ) -> tuple[Dict[str, List[Any]], bool]:
         """Fetch raw corridor feature dictionary from Feast store."""
-        if use_push_features:
+        if use_push_features and os.getenv("DEPLOYMENT_MODE") != "cloud":
             try:
                 features_to_query = (
                     CORRIDOR_DURATION_FEATURE_NAMES
@@ -211,7 +228,7 @@ class FeastOnlineClient:
                     entity_rows=entity_rows,
                     full_feature_names=True,
                 )
-                return response.to_dict(), True
+                return _online_dict(response), True
             except Exception as exc:
                 logger.debug("Falling back to batch-only corridor features: %s", exc)
 
@@ -219,7 +236,7 @@ class FeastOnlineClient:
             features=CORRIDOR_DURATION_FEATURE_NAMES,
             entity_rows=entity_rows,
         )
-        return response.to_dict(), False
+        return _online_dict(response), False
 
     def get_zone_demand_features(
         self,
@@ -346,6 +363,7 @@ class FeastOnlineClient:
             results.append(
                 ZoneDemandOnlineFeatures(
                     zone_id=zid,
+                    observed_at=_observed_at(data, i, "pickup_count_last_1h"),
                     pickup_count_last_15m=val_15m if val_15m is not None else None,
                     pickup_count_last_1h=val_1h if val_1h is not None else None,
                     pickup_count_last_24h=val_24h if val_24h is not None else None,
@@ -451,6 +469,7 @@ class FeastOnlineClient:
             results.append(
                 CorridorDurationOnlineFeatures(
                     corridor_id=cid,
+                    observed_at=_observed_at(data, i, "avg_duration_last_1h"),
                     avg_duration_last_15m=(
                         float(avg_15m) if avg_15m is not None else None
                     ),

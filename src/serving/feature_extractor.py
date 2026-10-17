@@ -195,6 +195,16 @@ def build_corridor_feature_df(
 
     rows = []
     for idx, feat in enumerate(features):
+        if is_cloud_deployment():
+            (
+                calc_hour,
+                calc_day,
+                calc_weekend,
+                calc_sin_hour,
+                calc_cos_hour,
+                calc_sin_day,
+                calc_cos_day,
+            ) = _compute_calendar_harmonics(feat.observed_at)
         if origin_dest_pairs is not None and idx < len(origin_dest_pairs):
             orig_id, dest_id = origin_dest_pairs[idx]
         else:

@@ -239,6 +239,12 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
                 "Official source changed; review checkpoint before replay"
             )
         selection = events[cursor.next_index : cursor.next_index + max_events]
+        # A distant managed DB can take several network roundtrips per record.
+        # Checkpoint small confirmed batches so runner timeouts never require
+        # restarting a whole bootstrap. Leave time for reconciliation as well.
+        job_deadline = time.monotonic() + 15 * 60
+        progress_index = cursor.next_index
+        published = 0
         # Creating consumer first provisions only the two required topics.
         consumer = StreamConsumerService(
             engine=engine,
@@ -248,23 +254,55 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
         )
         producer = get_kafka_producer()
         try:
-            for event in selection:
-                producer.send(
-                    TOPIC_TRIP_EVENTS, key=str(event["trip_id"]), value=event
-                ).get(timeout=30)
-                time.sleep(0.02)
-            expected = {event["trip_id"] for event in selection}
-            deadline = time.monotonic() + 240
-            while expected - existing_ids(engine, expected):
-                if time.monotonic() >= deadline:
-                    raise RuntimeError(
-                        "Acknowledged Kafka events not yet persisted; checkpoint remains unchanged"
+            for begin in range(0, len(selection), 100):
+                if time.monotonic() >= job_deadline:
+                    break
+                batch = selection[begin : begin + 100]
+                for event in batch:
+                    producer.send(
+                        TOPIC_TRIP_EVENTS, key=str(event["trip_id"]), value=event
+                    ).get(timeout=30)
+                    time.sleep(0.02)
+                expected = {event["trip_id"] for event in batch}
+                deadline = time.monotonic() + 180
+                while expected - existing_ids(engine, expected):
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError(
+                            "Acknowledged batch not persisted; its checkpoint remains unchanged"
+                        )
+                    result = consumer.consume_batch(
+                        max_messages=100, timeout_seconds=10
                     )
-                result = consumer.consume_batch(max_messages=1000, timeout_seconds=10)
-                if result["deadlettered"]:
-                    raise RuntimeError(
-                        "Validated sample unexpectedly deadlettered; inspect DLQ before advancing"
+                    if result["deadlettered"]:
+                        raise RuntimeError(
+                            "Validated sample unexpectedly deadlettered; inspect DLQ before advancing"
+                        )
+                next_index = progress_index + len(batch)
+                checkpoint = {
+                    **prior,
+                    "source": SOURCE_URL,
+                    "source_sha256": digest,
+                    "sample_size": len(events),
+                    "next_index": next_index,
+                }
+                with engine.begin() as conn:
+                    saved = conn.execute(
+                        text(
+                            "UPDATE warehouse.pipeline_cursors SET next_index=:next, metadata_json=:metadata WHERE cursor_key=:key AND next_index=:previous"
+                        ),
+                        {
+                            "next": next_index,
+                            "previous": progress_index,
+                            "key": CURSOR_KEY,
+                            "metadata": json.dumps(checkpoint),
+                        },
                     )
+                    if saved.rowcount != 1:
+                        raise RuntimeError(
+                            "Concurrent cursor update detected; retry with durable progress"
+                        )
+                progress_index = next_index
+                published += len(batch)
         finally:
             consumer.close()
             producer.close()
@@ -276,8 +314,10 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
             source_sha256=digest,
             sample_size=len(events),
             rejected_source_rows=rejected,
-            next_index=cursor.next_index + len(selection),
-            published_events=len(selection),
+            next_index=progress_index,
+            published_events=published,
+            remaining_sample_events=len(events) - progress_index,
+            feature_checkpoint_index=progress_index,
             mode="scheduled_historical_sample",
         )
         with engine.begin() as conn:
@@ -289,7 +329,7 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
                     "index": summary["next_index"],
                     "data": json.dumps(summary),
                     "key": CURSOR_KEY,
-                    "previous": cursor.next_index,
+                    "previous": progress_index,
                 },
             )
             if updated.rowcount != 1:
@@ -300,7 +340,7 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
                 text(
                     "UPDATE warehouse.pipeline_runs SET status='completed', finished_at=now(), records_processed=:count WHERE run_id=:id"
                 ),
-                {"id": run_id, "count": len(selection)},
+                {"id": run_id, "count": published},
             )
         return summary
     except Exception as exc:

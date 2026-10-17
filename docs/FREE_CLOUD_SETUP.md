@@ -143,6 +143,14 @@ DLQ writes must be acknowledged. The PostgreSQL cursor advances only after the
 selected real trip IDs exist in storage, so events can be republished after a
 broker retention gap without duplicate warehouse rows.
 
+Confirmed progress is saved in 100-event batches. A job stops starting new
+batches after 15 minutes and then reconciles features, so `--max-events` is an
+upper bound. Re-run bootstrap/pipeline if `remaining_sample_events` is nonzero;
+completed batches survive a timeout. Training refuses a cursor ahead of the last
+completed materialization. Predictions expose `data_as_of` from Feast event
+timestamps separately from scoring time. Historical ETA calendar inputs use the
+actual observed timestamp.
+
 The existing baseline/promotion gate applies. If sampled data cannot produce
 acceptable real models, availability checks fail and API predictions return 503.
 Never force a dummy model into Production. This profile uses 150 trees and two

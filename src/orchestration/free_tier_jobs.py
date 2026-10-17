@@ -22,6 +22,10 @@ def observation_window(engine):
             {"key": CURSOR_KEY},
         ).scalar_one()
     metadata = json.loads(value)
+    if metadata.get("feature_checkpoint_index") != metadata.get("next_index"):
+        raise RuntimeError(
+            "Ingestion checkpoint is ahead of materialized features; rerun the pipeline before training/monitoring"
+        )
     start, end = (
         datetime.fromisoformat(metadata[key])
         for key in ("observation_start", "observation_end")

@@ -26,5 +26,6 @@ def missing_feature_fields(feature) -> list[str]:
             "avg_duration_last_1h",
             "distance_km",
             "origin_zone_demand_pressure",
+            "observed_at",
         )
     return [name for name in required if getattr(feature, name, None) is None]

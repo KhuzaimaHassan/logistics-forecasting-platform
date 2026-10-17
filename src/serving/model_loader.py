@@ -93,7 +93,10 @@ class LoadedModelInfo:
     def predict(self, df: pd.DataFrame) -> np.ndarray:
         """Execute model prediction and return 1D numpy array."""
         if hasattr(self.model, "predict"):
-            preds = self.model.predict(df)
+            if os.getenv("MLFLOW_MODEL_LOAD_MODE") == "native" and not self.is_fallback:
+                preds = self.model.predict(df, num_threads=1)
+            else:
+                preds = self.model.predict(df)
             if isinstance(preds, (pd.Series, pd.DataFrame)):
                 return preds.to_numpy().flatten()
             return np.asarray(preds).flatten()

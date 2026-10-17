@@ -654,6 +654,7 @@ def predict_demand(
     )
 
     result = DemandPredictionResponse(
+        data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
         zone_id=zone_id,
         horizon_minutes=horizon_minutes,
         predicted_pickups=round(predicted_val, 2),
@@ -780,6 +781,7 @@ def predict_demand_batch(
                 else "Online features unmaterialized in Redis; evaluated using imputed defaults and calendar harmonics."
             )
             item = DemandBatchPredictionItem(
+                data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
                 zone_id=feat.zone_id,
                 horizon_minutes=payload.horizon_minutes,
                 predicted_pickups=round(float(pred_val), 2),
@@ -803,6 +805,7 @@ def predict_demand_batch(
             c_data = cached_map[zid]
             items.append(
                 DemandBatchPredictionItem(
+                    data_as_of=c_data.get("data_as_of"),
                     zone_id=c_data["zone_id"],
                     horizon_minutes=c_data["horizon_minutes"],
                     predicted_pickups=c_data["predicted_pickups"],
@@ -917,6 +920,7 @@ def predict_eta(
     )
 
     result = ETAPredictionResponse(
+        data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
         origin_zone_id=origin,
         dest_zone_id=dest,
         corridor_id=corridor_id,
@@ -994,6 +998,7 @@ def predict_eta_batch(
                 else "Corridor features unmaterialized in Redis; evaluated using imputed distance and calendar harmonics."
             )
             item = ETABatchPredictionItem(
+                data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
                 origin_zone_id=orig,
                 dest_zone_id=dest,
                 corridor_id=cid,
@@ -1018,6 +1023,7 @@ def predict_eta_batch(
             c_data = cached_map[pair]
             items.append(
                 ETABatchPredictionItem(
+                    data_as_of=c_data.get("data_as_of"),
                     origin_zone_id=c_data["origin_zone_id"],
                     dest_zone_id=c_data["dest_zone_id"],
                     corridor_id=c_data["corridor_id"],

@@ -1,6 +1,7 @@
 """Hermetic cloud safety contracts; these do not certify managed infrastructure."""
 
 import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -10,10 +11,11 @@ from fastapi import HTTPException
 
 from src.common.config import Settings
 from src.common.kafka_utils import kafka_security_options
-from src.features.client import ZoneDemandOnlineFeatures
+from src.features.client import FeastOnlineClient, ZoneDemandOnlineFeatures
 from src.features.config import feast_redis_connection, get_feast_repo_config
 from src.serving.feature_extractor import (
     ACTIVE_ZONE_CATEGORIES,
+    build_corridor_feature_df,
     build_demand_feature_df,
 )
 from src.serving.model_loader import (
@@ -49,6 +51,31 @@ def test_managed_urls_preserve_tls_and_escaped_credentials():
 def test_insecure_redis_scheme_rejected():
     with pytest.raises(ValueError):
         feast_redis_connection("http://store.test")
+
+
+def test_cloud_eta_uses_actual_feast_event_timestamp(monkeypatch):
+    monkeypatch.setenv("DEPLOYMENT_MODE", "cloud")
+    observed = datetime(2023, 1, 27, 3, tzinfo=timezone.utc)
+    response = MagicMock()
+    response.to_dict.return_value = {
+        "avg_duration_last_15m": [720.0],
+        "avg_duration_last_1h": [800.0],
+        "distance_km": [3.2],
+        "origin_zone_demand_pressure": [4],
+        "avg_duration_last_1h__ts": [int(observed.timestamp())],
+    }
+    store = MagicMock()
+    store.get_online_features.return_value = response
+    feature = FeastOnlineClient(store=store).get_corridor_duration_features(["74_75"])[
+        0
+    ]
+    assert feature.observed_at == observed
+    response.to_dict.assert_called_with(include_event_timestamps=True)
+    frame = build_corridor_feature_df(
+        [feature], now=datetime(2026, 10, 17, 19, tzinfo=timezone.utc)
+    )
+    assert frame.iloc[0].hour_of_day == 3
+    assert frame.iloc[0].day_of_week == observed.weekday()
 
 
 def test_kafka_mtls_shared_configuration(monkeypatch):

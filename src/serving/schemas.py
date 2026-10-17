@@ -71,6 +71,11 @@ class HealthCheckResponse(BaseModel):
 class DemandPredictionResponse(BaseModel):
     """Response schema for GET /predict/demand/{zone_id}."""
 
+    data_as_of: Optional[str] = Field(
+        None,
+        description="Actual feature observation timestamp; distinct from scoring time",
+    )
+
     zone_id: int = Field(
         ..., ge=1, le=263, description="NYC TLC Taxi Zone ID (1 to 263)"
     )
@@ -108,6 +113,8 @@ class DemandBatchPredictionRequest(BaseModel):
 class DemandBatchPredictionItem(BaseModel):
     """Single zone item within a batch demand prediction response."""
 
+    data_as_of: Optional[str] = None
+
     zone_id: int
     horizon_minutes: int
     predicted_pickups: float
@@ -132,6 +139,10 @@ class DemandBatchPredictionResponse(BaseModel):
 
 class ETAPredictionResponse(BaseModel):
     """Response schema for GET /predict/eta."""
+
+    data_as_of: Optional[str] = Field(
+        None, description="Actual corridor feature observation timestamp"
+    )
 
     origin_zone_id: int = Field(..., ge=1, le=263, description="Origin NYC TLC zone ID")
     dest_zone_id: int = Field(
@@ -176,6 +187,8 @@ class ETABatchPredictionRequest(BaseModel):
 
 class ETABatchPredictionItem(BaseModel):
     """Single corridor item within a batch ETA prediction response."""
+
+    data_as_of: Optional[str] = None
 
     origin_zone_id: int
     dest_zone_id: int
