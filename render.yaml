@@ -14,6 +14,10 @@ services:
         value: cloud
       - key: MLFLOW_MODEL_LOAD_MODE
         value: native
+      - key: MLFLOW_HTTP_REQUEST_TIMEOUT
+        value: "5"
+      - key: MLFLOW_HTTP_REQUEST_MAX_RETRIES
+        value: "0"
       - key: DB_POOL_SIZE
         value: "2"
       - key: DB_MAX_OVERFLOW

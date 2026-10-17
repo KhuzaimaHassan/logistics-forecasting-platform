@@ -426,11 +426,13 @@ def health_check(request: Request) -> HealthCheckResponse:
         if loader
         else {"models": {}, "has_fallback_models": True, "all_models_loaded": False}
     )
-    mlflow_status = (
-        "models_cached; tracking_connectivity_not_probed"
-        if not meta.get("has_fallback_models")
-        else "degraded"
-    )
+    mlflow_status = "unreachable"
+    if loader is not None:
+        try:
+            loader.client.search_experiments(max_results=1)
+            mlflow_status = "reachable"
+        except Exception as exc:
+            logger.debug("MLflow health probe failed (%s)", type(exc).__name__)
 
     models_map: Dict[str, ModelHealthInfo] = {}
     for key, info in meta.get("models", {}).items():
