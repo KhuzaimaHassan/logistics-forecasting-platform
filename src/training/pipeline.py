@@ -137,7 +137,7 @@ def run_training_pipeline(
 
     store = store or get_feature_store()
     if engine is None:
-        from src.common.config import get_engine
+        from src.common.db import get_engine
 
         engine = get_engine()
 

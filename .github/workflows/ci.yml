@@ -8,11 +8,28 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      live_feeds:
+        description: Run optional external feed verification (requires credentials and network)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-and-test:
     name: Lint & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+      EVIDENTLY_DO_NOT_TRACK: "1"
 
     steps:
       - name: Checkout repository
@@ -45,9 +62,16 @@ jobs:
         run: |
           uv run pytest
 
+      - name: Validate cloud configuration and generated UI dependencies
+        run: |
+          uv run python scripts/validate_cloud_config.py
+          uv export --frozen --no-dev --extra ui --no-hashes --no-emit-project --no-header --output-file /tmp/ui-requirements.txt
+          diff ui/requirements.txt /tmp/ui-requirements.txt
+
   docker-compose-validate:
     name: Docker Compose Build & Smoke Test
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -207,6 +231,7 @@ jobs:
           uv run python -u scripts/verify_replay_live_stream.py
 
       - name: Verify Live Redpanda External Feeds Streaming (Traffic, Transit, Weather)
+        if: github.event_name == 'workflow_dispatch' && inputs.live_feeds
         env:
           REDPANDA_BROKER: localhost:9092
           MTA_API_KEY: ${{ secrets.MTA_API_KEY }}

@@ -1,4 +1,4 @@
-﻿"""Kafka and Redpanda client connection and topic management utilities."""
+"""Kafka and Redpanda client connection and topic management utilities."""
 
 import json
 import logging
@@ -69,6 +69,30 @@ def get_kafka_broker(broker: Optional[str] = None) -> str:
     return settings.redpanda_broker
 
 
+def kafka_security_options() -> Dict[str, Any]:
+    """Shared verified TLS/auth configuration for producers, consumers and admin."""
+    settings = get_settings()
+    protocol = settings.kafka_security_protocol
+    if protocol not in {"PLAINTEXT", "SSL", "SASL_SSL"}:
+        raise ValueError("Kafka requires PLAINTEXT locally or verified SSL/SASL_SSL")
+    options: Dict[str, Any] = {"security_protocol": protocol}
+    if protocol != "PLAINTEXT":
+        options["ssl_check_hostname"] = True
+        for field in ("ssl_cafile", "ssl_certfile", "ssl_keyfile"):
+            value = getattr(settings, "kafka_" + field)
+            if value:
+                options[field] = value
+    if protocol == "SASL_SSL":
+        if not settings.kafka_sasl_username or not settings.kafka_sasl_password:
+            raise ValueError("SASL_SSL requires Kafka username and password")
+        options.update(
+            sasl_mechanism=settings.kafka_sasl_mechanism,
+            sasl_plain_username=settings.kafka_sasl_username,
+            sasl_plain_password=settings.kafka_sasl_password,
+        )
+    return options
+
+
 def get_kafka_producer(
     broker: Optional[str] = None,
     value_serializer: Any = json_serializer,
@@ -80,13 +104,14 @@ def get_kafka_producer(
     """Create and return a configured KafkaProducer instance."""
     resolved_broker = get_kafka_broker(broker)
     logger.info("Initializing KafkaProducer targeting broker: %s", resolved_broker)
+    options = {**kafka_security_options(), **kwargs}
     return KafkaProducer(
         bootstrap_servers=resolved_broker,
         value_serializer=value_serializer,
         key_serializer=key_serializer,
         retries=retries,
         acks=acks,
-        **kwargs,
+        **options,
     )
 
 
@@ -107,6 +132,7 @@ def get_kafka_consumer(
         group_id,
         resolved_broker,
     )
+    options = {**kafka_security_options(), **kwargs}
     return KafkaConsumer(
         *topics,
         bootstrap_servers=resolved_broker,
@@ -114,14 +140,16 @@ def get_kafka_consumer(
         auto_offset_reset=auto_offset_reset,
         enable_auto_commit=enable_auto_commit,
         value_deserializer=value_deserializer,
-        **kwargs,
+        **options,
     )
 
 
 def get_admin_client(broker: Optional[str] = None, **kwargs: Any) -> KafkaAdminClient:
     """Create and return a KafkaAdminClient instance."""
     resolved_broker = get_kafka_broker(broker)
-    return KafkaAdminClient(bootstrap_servers=resolved_broker, **kwargs)
+    return KafkaAdminClient(
+        bootstrap_servers=resolved_broker, **{**kafka_security_options(), **kwargs}
+    )
 
 
 def ensure_topics_exist(
@@ -129,7 +157,15 @@ def ensure_topics_exist(
     topic_configs: Optional[Dict[str, Dict[str, int]]] = None,
 ) -> List[str]:
     """Ensure standard or custom Redpanda topics exist, creating missing ones."""
-    configs = topic_configs or DEFAULT_TOPIC_CONFIGS
+    configs = topic_configs or {
+        name: {
+            **cfg,
+            "num_partitions": min(
+                cfg["num_partitions"], get_settings().kafka_topic_partitions
+            ),
+        }
+        for name, cfg in DEFAULT_TOPIC_CONFIGS.items()
+    }
     resolved_broker = get_kafka_broker(broker)
     admin = get_admin_client(broker=resolved_broker)
 

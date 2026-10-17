@@ -32,6 +32,93 @@ from src.transform.schemas import (
 from src.transform.stream_consumer import StreamConsumerService
 
 
+@pytest.fixture(autouse=True)
+def fixed_validation_clock(monkeypatch):
+    """The recorded September weather fixtures must not expire as CI ages."""
+
+    class FixtureDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime(2026, 9, 6, tzinfo=timezone.utc)
+            return value if tz else value.replace(tzinfo=None)
+
+    monkeypatch.setattr("src.transform.schemas.datetime", FixtureDateTime)
+    monkeypatch.setattr(__name__ + ".datetime", FixtureDateTime)
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_bounded_poll_commits_only_the_processed_offset(mock_ensure, test_engine):
+    from kafka.structs import OffsetAndMetadata, TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    partition = TopicPartition(TOPIC_TRIP_EVENTS, 0)
+    first, second = MagicMock(), MagicMock()
+    for msg, offset in [(first, 10), (second, 11)]:
+        msg.topic, msg.partition, msg.offset, msg.value = (
+            TOPIC_TRIP_EVENTS,
+            0,
+            offset,
+            {},
+        )
+    consumer.poll.return_value = {partition: [first, second]}
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        enable_feature_push=False,
+    )
+    service.process_record = MagicMock(return_value=(None, {}))
+    result = service.consume_batch(max_messages=1)
+    assert result["processed"] == 1
+    consumer.commit.assert_called_once_with({partition: OffsetAndMetadata(11, "")})
+    assert service._buffered_messages == [second]
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_database_failure_is_retryable_not_deadlettered(mock_ensure, test_engine):
+    from kafka.structs import TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    partition = TopicPartition(TOPIC_TRIP_EVENTS, 0)
+    message = MagicMock(topic=TOPIC_TRIP_EVENTS, partition=0, offset=10, value={})
+    consumer.poll.return_value = {partition: [message]}
+    consumer.assignment.return_value = {partition}
+    consumer.committed.return_value = 10
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        enable_feature_push=False,
+    )
+    service.process_record = MagicMock(
+        side_effect=ConnectionError("temporary DB failure")
+    )
+    with pytest.raises(ConnectionError):
+        service.consume_batch(max_messages=1)
+    consumer.commit.assert_not_called()
+    producer.send.assert_not_called()
+    consumer.seek.assert_called_with(partition, 10)
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_failed_deadletter_delivery_does_not_commit(mock_ensure, test_engine):
+    consumer, producer = MagicMock(), MagicMock()
+    message = MagicMock(topic=TOPIC_TRIP_EVENTS, partition=0, offset=10, value={})
+    consumer.poll.return_value = {"partition": [message]}
+    producer.send.return_value.get.side_effect = TimeoutError("broker unavailable")
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        enable_feature_push=False,
+    )
+    service.process_record = MagicMock(side_effect=ValueError("invalid event"))
+    with pytest.raises(TimeoutError):
+        service.consume_batch(max_messages=1)
+    consumer.commit.assert_not_called()
+    producer.send.return_value.get.assert_called_once_with(timeout=30)
+
+
 @pytest.fixture
 def test_engine():
     """In-memory SQLite database engine with all schema tables created."""

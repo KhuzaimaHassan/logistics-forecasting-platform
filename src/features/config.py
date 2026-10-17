@@ -1,14 +1,17 @@
 """Feast repository and feature store configuration management."""
 
+import json
 import os
 import re
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import yaml
 from feast import FeatureStore
 from feast.repo_config import RepoConfig
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 from src.common.config import Settings, get_settings
 
@@ -130,8 +133,51 @@ def get_feast_repo_config(
     with open(yaml_file, "r", encoding="utf-8") as f:
         raw_text = f.read()
 
-    expanded_yaml = expand_env_placeholders(raw_text, settings=settings)
-    config_dict = yaml.safe_load(expanded_yaml)
+    # Parse before interpolation: credentials containing ':' or '#' are data.
+    def expand(value):
+        if isinstance(value, dict):
+            return {key: expand(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [expand(item) for item in value]
+        return (
+            expand_env_placeholders(value, settings)
+            if isinstance(value, str)
+            else value
+        )
+
+    config_dict = expand(yaml.safe_load(raw_text))
+    db_url = make_url(settings.database_url)
+    if db_url.get_backend_name() != "postgresql":
+        raise ValueError(
+            "Feast deployment requires PostgreSQL; use explicit test fallback for SQLite"
+        )
+    registry_url = db_url.set(query={**db_url.query, "options": "-csearch_path=feast"})
+    config_dict["registry"]["path"] = registry_url.render_as_string(hide_password=False)
+    config_dict["registry"]["sqlalchemy_params"] = {
+        "echo": False,
+        "pool_size": 1,
+        "max_overflow": 0,
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
+    offline = config_dict["offline_store"]
+    offline.update(
+        host=db_url.host,
+        port=db_url.port or 5432,
+        database=db_url.database,
+        user=db_url.username,
+        password=db_url.password,
+        min_conn=1,
+        max_conn=2,
+    )
+    offline["sslmode"] = db_url.query.get(
+        "sslmode", os.getenv("POSTGRES_SSLMODE", "disable")
+    )
+    if db_url.query.get("sslrootcert"):
+        offline["sslrootcert_path"] = db_url.query["sslrootcert"]
+    config_dict["online_store"]["connection_string"] = feast_redis_connection(
+        settings.redis_url
+    )
 
     if custom_overrides:
         config_dict.update(custom_overrides)
@@ -139,6 +185,35 @@ def get_feast_repo_config(
     repo_cfg = RepoConfig(**config_dict)
     repo_cfg.repo_path = path_obj
     return repo_cfg
+
+
+def feast_redis_connection(redis_url: str) -> str:
+    """Translate a Redis URI into Feast 0.65's comma-delimited kwargs grammar."""
+    url = urlsplit(redis_url)
+    if url.scheme not in {"redis", "rediss"} or not url.hostname:
+        raise ValueError("REDIS_URL must use redis:// or rediss://")
+    if ":" in url.hostname:
+        raise ValueError("Feast Redis configuration requires a DNS name or IPv4 host")
+    params: Dict[str, Any] = {
+        "db": int(url.path.lstrip("/") or 0),
+        "socket_timeout": 10,
+        "socket_connect_timeout": 10,
+    }
+    if url.username:
+        params["username"] = unquote(url.username)
+    if url.password:
+        params["password"] = unquote(url.password)
+    query = parse_qs(url.query)
+    if url.scheme == "rediss":
+        params.update(ssl=True, ssl_cert_reqs="required", ssl_check_hostname=True)
+        if query.get("ssl_ca_certs"):
+            params["ssl_ca_certs"] = query["ssl_ca_certs"][0]
+    parts = [f"{url.hostname}:{url.port or 6379}"]
+    # Escape literal commas before Feast splits kwargs; json.loads restores them.
+    for key, value in params.items():
+        encoded = json.dumps(value).replace(",", "\\u002c")
+        parts.append(f"{key}={encoded}")
+    return ",".join(parts)
 
 
 def get_feature_store(

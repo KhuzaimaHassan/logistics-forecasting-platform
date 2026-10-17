@@ -1,5 +1,17 @@
 # Deployment
 
+## Current free-cloud deployment
+
+The paid-VM target below is **superseded and not deployed**. Oracle capacity,
+Hetzner account rejection and DigitalOcean cost make that path unsuitable here.
+Use [FREE_CLOUD_SETUP.md](FREE_CLOUD_SETUP.md) for the current implementation,
+[FREE_TIER_RESEARCH.md](FREE_TIER_RESEARCH.md) for provider evidence and
+[DEPLOYMENT_REPORT.md](DEPLOYMENT_REPORT.md) for actual verification status.
+The original Compose setup remains available. Legacy SSH deployment now requires
+`ENABLE_LEGACY_VM_DEPLOY=true`; it is disabled by default. See ADR-028.
+
+## Historical VM design (retained as context, not a viable free deployment)
+
 ## 1. Infrastructure
 
 Single Hetzner Cloud CAX21 ARM64 VM — 4 vCPU / 8GB RAM / 80GB NVMe storage, 1 public IPv4 (supersedes Oracle Always Free A1.Flex per Decisions.md ADR-027).

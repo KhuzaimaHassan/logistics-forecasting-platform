@@ -28,10 +28,14 @@ def get_engine(url: Optional[str] = None) -> Engine:
         db_url = url or get_settings().database_url
         _engine = create_engine(
             db_url,
-            pool_size=10,
-            max_overflow=20,
+            pool_size=get_settings().db_pool_size,
+            max_overflow=get_settings().db_max_overflow,
             pool_pre_ping=True,
             pool_recycle=300,
+            pool_timeout=5,
+            connect_args=(
+                {"connect_timeout": 5} if db_url.startswith("postgresql") else {}
+            ),
         )
     return _engine
 
@@ -70,7 +74,7 @@ def check_database_connection(engine: Optional[Engine] = None) -> bool:
             result = conn.execute(text("SELECT 1")).scalar()
             return result == 1
     except Exception as e:
-        logger.error(f"Database connection check failed: {e}")
+        logger.error("Database connection check failed (%s)", type(e).__name__)
         return False
 
 
@@ -88,9 +92,11 @@ def run_migrations(
     config = Config(alembic_ini_path)
 
     if database_url:
-        config.set_main_option("sqlalchemy.url", database_url)
+        config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
     else:
-        config.set_main_option("sqlalchemy.url", get_settings().database_url)
+        config.set_main_option(
+            "sqlalchemy.url", get_settings().database_url.replace("%", "%%")
+        )
 
     logger.info(f"Running database migrations to revision: {target_revision}")
     command.upgrade(config, target_revision)

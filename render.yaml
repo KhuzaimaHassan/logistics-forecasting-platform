@@ -1,0 +1,48 @@
+# Create only a Free web service. No paid database, disk or worker resources.
+services:
+  - type: web
+    name: logistics-forecasting-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./src/serving/Dockerfile.cloud
+    dockerContext: .
+    healthCheckPath: /health/live
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DEPLOYMENT_MODE
+        value: cloud
+      - key: MLFLOW_MODEL_LOAD_MODE
+        value: native
+      - key: DB_POOL_SIZE
+        value: "2"
+      - key: DB_MAX_OVERFLOW
+        value: "0"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: POSTGRES_SSLROOTCERT
+        value: /etc/secrets/postgres-ca.pem
+      - key: REDIS_SSL_CA
+        value: /etc/secrets/valkey-ca.pem
+      - key: MLFLOW_TRACKING_URI
+        sync: false
+      - key: MLFLOW_TRACKING_USERNAME
+        sync: false
+      - key: MLFLOW_TRACKING_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: AGENT_API_KEY
+        sync: false
+      - key: AGENT_REQUESTS_PER_MINUTE
+        value: "3"
+      - key: DATA_SOURCE_LABEL
+        value: Bounded authentic TLC historical sample; forecasts describe sample volumes
+      - key: DATA_UPDATE_DESCRIPTION
+        value: Scheduled Kafka processing and feature refresh; no continuous taxi telemetry

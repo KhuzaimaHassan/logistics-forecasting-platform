@@ -576,3 +576,23 @@ This decision plainly trades Oracle's theoretical free-forever ceiling for actua
 - **Provisioning Script Precedence:** The duplicate `infra/oracle-vm/provision.sh` was deleted; `infra/provision.sh` is confirmed as the sole canonical provisioning script going forward, while `infra/oracle-vm/launch_ampere_retry.py` is retained under `infra/oracle-vm/` purely as a historical record of the abandoned OCI capacity attempt.
 
 
+
+---
+
+## ADR-028: Sustainable free managed portfolio deployment with explicit historical sampling
+
+**Date:** 2026-10-17. **Status:** implementation candidate; managed deployment unverified.
+
+**Context:** Oracle A1 capacity, Hetzner account rejection and DigitalOcean cost prevent the prior single-host deployment. The complete local stack needs substantially more memory than free web compute; the full warehouse exceeds a 1 GB managed database. Current Prefect Hobby supports Serverless rather than the existing BYO process worker.
+
+**Decision:** Preserve Compose/full-capacity code and add an isolated free profile using Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow, Render Free API, Streamlit Community Cloud, and existing Prefect OSS flows on standard public-repository GitHub Actions runners. The profile processes a deterministic bounded sample of authentic recorded TLC trips with original observation times normalized to UTC, explicit scheduled-data labels and durable PostgreSQL checkpoints. It never claims continuous real-time streaming or full-city sample counts.
+
+Managed clients use authenticated, verified TLS. Free Aiven endpoints are public because VPCs are unavailable; this is an explicit exception to the single-host internal-bridge topology, with managed ingress replacing Caddy for cloud API/UI. MLflow storage/registry lives on DagsHub rather than the local PostgreSQL mlflow schema. Local schema/topology conventions remain intact.
+
+Cloud inference requires genuine promoted native LightGBM models and complete observed core features. SQLite application fallback, untrained baselines, synthetic feed fallback and mock LLM success are prohibited in this profile. Missing dependencies return unavailable responses. Demand horizon is restricted to the trained next-hour target. The UI requests forecasts and uses centroids computed from official TLC polygons.
+
+Kafka commits advance only handled offsets after persistence or acknowledged DLQ delivery; transient infrastructure failures remain retryable. Bounded runner jobs disable in-memory stream aggregation and reconcile features from the durable warehouse. Monitoring historical backtests are explicitly labelled, with HTML persisted in PostgreSQL. Identical scheduled evaluation inputs are skipped. Storage capacity stops jobs; no automatic record deletion, upgrade, paid resource or temporary credits are allowed.
+
+**Alternatives:** The failed VM routes are rejected. Render's expiring database is rejected. Current Hugging Face Docker Spaces require a subscription for creation and restrict outbound ports, so they are not a new zero-cost alternative. Aiven Free PostgreSQL is preferred over Neon to reduce providers and avoid a monthly database compute allowance; Neon remains a researched alternative.
+
+**Consequences:** The portfolio retains real Kafka, PostgreSQL, Feast, MLflow, model inference, LangGraph and Evidently functionality at a conditional $0/month, accepting sleep, cold starts, finite quotas, scheduling delays and no SLA. Account access, regional eligibility, managed integrations, real trained artifacts, public URLs and Render 512 MB peak-memory fit remain acceptance gates. See FREE_TIER_RESEARCH.md, FREE_CLOUD_SETUP.md and DEPLOYMENT_REPORT.md. This ADR supersedes ADR-027 as the portfolio target without erasing historical decisions or local capabilities.

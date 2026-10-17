@@ -11,6 +11,7 @@ fallback when third-party API credentials are not configured.
 
 import argparse
 import logging
+import os
 import random
 import signal
 import time
@@ -241,6 +242,10 @@ class TrafficSpeedProducer:
 
     def generate_synthetic(self, count: int = 10) -> List[Dict[str, Any]]:
         """Generate realistic synthetic traffic speed snapshots when live API is unavailable."""
+        if os.getenv("DEPLOYMENT_MODE") == "cloud":
+            raise RuntimeError(
+                "Synthetic traffic fallback is disabled in cloud deployments"
+            )
         snapshots = []
         now_iso = datetime.now(timezone.utc).isoformat()
         selected = SYNTHETIC_TRAFFIC_CORRIDORS[:count]
@@ -403,6 +408,10 @@ class TransitPositionsProducer:
 
     def generate_synthetic(self, count: int = 10) -> List[Dict[str, Any]]:
         """Generate realistic synthetic transit line snapshots when live API is unavailable."""
+        if os.getenv("DEPLOYMENT_MODE") == "cloud":
+            raise RuntimeError(
+                "Synthetic transit fallback is disabled in cloud deployments"
+            )
         snapshots = []
         now_iso = datetime.now(timezone.utc).isoformat()
         selected = SYNTHETIC_TRANSIT_ROUTES[:count]
@@ -566,6 +575,10 @@ class WeatherSnapshotsProducer:
 
     def generate_synthetic(self) -> Dict[str, Any]:
         """Generate realistic synthetic NYC weather snapshot when live API is unavailable."""
+        if os.getenv("DEPLOYMENT_MODE") == "cloud":
+            raise RuntimeError(
+                "Synthetic weather fallback is disabled in cloud deployments"
+            )
         conditions = ["Clear", "Clouds", "Rain", "Drizzle"]
         chosen_cond = random.choice(conditions)
         is_precip = chosen_cond in ("Rain", "Drizzle")

@@ -1,0 +1,96 @@
+name: Free cloud operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Operation (bootstrap is required once before train)
+        type: choice
+        options: [verify, bootstrap, pipeline, train, monitor]
+        default: verify
+  schedule:
+    - cron: '17 3,15 * * *'
+    - cron: '43 4 * * 0'
+    - cron: '47 5 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-cloud-warehouse
+  cancel-in-progress: false
+
+jobs:
+  operate:
+    # Explicit opt-in: missing accounts never masquerade as a successful deploy.
+    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: free-cloud
+    env:
+      DEPLOYMENT_MODE: cloud
+      MLFLOW_MODEL_LOAD_MODE: native
+      DATABASE_URL: ${{ secrets.CLOUD_DATABASE_URL }}
+      REDIS_URL: ${{ secrets.CLOUD_REDIS_URL }}
+      REDPANDA_BROKER: ${{ secrets.CLOUD_KAFKA_BROKER }}
+      KAFKA_CA_PEM: ${{ secrets.CLOUD_KAFKA_CA_PEM }}
+      KAFKA_CERT_PEM: ${{ secrets.CLOUD_KAFKA_CERT_PEM }}
+      KAFKA_KEY_PEM: ${{ secrets.CLOUD_KAFKA_KEY_PEM }}
+      POSTGRES_CA_PEM: ${{ secrets.CLOUD_POSTGRES_CA_PEM }}
+      VALKEY_CA_PEM: ${{ secrets.CLOUD_VALKEY_CA_PEM }}
+      MLFLOW_TRACKING_URI: ${{ secrets.CLOUD_MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.CLOUD_MLFLOW_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.CLOUD_MLFLOW_TOKEN }}
+      FASTAPI_URL: ${{ vars.CLOUD_FASTAPI_URL }}
+      STREAMLIT_URL: ${{ vars.CLOUD_STREAMLIT_URL }}
+      AGENT_API_KEY: ${{ secrets.CLOUD_AGENT_ACCESS_KEY }}
+      PREFECT_SERVER_ANALYTICS_ENABLED: 'false'
+      EVIDENTLY_DO_NOT_TRACK: '1'
+      AUTO_RETRAIN_ON_DRIFT: 'false'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v2
+        with:
+          version: '0.9.4'
+          enable-cache: true
+      - name: Install job dependencies from frozen root lock
+        run: uv sync --frozen --extra core --extra extract --extra transform --extra features --extra training --extra orchestration --extra monitoring --extra cloud-serving
+      - name: Validate required configuration and write private PEM files
+        run: uv run python scripts/cloud_preflight.py --github-env
+      - name: Select requested or scheduled operation
+        id: operation
+        env:
+          REQUESTED_JOB: ${{ inputs.job }}
+          CRON: ${{ github.event.schedule }}
+        run: |
+          job_name="${REQUESTED_JOB:-pipeline}"
+          if [ "$CRON" = '43 4 * * 0' ]; then job_name=train; fi
+          if [ "$CRON" = '47 5 * * *' ]; then job_name=monitor; fi
+          echo "name=$job_name" >> "$GITHUB_OUTPUT"
+      - name: Bootstrap authentic sample, schema, zones and Feast
+        if: steps.operation.outputs.name == 'bootstrap'
+        run: uv run python -m src.orchestration.flows.free_tier_pipeline --bootstrap --max-events 10000
+      - name: Process bounded Kafka batch and refresh features
+        if: steps.operation.outputs.name == 'pipeline'
+        run: uv run python -m src.orchestration.flows.free_tier_pipeline --max-events 1000
+      - name: Train, evaluate and apply existing promotion gates
+        if: steps.operation.outputs.name == 'train'
+        run: uv run python -m src.orchestration.free_tier_jobs train
+      - name: Evaluate observed historical sample drift
+        if: steps.operation.outputs.name == 'monitor'
+        run: uv run python -m src.orchestration.free_tier_jobs monitor
+      - name: Verify managed services and public applications
+        if: steps.operation.outputs.name == 'verify'
+        run: uv run python scripts/verify_cloud_deployment.py --output artifacts/cloud-verification.json
+      - name: Capture sanitized verification matrix
+        if: always() && steps.operation.outputs.name == 'verify'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-verification-${{ github.run_id }}
+          path: artifacts/cloud-verification.json
+          if-no-files-found: warn
+          retention-days: 14

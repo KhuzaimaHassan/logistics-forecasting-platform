@@ -1,5 +1,15 @@
 # Logistics Demand & ETA Forecasting Platform
 
+> **Cloud deployment status (2026-10-17): no public deployment verified yet.**
+> The free-cloud profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow,
+> Render FastAPI, Community Cloud Streamlit and GitHub Actions running Prefect
+> flows. It processes authentic historical samples on a schedule. Forecasts are
+> computed by trained models; sampled historical data is explicitly labelled.
+> Cloud accounts/credentials are still required. See the
+> [deployment report](docs/DEPLOYMENT_REPORT.md),
+> [setup commands and secrets](docs/FREE_CLOUD_SETUP.md), and
+> [verified provider research](docs/FREE_TIER_RESEARCH.md).
+
 [![CI/CD Pipeline](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -21,7 +31,11 @@ A live, production-grade MLOps platform forecasting New York City taxi zone pick
 
 ## Architecture Overview
 
-The platform runs as a unified, multi-container Docker Compose topology deployable locally or on an Oracle Cloud Ampere A1 (ARM64) Always Free instance. External ingress is strictly managed via Caddy with automated TLS reverse-proxying.
+The full local reference architecture runs as a multi-container Docker Compose
+topology with Caddy TLS ingress. The separate free-cloud portfolio architecture is
+documented in [the deployment runbook](docs/FREE_CLOUD_SETUP.md); it uses managed
+TLS services and scheduled workers rather than an unavailable free VM. The diagram
+and historical performance benchmarks below describe the full reference stack.
 
 ```mermaid
 flowchart TD
