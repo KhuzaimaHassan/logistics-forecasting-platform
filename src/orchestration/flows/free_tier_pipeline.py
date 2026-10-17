@@ -24,7 +24,7 @@ from sqlalchemy import text
 from src.common.db import get_engine, run_migrations
 from src.common.kafka_utils import TOPIC_TRIP_EVENTS, get_kafka_producer
 from src.extract.load_zones import load_taxi_zones_to_db
-from src.features.config import get_feature_store
+from src.features.config import ensure_feast_schema, get_feature_store
 from src.features.materialize import materialize_features
 from src.features.offline_extractor import extract_and_load_offline_features
 from src.features.registry import apply_feature_definitions
@@ -169,6 +169,7 @@ def reconcile(engine):
     if end - start > timedelta(days=32):
         raise RuntimeError("Feature extraction window exceeds one-month budget")
     zone_rows, corridor_rows = extract_and_load_offline_features(engine, start, end)
+    ensure_feast_schema()
     store = apply_feature_definitions(store=get_feature_store())
     materialize_features(
         start_date=end - timedelta(days=13),
