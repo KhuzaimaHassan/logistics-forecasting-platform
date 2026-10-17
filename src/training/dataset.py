@@ -477,14 +477,11 @@ def generate_corridor_training_dataset(
             dataset_df["origin_zone_demand_pressure"].fillna(0).astype("int64")
         )
 
-    if (
-        "avg_duration_last_1h" in dataset_df.columns
-        and "target_avg_duration_next_1h" in dataset_df.columns
-    ):
-        dataset_df["avg_duration_last_1h"] = (
-            dataset_df["avg_duration_last_1h"]
-            .fillna(dataset_df["target_avg_duration_next_1h"])
-            .astype("float32")
+    if "avg_duration_last_1h" in dataset_df.columns:
+        # A missing historical feature must NEVER be filled from the future
+        # supervised target. Preserve missingness for training-only imputation.
+        dataset_df["avg_duration_last_1h"] = dataset_df["avg_duration_last_1h"].astype(
+            "float32"
         )
 
     logger.info(

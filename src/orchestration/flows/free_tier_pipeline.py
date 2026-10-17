@@ -22,7 +22,11 @@ from pydantic import ValidationError
 from sqlalchemy import text
 
 from src.common.db import get_engine, run_migrations
-from src.common.kafka_utils import TOPIC_TRIP_EVENTS, get_kafka_producer
+from src.common.kafka_utils import (
+    TOPIC_TRIP_EVENTS,
+    get_kafka_producer,
+    json_serializer,
+)
 from src.extract.load_zones import load_taxi_zones_to_db
 from src.features.config import ensure_feast_schema, get_feature_store
 from src.features.materialize import materialize_features
@@ -263,7 +267,12 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
                     producer.send(
                         TOPIC_TRIP_EVENTS, key=str(event["trip_id"]), value=event
                     ).get(timeout=30)
-                    time.sleep(0.02)
+                    # Half the provider's throughput allowance, including headroom
+                    # for keys/protocol overhead, instead of an arbitrary row rate.
+                    wire_bytes = (
+                        len(json_serializer(event)) + len(str(event["trip_id"])) + 128
+                    )
+                    time.sleep(wire_bytes / (125 * 1024))
                 expected = {event["trip_id"] for event in batch}
                 deadline = time.monotonic() + 180
                 while expected - existing_ids(engine, expected):

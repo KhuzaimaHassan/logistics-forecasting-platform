@@ -307,6 +307,13 @@ def test_generate_corridor_training_dataset_pit_join(tmp_path, sqlite_trips_engi
     assert row["target_avg_duration_next_1h"].iloc[0] == pytest.approx(1050.0)
     assert row["avg_duration_last_1h"].iloc[0] == pytest.approx(900.0)
     assert row["distance_km"].iloc[0] == pytest.approx(4.5)
+    # The other corridor has a valid future label but no observed feature.
+    # Filling that null with its label would leak the answer into both training
+    # and baseline evaluation and make a sparse deployment appear perfect.
+    unseen = dataset[dataset["corridor_id"] != "161_236"]
+    assert not unseen.empty
+    assert unseen["avg_duration_last_1h"].isna().all()
+    assert unseen["target_avg_duration_next_1h"].notna().all()
 
 
 def test_train_val_split_by_time():
