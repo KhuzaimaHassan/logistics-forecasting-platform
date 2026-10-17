@@ -212,8 +212,11 @@ def run_checks():
         )
         zones = requests.get(base + "/zones", timeout=30).json()["zones"]
         assert zones
+        observed_zone = next(
+            zone for zone in zones if zone.get("has_observed_features", True)
+        )
         response = requests.get(
-            base + f"/predict/demand/{zones[0]['zone_id']}",
+            base + f"/predict/demand/{observed_zone['zone_id']}",
             params={"horizon_minutes": 60},
             timeout=60,
         )

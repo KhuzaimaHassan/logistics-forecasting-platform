@@ -509,6 +509,15 @@ def list_zones() -> dict:
                         status_code=503,
                         detail="Bootstrap authoritative TLC polygon centroids before mapping.",
                     )
+                observed_zone_ids = set(
+                    session.execute(
+                        text(
+                            "SELECT zone_id FROM warehouse.zone_demand_features_hourly WHERE pickup_datetime=(SELECT max(pickup_datetime) FROM warehouse.zone_demand_features_hourly)"
+                        )
+                    ).scalars()
+                )
+            else:
+                observed_zone_ids = None
             zones = (
                 session.query(TaxiZone)
                 .filter(TaxiZone.zone_id.between(1, 263))
@@ -520,6 +529,8 @@ def list_zones() -> dict:
                     {
                         "zone_id": z.zone_id,
                         "zone_name": z.zone_name,
+                        "has_observed_features": observed_zone_ids is None
+                        or z.zone_id in observed_zone_ids,
                         "borough": z.borough,
                         "lat": float(z.centroid_lat),
                         "lon": float(z.centroid_lon),

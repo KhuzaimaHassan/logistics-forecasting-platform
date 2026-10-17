@@ -419,7 +419,11 @@ def main():
             )
             zones_response.raise_for_status()
             zones = zones_response.json().get("zones", [])
-            labels = {z["zone_id"]: f"{z['zone_id']} · {z['zone_name']}" for z in zones}
+            labels = {
+                z["zone_id"]: f"{z['zone_id']} · {z['zone_name']}"
+                for z in zones
+                if z.get("has_observed_features", True)
+            }
             chosen_zones = st.multiselect(
                 "Demand zones",
                 list(labels),

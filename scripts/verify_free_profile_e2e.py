@@ -31,7 +31,11 @@ def main():
             result["health"] = ready.json()
             zones = client.get("/zones").json()["zones"]
             assert len(zones) == 263
-            zone = zones[0]["zone_id"]
+            zone = next(
+                zone["zone_id"]
+                for zone in zones
+                if zone.get("has_observed_features", True)
+            )
             response = client.get(
                 f"/predict/demand/{zone}", params={"horizon_minutes": 60}
             )
