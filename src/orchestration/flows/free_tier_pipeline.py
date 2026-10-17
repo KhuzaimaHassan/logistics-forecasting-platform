@@ -9,6 +9,7 @@ import hashlib
 import json
 import time
 import uuid
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -32,6 +33,7 @@ from src.features.config import ensure_feast_schema, get_feature_store
 from src.features.materialize import materialize_features
 from src.features.offline_extractor import extract_and_load_offline_features
 from src.features.registry import apply_feature_definitions
+from src.features.views import corridor_duration_feature_view, zone_demand_feature_view
 from src.transform.batch_transformer import generate_deterministic_trip_id
 from src.transform.schemas import TripEventPayload
 from src.transform.stream_consumer import StreamConsumerService
@@ -174,7 +176,15 @@ def reconcile(engine):
         raise RuntimeError("Feature extraction window exceeds one-month budget")
     zone_rows, corridor_rows = extract_and_load_offline_features(engine, start, end)
     ensure_feast_schema()
-    store = apply_feature_definitions(store=get_feature_store())
+    # Zone snapshots exist at every observation hour, including sampled zero
+    # counts. A 14-day PIT join creates hundreds of unnecessary candidate rows
+    # per label. One hour preserves as-of semantics and bounds database scratch
+    # space; seven-day lags are already computed fields in each snapshot.
+    zone_view = deepcopy(zone_demand_feature_view)
+    zone_view.ttl = timedelta(hours=1)
+    store = apply_feature_definitions(
+        store=get_feature_store(), views=[zone_view, corridor_duration_feature_view]
+    )
     materialize_features(
         start_date=end - timedelta(days=13),
         end_date=end + timedelta(seconds=1),
