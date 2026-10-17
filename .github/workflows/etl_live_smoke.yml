@@ -2,12 +2,18 @@ name: ETL Live Smoke Test
 
 on:
   workflow_dispatch:
+    inputs:
+      free_profile:
+        description: Verify bounded free profile with authentic data on disposable CI infrastructure
+        type: boolean
+        default: false
   schedule:
     # Run weekly on Sunday at 02:00 UTC
     - cron: '0 2 * * 0'
 
 jobs:
   live-etl-smoke-test:
+    if: github.event_name != 'workflow_dispatch' || !inputs.free_profile
     name: Live TLC CloudFront Extraction & PostgreSQL Bulk Load Smoke Test
     runs-on: ubuntu-latest
     steps:
@@ -72,3 +78,46 @@ jobs:
         if: always()
         run: |
           docker compose --env-file .env.ci down -v
+
+  free-profile-e2e:
+    if: github.event_name == 'workflow_dispatch' && inputs.free_profile
+    name: Authentic bounded profile on CI infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOYMENT_MODE: cloud
+      DATABASE_URL: postgresql+psycopg2://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics
+      REDIS_URL: redis://localhost:6379/0
+      REDPANDA_BROKER: localhost:9092
+      MLFLOW_TRACKING_URI: http://localhost:5000
+      MLFLOW_MODEL_LOAD_MODE: native
+      PREFECT_SERVER_ANALYTICS_ENABLED: 'false'
+      EVIDENTLY_DO_NOT_TRACK: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen --all-extras
+      - name: Start disposable real PostgreSQL Redis Redpanda and MLflow
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci up -d postgres redis redpanda mlflow
+          sleep 20
+      - name: Run authentic source through the complete bounded profile
+        run: uv run python -u scripts/verify_free_profile_e2e.py
+      - name: Preserve sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authentic-free-profile-${{ github.run_id }}
+          path: artifacts/free-profile-e2e.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Remove only this job's disposable CI containers and volumes
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci down -v
