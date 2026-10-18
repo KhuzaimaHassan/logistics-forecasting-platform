@@ -273,16 +273,23 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
                 if time.monotonic() >= job_deadline:
                     break
                 batch = selection[begin : begin + 100]
+                acknowledgements = []
                 for event in batch:
-                    producer.send(
-                        TOPIC_TRIP_EVENTS, key=str(event["trip_id"]), value=event
-                    ).get(timeout=30)
+                    acknowledgements.append(
+                        producer.send(
+                            TOPIC_TRIP_EVENTS, key=str(event["trip_id"]), value=event
+                        )
+                    )
                     # Half the provider's throughput allowance, including headroom
                     # for keys/protocol overhead, instead of an arbitrary row rate.
                     wire_bytes = (
                         len(json_serializer(event)) + len(str(event["trip_id"])) + 128
                     )
                     time.sleep(wire_bytes / (125 * 1024))
+                # Bound in-flight records to this batch; require every broker ack
+                # before consuming/persisting and advancing its durable checkpoint.
+                for acknowledgement in acknowledgements:
+                    acknowledgement.get(timeout=30)
                 expected = {event["trip_id"] for event in batch}
                 deadline = time.monotonic() + 180
                 while expected - existing_ids(engine, expected):
