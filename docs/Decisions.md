@@ -606,3 +606,17 @@ default, with optional explicit CA for a genuinely custom chain; hostname and
 certificate verification remain required. Kafka/PostgreSQL retain explicit project
 CAs. A manual Aiven-only integration gate precedes MLflow/bootstrap and does not
 enable scheduled mutation or create infrastructure.
+
+ADR-028 managed PostgreSQL clarification (2026-10-18): the owner provisioned Free
+PostgreSQL 18.6 as the service default. Preserve it and validate actual schema,
+Feast registry/offline queries and application behavior there; do not recreate or
+downgrade a working Free service solely to match local PostgreSQL 16. Local
+Compose remains on 16. The managed major version is recorded separately in live
+evidence and is not certified by the local 16 integration suite.
+
+ADR-028 scheduled transport optimization (2026-10-18): the bounded trip-only
+consumer uses at most 100 validated records in one idempotent PostgreSQL insert
+transaction and commits only processed partition offsets after database commit
+and acknowledged DLQ deliveries. Database/DLQ/offset failures rewind to durable
+commits. This reduces WAN round trips without changing continuous consumption,
+validation, deduplication, storage or at-least-once guarantees.

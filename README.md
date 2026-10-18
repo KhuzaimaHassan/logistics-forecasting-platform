@@ -6,7 +6,8 @@
 > flows. It processes authentic historical samples on a schedule. Forecasts are
 > computed by trained models; sampled historical data is explicitly labelled.
 > The authentic-data profile passed end to end on disposable CI services.
-> Cloud accounts/credentials are still required. See the
+> Managed Aiven ingestion/Feast and DagsHub metric/artifact checks have passed.
+> Public hosting and final acceptance remain pending. See the
 > [deployment report](docs/DEPLOYMENT_REPORT.md),
 > [setup commands and secrets](docs/FREE_CLOUD_SETUP.md), and
 > [verified provider research](docs/FREE_TIER_RESEARCH.md).

@@ -1,6 +1,7 @@
 # Free cloud setup
 
-**No cloud service is currently claimed live.** Read
+**No public application is currently claimed live. Managed Aiven and DagsHub
+checks have passed; see the report for exact scope.** Read
 [DEPLOYMENT_REPORT.md](DEPLOYMENT_REPORT.md) for verification and
 [FREE_TIER_RESEARCH.md](FREE_TIER_RESEARCH.md) for current official offers.
 
@@ -8,8 +9,8 @@
 from Pakistan. The supplied Console screenshot shows `pg-11e9a1b`,
 `valkey-21c27f8` and `kafka-1b938f` Running on Free plans. PostgreSQL/Valkey
 show DigitalOcean Bangalore (`blr`); Kafka's region is not shown. These existing
-services must be reused. Their connection details and data-plane access remain
-NOT VERIFIED. Follow [Aiven credential handoff](#aiven-credential-handoff).
+services must be reused. Managed TLS write/read, actual Kafka ingestion and Feast
+retrieval have now passed; PostgreSQL reports version 18.6. Follow [Aiven credential handoff](#aiven-credential-handoff).
 
 ## Architecture and data meaning
 
@@ -53,8 +54,8 @@ blocker rather than proceeding.
 
 1. Reuse the existing **Free** Kafka, **Free** PostgreSQL and **Free** Valkey.
    Kafka Free is currently Console-only. Select only an actually offered Free
-   region. PostgreSQL 16 must be available; otherwise record the compatibility
-   blocker. Use a dedicated `logistics` database. Download each service CA and
+   region. The existing service runs PostgreSQL 18.6 (owner-confirmed); retain it and
+   verify migrations/Feast against that version. The local Compose target remains 16. Use a dedicated `logistics` database. Download each service CA and
    Kafka's client/service certificate and private key.
 2. Provision only `trip.events` and `trip.events.deadletter` initially, with up to
    two partitions each and provider-compatible replication/retention. If the
@@ -373,3 +374,81 @@ Do not enable full scheduled operations until MLflow and managed checks pass.
 The agent can independently inspect secret names, dispatch checks, fix code,
 review sanitized artifacts and update the report; it cannot retrieve passwords,
 private keys or service details from your screenshot or GitHub secrets.
+
+### Authorized initial database/topic creation
+
+The owner has now configured all seven Aiven secrets and explicitly authorized
+creation of the missing database/topics. Use the existing registered workflow:
+
+```powershell
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f initialize_aiven=true
+```
+
+This manual operation connects to existing `defaultdb` with the configured TLS
+credentials, creates `logistics` only if absent, and then tests `logistics`.
+`CLOUD_DATABASE_URL` must already target `logistics` (the helper constructs this).
+It never deletes, renames or recreates `defaultdb`. For the two topics it checks
+existing metadata, creates only missing names with two partitions, and uses up to
+three advertised brokers for replication (documented Aiven default is three;
+this installed Kafka client cannot express broker-default replication in its
+CreateTopics v3 request). Retention and other topic configuration are left to
+the provider. Existing topics are not repartitioned or reconfigured. No service,
+plan, disk or paid resource is created. Free five-topic capacity is checked.
+
+A first run exposed missing secret inheritance in the reusable workflow caller;
+that run stopped at preflight, before connecting to Aiven. The caller now
+explicitly inherits secrets while the called job selects environment `free-cloud`.
+
+After successful initialization, bootstrap/verify Aiven-only ingestion and Feast
+without requiring MLflow or enabling schedules:
+
+```powershell
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f verify_aiven=true -f aiven_operation=bootstrap-aiven
+```
+
+This applies the existing additive migrations and official zone centroids,
+processes bounded authentic Kafka batches into PostgreSQL and materializes real
+Feast online features into Valkey, then compares an online value/event timestamp
+against PostgreSQL. A partial batch checkpoint is durable: repeat this operation
+if remaining_sample_events is nonzero. It cannot train/promote models or prove
+public deployment before DagsHub/hosting configuration.
+
+
+## Explicit managed jobs before enabling schedules
+
+The registered ETL workflow also exposes `cloud_job` for manual operations on the
+review branch without enabling cron or merging protected branches:
+
+```powershell
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f cloud_job=verify-mlflow
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f cloud_job=train
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f cloud_job=monitor
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f cloud_job=runtime
+```
+
+Wait for each result before dispatching the next; GitHub permits only one pending
+run per concurrency group. `verify-mlflow` is scoped: successful metrics/artifact
+readback and registry-list access do not mark full acceptance complete. `runtime`
+builds the real minimal API image on GitHub Actions and tests genuine promoted
+models against Aiven in two separate fresh containers with 512 MiB/0.1 CPU limits.
+It persists real predictions, compares four concurrent batch responses and records
+memory peaks. This proves neither a public Render URL nor hosted cold-start timing.
+Certificate files remain private; the API probe receives only its PostgreSQL CA,
+never Kafka client keys. No local Docker is required.
+
+
+### Manual Render form values
+
+Choose Docker Web Service, Free, repository KhuzaimaHassan/logistics-forecasting-platform,
+branch feature/d0-free-cloud-deployment, Frankfurt if Free is offered. Root directory
+blank, build context `.`, Dockerfile `src/serving/Dockerfile.cloud`, default image
+command, health check `/health/live`, auto-deploy after CI checks if available.
+No attached disk, database or worker is needed. Enter secrets only in Render's UI.
+Use the environment names in render.yaml: strict cloud/native model flags, managed
+PostgreSQL URL targeting logistics with verify-full, Valkey rediss URL, DagsHub
+tracking URI/username/password, PostgreSQL CA secret file. Leave REDIS_SSL_CA unset
+for Aiven public trust. Kafka credentials do not belong on the API. Optional
+agent/provider/CORS values can follow when those components are configured.
+A live process is not readiness: `/health/ready` and real predictions must pass
+before claiming the deployment complete. If billing/card/paid fallback is required,
+record a blocker rather than enabling it.

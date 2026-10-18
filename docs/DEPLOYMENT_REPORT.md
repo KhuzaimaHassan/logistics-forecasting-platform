@@ -2,15 +2,13 @@
 
 ## Outcome
 
-**The platform is not publicly deployed yet.** No live application URL exists in
-the verified evidence. The owner has now provisioned Aiven Kafka, PostgreSQL
-and Valkey Free services successfully from Pakistan. The Console screenshot
-shows all three Running, with PostgreSQL/Valkey in Bangalore. Connection
-credentials, database/topic readiness and data-plane checks remain external blockers;
-DagsHub and public hosting setup also remain outstanding.
-Implementation proceeds independently and cloud checks remain
-**BLOCKED — NOT VERIFIED**. No paid resource, trial, automatic upgrade or deletion
-has been requested.
+**The platform is not publicly deployed yet.** No verified public application URL
+exists. Aiven Kafka, PostgreSQL 18.6 and Valkey are running on existing Free plans.
+Actual managed bootstrap persisted 9,232 authentic TLC trips and materialized
+Feast online features into Valkey. DagsHub metric/artifact readback and registry
+listing are verified. Genuine managed-model training and the constrained API
+runtime check follow separately. Public hosting and live LLM verification remain
+outstanding. No paid resource, trial, automatic upgrade or data deletion was used.
 
 ## D0 feasibility and source audit
 
@@ -31,8 +29,8 @@ broker/storage move to managed Free services; workers become scheduled.
 |---|---|
 | Redpanda/Kafka clients | Kafka protocol preserved with managed broker; add mTLS/SASL_SSL, two-partition topic cap, individual durable commits and acked DLQ |
 | PostgreSQL | Actual managed PostgreSQL, no SQLite cloud substitution; bounded sample and connections; additive cursor/report-HTML migration |
-| Feast | Feature definitions/PIT logic preserved; managed URL/TLS translation required; native Valkey compatibility needs live verification |
-| MLflow | Training/metrics/artifacts/registry preserved on DagsHub; native Booster serving avoids full pyfunc dependency load; live registry/artifact proof pending |
+| Feast | Feature definitions/PIT logic preserved; managed URL/TLS translation required; native Valkey materialization/retrieval verified against Aiven |
+| MLflow | Training/metrics/artifacts/registry preserved on DagsHub; native Booster serving avoids full pyfunc dependency load; live metrics/artifacts/registry-list proof verified; model-version promotion checked separately |
 | Prefect | Existing flows retained; OSS execution on Actions because current Hobby plan does not support the existing BYO process pool |
 | FastAPI | Strict cloud models/features, synchronous successful persistence, native loading, health/live/ready, CORS and authenticated limited agent |
 | Streamlit | Existing forecast tab was a placeholder; now requests actual demand/ETA, authentic centroids and renders a map/table; API wakeup handling |
@@ -69,16 +67,17 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 
 | Service/capability | Status | Evidence or blocker |
 |---|---|---|
-| Managed Kafka produce + consume | **NOT VERIFIED** | BLOCKED: Free broker exists per owner screenshot; endpoint and topic settings pending; CA/client PEM secrets securely uploaded, connection not yet verified |
-| Managed PostgreSQL write/read | **NOT VERIFIED** | BLOCKED: Free service exists per owner screenshot; database/version/user pending; CA secret securely uploaded, connection not yet verified |
-| Feast materialization + Valkey retrieval | **NOT VERIFIED** | BLOCKED: both Free services exist per owner screenshot; credentials and Feast materialization not yet verified |
-| DagsHub MLflow metrics/artifacts/registry | **NOT VERIFIED** | BLOCKED: account/repository/token absent |
-| Scheduled cloud pipeline output | **NOT VERIFIED** | BLOCKED: managed stores and workflow activation absent |
+| Managed Kafka produce + consume | **VERIFIED** | [Aiven run 39120936927](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39120936927): authentic TLC event produced/consumed at partition 1, offset 0, with mutual TLS; both topics created with 2 partitions/RF 2 |
+| Managed PostgreSQL write/read | **VERIFIED** | PostgreSQL 18.6/logistics TLS write/read plus durable application migrations and 9,232 warehouse trips in [managed bootstrap evidence](aiven-bootstrap-evidence.json); defaultdb preserved |
+| Managed Valkey TLS write/read | **VERIFIED** | TLS PING/SET NX/GET and actual Feast retrieval matched PostgreSQL; public trust and hostname/certificate verification enabled |
+| Feast materialization + Valkey retrieval | **VERIFIED** | [Run 39121607882](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39121607882): 107,155 zone/8,760 corridor rows; zone 7 online pickups=1 equals PostgreSQL, observed_at=2023-01-31T23:00:00Z |
+| DagsHub MLflow metrics/artifacts/registry | **VERIFIED** | [Run 39138839993](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39138839993): metric 1.0 read back, artifact SHA-256 matched, registry list accessible; model-version promotion verified separately |
+| Scheduled cloud pipeline output | **VERIFIED** | Genuine managed pipeline manually invoked: checkpoint advanced 600 -> 9,232, remaining_sample_events=0, official centroids; this does not prove cron execution |
 | Actual cron execution | **NOT VERIFIED** | Requires scheduled-event Actions run, not a manual invocation |
 | Public FastAPI real-model demand/ETA | **NOT VERIFIED** | BLOCKED: Render service and genuinely trained promoted artifacts absent |
 | Streamlit actual forecast rendering | **NOT VERIFIED** | BLOCKED: Community Cloud OAuth/app and API absent |
 | Live LangGraph LLM + dependencies | **NOT VERIFIED** | BLOCKED: Free provider key/hosted dependencies absent |
-| Persisted managed monitoring report | **NOT VERIFIED** | BLOCKED: real champion/data/managed PostgreSQL absent |
+| Persisted managed monitoring report | **NOT VERIFIED** | Managed warehouse exists; actual champion/backtest/HTML verification pending |
 | Restart/cold-start behavior | **NOT VERIFIED** | Requires actual hosted restart/sleep and repeated predictions |
 | Offline cloud/consumer regression checks | **VERIFIED** | 20 tests passed on local Python 3.11; scope is hermetic contracts only |
 | Cloud API import memory | **VERIFIED** | Windows process RSS 204.8 MiB; full MLflow pyfunc not imported; not Linux full-model peak proof |
@@ -124,16 +123,44 @@ fills missing history using the future target. No failed promotion gate was bypa
   listing returned no configured names. Subsequently the owner supplied local
   certificate files: all four PEM secrets were uploaded directly through stdin
   and their names confirmed. Local validity/issuer/key-match checks passed.
-  The three connection secrets remain absent. No token or PEM values recorded.
+  The owner subsequently configured all three connection secrets; all seven names
+  are confirmed present. No token, connection value or PEM value recorded.
 - Added an interactive stdin-only helper and manual `verify-aiven` workflow path.
   Automatic jobs remain opt-in; this check needs no DagsHub account and creates
   no services/topics. It preserves existing data and uses only bounded test writes.
 - Corrected Valkey TLS configuration: public system roots by default, optional
   custom CA, certificate/hostname verification always required. Kafka/PG CAs
   remain required. Render no longer points to a nonexistent Valkey CA file.
-- Aiven-only preflight was attempted without credentials and correctly reported
-  **BLOCKED — NOT VERIFIED** for the seven required connection/PEM names.
-  No managed write/read or deployment success is claimed.
+- Corrected managed run 39120936927 passed preflight and actual service tests.
+  [Sanitized evidence](aiven-initialization-evidence.json) records PostgreSQL
+  18.6/logistics, Valkey TLS write/read and an exact-offset real Kafka roundtrip.
+  Both topics were created with two partitions and observed replication two;
+  defaultdb and provider retention were preserved. Subsequent schema/Feast/bootstrap
+  checks passed as recorded below. Public deployment is still NOT VERIFIED.
+
+### Managed bootstrap and DagsHub evidence
+
+The earlier managed run completed safely at 600 trips after its time budget.
+The optimized run resumed at that durable checkpoint, published the remaining
+8,632 events, and finished at exactly 9,232 unique warehouse rows. It produced
+107,155 zone and 8,760 corridor feature rows. Actual Feast online retrieval
+returned zone 7's one pickup for the last hour, matching PostgreSQL and preserving
+the historical timestamp. Database size was 36,312,767 bytes (about 34.6 MiB),
+below the 700 MiB safety threshold. PostgreSQL 18.6 migrations/Feast registry and
+managed Valkey compatibility are therefore verified for this exercised path.
+See [complete bootstrap output](aiven-bootstrap-evidence.json).
+
+DagsHub run `40cb7a97e0ac4ed9ad7a8540113e5617` persisted/read metric 1.0 and an
+artifact whose downloaded SHA-256 matched the upload. Registry listing passed.
+The scoped check explicitly retains automated_checks_complete=false and
+manual_acceptance_complete=false; it cannot certify the platform. See
+[complete MLflow evidence](mlflow-verification-evidence.json).
+
+The prior authorization-service usage blocker is resolved. Existing jobs
+continued successfully; no failed or cancelled run is described as passed.
+Training, monitoring and real-model container results are recorded only after
+actual output is inspected. Public API/UI, live LLM and hosted cold starts remain
+NOT VERIFIED.
 
 ## Infrastructure, security and cost
 
@@ -155,11 +182,10 @@ Gemini's official country list explicitly includes Pakistan.
 
 ## Exact unresolved owner actions
 
-1. Reuse the three existing Aiven Free services. Retrieve their connection fields,
-   Kafka client key/certificate and Kafka/PostgreSQL CAs through Console; confirm
-   the PostgreSQL major version, `logistics` database and two topic settings.
-   Create remaining DagsHub/hosting Free accounts as documented, without paid trials/cards.
-2. Add the enumerated GitHub secrets/variables, Render secret files/environment
+1. Aiven connection fields/certificates, database and topics are configured and
+   verified; retain these existing Free services. DagsHub is configured and verified.
+   Prepare remaining hosting Free accounts as documented, without paid trials/cards.
+2. Add optional agent/provider keys and hosting variables, Render secret files/environment
    and Community Cloud API/access-key secrets. Do not send credentials in chat.
 3. Complete reviewed branch integration, bootstrap, real training/promotion,
    monitoring and managed smoke workflow. Keep failed gates visible.
@@ -177,7 +203,7 @@ deployment change set.
 
 ### Deployment file inventory
 
-56 changed or new deployment files:
+62 changed or new deployment files:
 
 - `.dockerignore`
 - `.env.example`
@@ -196,13 +222,17 @@ deployment change set.
 - `docs/Deployment.md`
 - `docs/FREE_CLOUD_SETUP.md`
 - `docs/FREE_TIER_RESEARCH.md`
+- `docs/aiven-bootstrap-evidence.json`
+- `docs/aiven-initialization-evidence.json`
 - `docs/cloud-verification.json`
 - `docs/free-profile-e2e-evidence.json`
+- `docs/mlflow-verification-evidence.json`
 - `pyproject.toml`
 - `render.yaml`
 - `scripts/cloud_preflight.py`
 - `scripts/configure_cloud_secrets.py`
 - `scripts/probe_cloud_memory.py`
+- `scripts/probe_managed_runtime.py`
 - `scripts/validate_cloud_config.py`
 - `scripts/verify_aiven_services.py`
 - `scripts/verify_cloud_deployment.py`
@@ -217,6 +247,7 @@ deployment change set.
 - `src/features/config.py`
 - `src/features/offline_extractor.py`
 - `src/monitoring/service.py`
+- `src/orchestration/cloud_resources.py`
 - `src/orchestration/flows/free_tier_pipeline.py`
 - `src/orchestration/free_tier_jobs.py`
 - `src/serving/Dockerfile.cloud`
@@ -229,6 +260,7 @@ deployment change set.
 - `src/training/pipeline.py`
 - `src/transform/stream_consumer.py`
 - `tests/test_cloud_deployment.py`
+- `tests/test_cloud_resources.py`
 - `tests/test_cloud_secret_setup.py`
 - `tests/test_stream_consumer.py`
 - `tests/test_training_dataset.py`

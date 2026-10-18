@@ -124,3 +124,78 @@ Implementation results and actual check output are appended as work completes.
   interactive helper to preserve certificate secrets while entering remaining
   Console fields. PostgreSQL version/database and Kafka topic confirmations remain
   pending. Managed data-plane connectivity remains NOT VERIFIED.
+
+## Authorized Aiven initialization — 2026-10-18
+
+- Owner configured connection values; seven required Aiven secret names are now
+  present. Owner reports PostgreSQL 18.6 and absent logistics database/topics,
+  explicitly authorizing their additive creation on existing Free services.
+- Added idempotent database/topic initialization, two focused regression tests
+  passed (1.84s), lint/format/offline workflow validation passed. Local Compose
+  PostgreSQL 16 remains unchanged. Actual PG18 schema/Feast compatibility pending.
+- Run 39120857573 failed preflight because environment secrets resolved empty
+  through the reusable-workflow call. No managed connection or creation occurred.
+  Added explicit secrets inheritance; corrected run 39120936927 passed preflight
+  and began actual initialization/roundtrip checks. Results pending.
+
+- Corrected run 39120936927 PASSED all actual Aiven checks. Created logistics;
+  server reports 18.6; TLS active and temporary-table write/read passed. Valkey
+  TLS PING/SET NX/GET passed with a 120-second key expiry. Both Kafka topics
+  created: two partitions, observed RF two, provider retention preserved. Authentic
+  TLC event produced and consumed at partition 1/offset 0 using mutual TLS.
+  Sanitized output is in docs/aiven-initialization-evidence.json.
+- Added a separate manual bootstrap-aiven operation so migrations, actual bounded
+  Kafka ingestion and Feast/Valkey materialization can proceed before DagsHub.
+  It uses the existing strict pipeline; no model or monitoring success claimed.
+
+- Source review of the managed bootstrap identified per-message PostgreSQL and
+  Kafka commits in the scheduled path. Added bounded trip-only multi-row writes
+  and one exact per-partition offset commit after durable database/DLQ effects;
+  original continuous consumer path remains unchanged. Shared normalization keeps
+  validation/IDs identical. Failure rewinds all assigned partitions. Focused
+  20-test run passed in 20.79s, including rollback, DLQ failure, buffered offsets
+  and replay idempotency; additional post-DB offset-failure regression added.
+
+- Bounded producer sends now collect at most 100 in-flight acknowledgements,
+  retaining byte-rate throttling and requiring every ack before checkpointing.
+  Optimized bootstrap was dispatched on commit abb1cbd behind the existing
+  non-cancelling cloud concurrency group. The earlier running bootstrap was not
+  cancelled: the subsequent cancellation/status command was rejected before
+  execution because automatic approval review could not run due to a usage limit.
+  This is an authorization-service availability blocker, not a cloud test failure.
+- Owner reports MLflow secrets configured. Secret names, endpoint connectivity,
+  metrics/artifacts/registry and model training have not yet been verified.
+  Running/queued GitHub jobs may continue independently; their latest outcomes
+  must be retrieved after tool authorization becomes available. Do not mark the
+  managed bootstrap or public deployment verified based on dispatch alone.
+- Unaffected local validation completed after the authorization blocker: **21
+  tests passed in 31.71s**, including the post-database offset-commit failure/replay
+  test; Ruff and whitespace checks passed. Latest documentation and sanitized
+  initialization evidence are saved locally and still require commit/push.
+
+## Managed bootstrap and DagsHub verification — 2026-10-18
+
+- Tool authorization resumed. Confirmed all three MLflow secret names without
+  reading values. Retrieved both real managed bootstrap artifacts: 39121078588
+  passed with 600 durable trips; 39121607882 resumed and persisted the remaining
+  8,632, reaching 9,232 unique trips and no remaining sample events. Feast matched
+  PostgreSQL (zone 7, pickups_last_1h=1, source timestamp Jan 31 2023 23:00 UTC).
+  Feature rows: 107,155 zone / 8,760 corridor. DB bytes: 36,312,767. Actual PG18.6
+  migrations, SQL registry and Valkey materialization/readback passed.
+- MLflow scoped check 39138839993 passed: run 40cb7a97e0ac4ed9ad7a8540113e5617,
+  metric 1.0 readback, artifact SHA-256 matched, registry list succeeded. Evidence
+  saved without endpoints/credentials. Partial check cannot mark full acceptance.
+- Started managed training 39138902348 with existing promotion gates. Added a
+  real API-image runtime probe with two fresh 512 MiB/0.1 CPU containers, genuine
+  managed features/models and durable prediction assertions; queued 39139225794.
+- Five local initialization/scoped-acceptance tests passed in 3.45s. Initial
+  local tmp_path errors were sandbox temporary-directory permissions; rerunning
+  with the existing workspace TEMP/TMP configuration passed. No code failure
+  was hidden. Hosting configuration was supplied while owner prepares accounts.
+
+- Training attempt 39138902348 was cancelled during investigation of entity upload
+  performance; queued runtime 39139225794 was cancelled before executing. Driver
+  review clarified that Feast uses Psycopg 3 (executemany may pipeline), so a
+  row-per-RTT claim was not established. Demand join had completed after about
+  four minutes. No speculative SQL-entity optimization was implemented. Restarted
+  unchanged training path as 39139455829 and will allow its configured timeout.
