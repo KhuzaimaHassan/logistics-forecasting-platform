@@ -41,6 +41,11 @@ def connection(scheme, database):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("group", choices=["aiven", "mlflow", "agent"])
+    parser.add_argument(
+        "--connections-only",
+        action="store_true",
+        help="Aiven: configure connection fields while preserving uploaded PEM secrets",
+    )
     args = parser.parse_args()
     if not sys.stdin.isatty():
         raise ValueError(
@@ -59,6 +64,8 @@ def main():
         if not host or any(char in host for char in "/@ ") or not 0 < int(port) < 65536:
             raise ValueError("Invalid Kafka endpoint")
         upload("CLOUD_KAFKA_BROKER", broker)
+        if args.connections_only:
+            return
         for name in (
             "CLOUD_KAFKA_CA_PEM",
             "CLOUD_KAFKA_CERT_PEM",

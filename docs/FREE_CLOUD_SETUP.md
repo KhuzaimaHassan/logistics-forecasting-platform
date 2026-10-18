@@ -333,6 +333,13 @@ Expected Aiven names: `CLOUD_DATABASE_URL`, `CLOUD_REDIS_URL`,
 `CLOUD_KAFKA_BROKER`, `CLOUD_KAFKA_CA_PEM`, `CLOUD_KAFKA_CERT_PEM`,
 `CLOUD_KAFKA_KEY_PEM`, `CLOUD_POSTGRES_CA_PEM`. `CLOUD_VALKEY_CA_PEM` is optional.
 The helper constructs `sslmode=verify-full` PostgreSQL and `rediss://` Valkey URLs.
+If the four PEM secrets were already securely uploaded and validated, configure
+only the three remaining connection secrets without re-uploading certificates:
+
+```powershell
+.venv/Scripts/python.exe scripts/configure_cloud_secrets.py aiven --connections-only
+```
+
 Alternatively use GitHub Settings -> Environments -> free-cloud -> Add environment
 secret with the exact names in the table above; this does not require the helper.
 

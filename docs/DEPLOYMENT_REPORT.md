@@ -69,8 +69,8 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 
 | Service/capability | Status | Evidence or blocker |
 |---|---|---|
-| Managed Kafka produce + consume | **NOT VERIFIED** | BLOCKED: Free broker exists per owner screenshot; endpoint, CA/client credentials and topic settings not yet verified |
-| Managed PostgreSQL write/read | **NOT VERIFIED** | BLOCKED: Free service exists per owner screenshot; database/version/user/CA not yet verified |
+| Managed Kafka produce + consume | **NOT VERIFIED** | BLOCKED: Free broker exists per owner screenshot; endpoint and topic settings pending; CA/client PEM secrets securely uploaded, connection not yet verified |
+| Managed PostgreSQL write/read | **NOT VERIFIED** | BLOCKED: Free service exists per owner screenshot; database/version/user pending; CA secret securely uploaded, connection not yet verified |
 | Feast materialization + Valkey retrieval | **NOT VERIFIED** | BLOCKED: both Free services exist per owner screenshot; credentials and Feast materialization not yet verified |
 | DagsHub MLflow metrics/artifacts/registry | **NOT VERIFIED** | BLOCKED: account/repository/token absent |
 | Scheduled cloud pipeline output | **NOT VERIFIED** | BLOCKED: managed stores and workflow activation absent |
@@ -120,8 +120,11 @@ fills missing history using the future target. No failed promotion gate was bypa
   (Free-1), `kafka-1b938f` (Free-0), all Running. PostgreSQL/Valkey show
   DigitalOcean `blr`, India. This verifies the supplied Console evidence only.
 - GitHub authenticated account has repository admin permission and `repo`/`workflow`
-  token scopes. Created the `free-cloud` environment successfully. Secret-name
-  listing succeeded and returned no configured names. No token values recorded.
+  token scopes. Created the `free-cloud` environment successfully. Initial secret-name
+  listing returned no configured names. Subsequently the owner supplied local
+  certificate files: all four PEM secrets were uploaded directly through stdin
+  and their names confirmed. Local validity/issuer/key-match checks passed.
+  The three connection secrets remain absent. No token or PEM values recorded.
 - Added an interactive stdin-only helper and manual `verify-aiven` workflow path.
   Automatic jobs remain opt-in; this check needs no DagsHub account and creates
   no services/topics. It preserves existing data and uses only bounded test writes.

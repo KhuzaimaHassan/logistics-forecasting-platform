@@ -110,3 +110,17 @@ Implementation results and actual check output are appended as work completes.
 - Validation: 10 focused cloud/handoff tests passed in 43.15s; Ruff, Black
   formatting and offline Free-manifest validation passed. No managed connectivity
   pass is claimed until encrypted credentials are available.
+
+## Aiven certificate configuration — 2026-10-18
+
+- Owner provided local download-folder paths. Read only the four designated
+  files; parsed certificates/private key without printing contents. Verified
+  certificate validity periods, Kafka client issuance by its CA, private-key/public
+  key match and SSL context loading. These are local cryptographic checks only.
+- Uploaded CLOUD_KAFKA_CA_PEM, CLOUD_KAFKA_CERT_PEM, CLOUD_KAFKA_KEY_PEM and
+  CLOUD_POSTGRES_CA_PEM via gh stdin directly to environment free-cloud. Secret-name
+  listing confirms all four. No credential material was copied into the repository.
+- Connection URL/broker secrets remain absent. Added --connections-only to the
+  interactive helper to preserve certificate secrets while entering remaining
+  Console fields. PostgreSQL version/database and Kafka topic confirmations remain
+  pending. Managed data-plane connectivity remains NOT VERIFIED.
