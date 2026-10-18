@@ -1,5 +1,6 @@
 """Real bounded Aiven checks before MLflow/bootstrap; never creates services/topics."""
 
+import argparse
 import json
 import os
 import time
@@ -15,7 +16,12 @@ from src.common.db import get_engine
 from src.common.kafka_utils import get_kafka_consumer, get_kafka_producer
 
 
-def postgres():
+def postgres(initialize=False):
+    initialization = None
+    if initialize:
+        from src.orchestration.cloud_resources import ensure_database
+
+        initialization = ensure_database()
     with get_engine().begin() as conn:
         version = conn.execute(text("SHOW server_version")).scalar_one()
         database = conn.execute(text("SELECT current_database()")).scalar_one()
@@ -35,6 +41,7 @@ def postgres():
             "tls": tls,
             "write_read": True,
             "scope": "session-local temporary table",
+            "initialization": initialization,
         }
 
 
@@ -62,7 +69,7 @@ def valkey():
         client.close()
 
 
-def kafka():
+def kafka(initialize=False):
     assert get_settings().kafka_security_protocol == "SSL"
     from kafka.structs import TopicPartition
 
@@ -70,6 +77,12 @@ def kafka():
         download_source,
         sampled_events,
     )
+
+    initialization = None
+    if initialize:
+        from src.orchestration.cloud_resources import ensure_topics
+
+        initialization = ensure_topics()
 
     with TemporaryDirectory() as directory:
         path = Path(directory) / "source.parquet"
@@ -104,6 +117,7 @@ def kafka():
                             "consumed_offset": message.offset,
                             "source": "authentic TLC sample",
                             "mutual_tls": True,
+                            "initialization": initialization,
                         }
         raise TimeoutError("Kafka readback deadline exceeded")
     finally:
@@ -113,11 +127,18 @@ def kafka():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--initialize",
+        action="store_true",
+        help="Create only missing logistics database and two required topics",
+    )
+    args = parser.parse_args()
     results = {}
     for name, action in (
-        ("postgresql", postgres),
+        ("postgresql", lambda: postgres(initialize=args.initialize)),
         ("valkey", valkey),
-        ("kafka", kafka),
+        ("kafka", lambda: kafka(initialize=args.initialize)),
     ):
         required = {
             "postgresql": ("DATABASE_URL", "POSTGRES_SSLROOTCERT"),

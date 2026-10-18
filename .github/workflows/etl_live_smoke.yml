@@ -3,6 +3,10 @@ name: ETL Live Smoke Test
 on:
   workflow_dispatch:
     inputs:
+      initialize_aiven:
+        description: Create only the authorized logistics database and two topics on existing services, then verify
+        type: boolean
+        default: false
       verify_aiven:
         description: Verify existing managed Aiven services using free-cloud environment secrets
         type: boolean
@@ -16,15 +20,22 @@ on:
     - cron: '0 2 * * 0'
 
 jobs:
+  aiven-initialization:
+    if: github.event_name == 'workflow_dispatch' && inputs.initialize_aiven
+    permissions:
+      contents: read
+    uses: ./.github/workflows/free-cloud.yml
+    with:
+      job: initialize-aiven
   aiven-verification:
-    if: github.event_name == 'workflow_dispatch' && inputs.verify_aiven
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_aiven && !inputs.initialize_aiven
     permissions:
       contents: read
     uses: ./.github/workflows/free-cloud.yml
     with:
       job: verify-aiven
   live-etl-smoke-test:
-    if: github.event_name != 'workflow_dispatch' || (!inputs.free_profile && !inputs.verify_aiven)
+    if: github.event_name != 'workflow_dispatch' || (!inputs.free_profile && !inputs.verify_aiven && !inputs.initialize_aiven)
     name: Live TLC CloudFront Extraction & PostgreSQL Bulk Load Smoke Test
     runs-on: ubuntu-latest
     steps:
@@ -91,7 +102,7 @@ jobs:
           docker compose --env-file .env.ci down -v
 
   free-profile-e2e:
-    if: github.event_name == 'workflow_dispatch' && inputs.free_profile && !inputs.verify_aiven
+    if: github.event_name == 'workflow_dispatch' && inputs.free_profile && !inputs.verify_aiven && !inputs.initialize_aiven
     name: Authentic bounded profile on CI infrastructure
     runs-on: ubuntu-latest
     timeout-minutes: 30

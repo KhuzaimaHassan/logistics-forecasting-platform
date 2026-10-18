@@ -11,7 +11,7 @@ on:
       job:
         description: Operation (bootstrap is required once before train)
         type: choice
-        options: [verify-aiven, verify, bootstrap, pipeline, train, monitor]
+        options: [initialize-aiven, verify-aiven, verify, bootstrap, pipeline, train, monitor]
         default: verify
   schedule:
     - cron: '17 3,15 * * *'
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   operate:
     # Explicit opt-in: missing accounts never masquerade as a successful deploy.
-    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && inputs.job == 'verify-aiven')
+    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.job == 'verify-aiven' || inputs.job == 'initialize-aiven'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: free-cloud
@@ -75,14 +75,17 @@ jobs:
           if [ "$CRON" = '47 5 * * *' ]; then job_name=monitor; fi
           echo "name=$job_name" >> "$GITHUB_OUTPUT"
       - name: Validate Aiven configuration and write private PEM files
-        if: steps.operation.outputs.name == 'verify-aiven'
+        if: steps.operation.outputs.name == 'verify-aiven' || steps.operation.outputs.name == 'initialize-aiven'
         run: uv run python scripts/cloud_preflight.py --github-env --aiven-only
       - name: Validate full configuration and write private PEM files
-        if: steps.operation.outputs.name != 'verify-aiven'
+        if: steps.operation.outputs.name != 'verify-aiven' && steps.operation.outputs.name != 'initialize-aiven'
         run: uv run python scripts/cloud_preflight.py --github-env
       - name: Verify actual Aiven TLS connections and bounded writes
         if: steps.operation.outputs.name == 'verify-aiven'
         run: uv run python scripts/verify_aiven_services.py
+      - name: Initialize authorized missing database/topics and verify real services
+        if: steps.operation.outputs.name == 'initialize-aiven'
+        run: uv run python scripts/verify_aiven_services.py --initialize
       - name: Bootstrap authentic sample, schema, zones and Feast
         if: steps.operation.outputs.name == 'bootstrap'
         run: uv run python -m src.orchestration.flows.free_tier_pipeline --bootstrap --max-events 10000
@@ -99,7 +102,7 @@ jobs:
         if: steps.operation.outputs.name == 'verify'
         run: uv run python scripts/verify_cloud_deployment.py --output artifacts/cloud-verification.json
       - name: Capture sanitized verification matrix
-        if: always() && (steps.operation.outputs.name == 'verify' || steps.operation.outputs.name == 'verify-aiven')
+        if: always() && (steps.operation.outputs.name == 'verify' || steps.operation.outputs.name == 'verify-aiven' || steps.operation.outputs.name == 'initialize-aiven')
         uses: actions/upload-artifact@v4
         with:
           name: cloud-verification-${{ github.run_id }}
