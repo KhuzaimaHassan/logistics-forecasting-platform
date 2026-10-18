@@ -25,6 +25,7 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/free-cloud.yml
+    secrets: inherit
     with:
       job: initialize-aiven
   aiven-verification:
@@ -32,6 +33,7 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/free-cloud.yml
+    secrets: inherit
     with:
       job: verify-aiven
   live-etl-smoke-test:
