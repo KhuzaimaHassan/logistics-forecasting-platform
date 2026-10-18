@@ -89,3 +89,24 @@ Implementation results and actual check output are appended as work completes.
 - Report and README updated with actual evidence, complete inventory, account
   setup/secrets guide, conditional $0 cost and outstanding managed verification.
   No account/resource/public URL exists yet. Managed checks remain NOT VERIFIED.
+
+## Aiven provisioning handoff — 2026-10-18
+
+- Owner supplied Running/Free service evidence for existing PostgreSQL, Valkey
+  and Kafka. PostgreSQL/Valkey show Bangalore; Kafka region not visible. No
+  services recreated, upgraded or reconfigured.
+- Confirmed GitHub CLI identity/scopes/admin permission without exposing token;
+  created `free-cloud` environment, verified it has no configured secret names.
+- Added secure interactive stdin secret uploader, optional public-root Valkey TLS,
+  and manual Aiven-only preflight/real PG temporary write-read, Valkey TTL key
+  write-read and authentic Kafka event exact-offset roundtrip workflow.
+- Existing full operations remain gated. No Aiven credentials are available;
+  Aiven-only preflight correctly stopped with seven missing configuration names.
+  Owner must retrieve Console fields/certificates and configure encrypted secrets.
+- The new free-cloud workflow is not registered on main (confirmed API 404).
+  Added a manual boolean bridge in the existing registered ETL smoke workflow to
+  call its Aiven verification job from this branch, preserving branch protection
+  and avoiding any merge just to run checks. Legacy/default jobs remain unchanged.
+- Validation: 10 focused cloud/handoff tests passed in 43.15s; Ruff, Black
+  formatting and offline Free-manifest validation passed. No managed connectivity
+  pass is claimed until encrypted credentials are available.

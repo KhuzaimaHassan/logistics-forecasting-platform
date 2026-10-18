@@ -598,3 +598,11 @@ Kafka commits advance only handled offsets after persistence or acknowledged DLQ
 **Consequences:** The portfolio retains real Kafka, PostgreSQL, Feast, MLflow, model inference, LangGraph and Evidently functionality at a conditional $0/month, accepting sleep, cold starts, finite quotas, scheduling delays and no SLA. Account access, regional eligibility, managed integrations, real trained artifacts, public URLs and Render 512 MB peak-memory fit remain acceptance gates. See FREE_TIER_RESEARCH.md, FREE_CLOUD_SETUP.md and DEPLOYMENT_REPORT.md. This ADR supersedes ADR-027 as the portfolio target without erasing historical decisions or local capabilities.
 
 **Resource addendum:** Free-profile zone snapshots are complete at hourly boundaries, so that profile registers a one-hour zone FeatureView PIT TTL instead of the local 14-day TTL. Seven-day rolling/lag values remain precomputed inputs; this TTL is a join-age bound, not the feature lookback period. Corridor TTL and local definitions remain unchanged. Feature upserts use real multi-row PostgreSQL inserts to avoid one network roundtrip per feature row. Ingestion advances durable progress in confirmed 100-event batches, and training refuses a checkpoint ahead of completed materialization. Historical predictions expose actual Feast observation timestamps. Removed future-target imputation from missing corridor history; prior benchmark numbers require recertification rather than being inherited by this profile.
+
+
+ADR-028 connection handoff clarification (2026-10-18): existing owner-provisioned
+Aiven Free services are reused. Aiven Valkey's public-CA TLS uses system trust by
+default, with optional explicit CA for a genuinely custom chain; hostname and
+certificate verification remain required. Kafka/PostgreSQL retain explicit project
+CAs. A manual Aiven-only integration gate precedes MLflow/bootstrap and does not
+enable scheduled mutation or create infrastructure.

@@ -3,8 +3,11 @@
 ## Outcome
 
 **The platform is not publicly deployed yet.** No live application URL exists in
-the verified evidence. The owner confirmed there are no existing cloud accounts;
-managed resource creation, OAuth and credentials are external blockers.
+the verified evidence. The owner has now provisioned Aiven Kafka, PostgreSQL
+and Valkey Free services successfully from Pakistan. The Console screenshot
+shows all three Running, with PostgreSQL/Valkey in Bangalore. Connection
+credentials, database/topic readiness and data-plane checks remain external blockers;
+DagsHub and public hosting setup also remain outstanding.
 Implementation proceeds independently and cloud checks remain
 **BLOCKED — NOT VERIFIED**. No paid resource, trial, automatic upgrade or deletion
 has been requested.
@@ -66,9 +69,9 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 
 | Service/capability | Status | Evidence or blocker |
 |---|---|---|
-| Managed Kafka produce + consume | **NOT VERIFIED** | BLOCKED: Aiven account, broker, CA/client credentials absent |
-| Managed PostgreSQL write/read | **NOT VERIFIED** | BLOCKED: service/user/CA absent |
-| Feast materialization + Valkey retrieval | **NOT VERIFIED** | BLOCKED: managed PostgreSQL/Valkey and credentials absent |
+| Managed Kafka produce + consume | **NOT VERIFIED** | BLOCKED: Free broker exists per owner screenshot; endpoint, CA/client credentials and topic settings not yet verified |
+| Managed PostgreSQL write/read | **NOT VERIFIED** | BLOCKED: Free service exists per owner screenshot; database/version/user/CA not yet verified |
+| Feast materialization + Valkey retrieval | **NOT VERIFIED** | BLOCKED: both Free services exist per owner screenshot; credentials and Feast materialization not yet verified |
 | DagsHub MLflow metrics/artifacts/registry | **NOT VERIFIED** | BLOCKED: account/repository/token absent |
 | Scheduled cloud pipeline output | **NOT VERIFIED** | BLOCKED: managed stores and workflow activation absent |
 | Actual cron execution | **NOT VERIFIED** | Requires scheduled-event Actions run, not a manual invocation |
@@ -111,6 +114,24 @@ uses a one-hour zone snapshot TTL and bulk PostgreSQL feature upserts; the local
 feature definition remains unchanged. Corrected corridor training no longer
 fills missing history using the future target. No failed promotion gate was bypassed.
 
+### Aiven handoff update — 2026-10-18
+
+- Owner screenshot: `pg-11e9a1b` (Free-1-1gb), `valkey-21c27f8`
+  (Free-1), `kafka-1b938f` (Free-0), all Running. PostgreSQL/Valkey show
+  DigitalOcean `blr`, India. This verifies the supplied Console evidence only.
+- GitHub authenticated account has repository admin permission and `repo`/`workflow`
+  token scopes. Created the `free-cloud` environment successfully. Secret-name
+  listing succeeded and returned no configured names. No token values recorded.
+- Added an interactive stdin-only helper and manual `verify-aiven` workflow path.
+  Automatic jobs remain opt-in; this check needs no DagsHub account and creates
+  no services/topics. It preserves existing data and uses only bounded test writes.
+- Corrected Valkey TLS configuration: public system roots by default, optional
+  custom CA, certificate/hostname verification always required. Kafka/PG CAs
+  remain required. Render no longer points to a nonexistent Valkey CA file.
+- Aiven-only preflight was attempted without credentials and correctly reported
+  **BLOCKED — NOT VERIFIED** for the seven required connection/PEM names.
+  No managed write/read or deployment success is claimed.
+
 ## Infrastructure, security and cost
 
 The Free manifest creates one Free web service only. No paid disk/worker/database
@@ -124,13 +145,17 @@ Expected recurring hosting cost: **$0/month within Free quotas and availability*
 Use no-card Free accounts; do not enable billed usage. Render overages can bill
 if a payment method is added, so no-card suspension is part of this cost boundary.
 Free quotas can suspend the project, and free storage cannot retain unlimited
-history. Region/Pakistan signup eligibility is account-specific and NOT VERIFIED;
+history. Aiven signup/provisioning from Pakistan is now owner-confirmed (Console screenshot);
+PostgreSQL/Valkey Bangalore placement is visible, Kafka region and other providers
+remain unverified;
 Gemini's official country list explicitly includes Pakistan.
 
 ## Exact unresolved owner actions
 
-1. Create and verify Free accounts/resources from the runbook without paid trials
-   or cards; confirm regional/Pakistan eligibility and PostgreSQL 16 availability.
+1. Reuse the three existing Aiven Free services. Retrieve their connection fields,
+   Kafka client key/certificate and Kafka/PostgreSQL CAs through Console; confirm
+   the PostgreSQL major version, `logistics` database and two topic settings.
+   Create remaining DagsHub/hosting Free accounts as documented, without paid trials/cards.
 2. Add the enumerated GitHub secrets/variables, Render secret files/environment
    and Community Cloud API/access-key secrets. Do not send credentials in chat.
 3. Complete reviewed branch integration, bootstrap, real training/promotion,
@@ -149,7 +174,7 @@ deployment change set.
 
 ### Deployment file inventory
 
-53 changed or new deployment files:
+56 changed or new deployment files:
 
 - `.dockerignore`
 - `.env.example`
@@ -173,8 +198,10 @@ deployment change set.
 - `pyproject.toml`
 - `render.yaml`
 - `scripts/cloud_preflight.py`
+- `scripts/configure_cloud_secrets.py`
 - `scripts/probe_cloud_memory.py`
 - `scripts/validate_cloud_config.py`
+- `scripts/verify_aiven_services.py`
 - `scripts/verify_cloud_deployment.py`
 - `scripts/verify_free_profile_e2e.py`
 - `src/agents/providers.py`
@@ -199,6 +226,7 @@ deployment change set.
 - `src/training/pipeline.py`
 - `src/transform/stream_consumer.py`
 - `tests/test_cloud_deployment.py`
+- `tests/test_cloud_secret_setup.py`
 - `tests/test_stream_consumer.py`
 - `tests/test_training_dataset.py`
 - `ui/app.py`

@@ -28,8 +28,6 @@ services:
         sync: false
       - key: POSTGRES_SSLROOTCERT
         value: /etc/secrets/postgres-ca.pem
-      - key: REDIS_SSL_CA
-        value: /etc/secrets/valkey-ca.pem
       - key: MLFLOW_TRACKING_URI
         sync: false
       - key: MLFLOW_TRACKING_USERNAME

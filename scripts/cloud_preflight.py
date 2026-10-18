@@ -20,12 +20,14 @@ REQUIRED = (
     "KAFKA_CERT_PEM",
     "KAFKA_KEY_PEM",
     "POSTGRES_CA_PEM",
-    "VALKEY_CA_PEM",
 )
 
 
-def prepare(directory: Path):
-    missing = [name for name in REQUIRED if not os.getenv(name, "").strip()]
+def prepare(directory: Path, aiven_only: bool = False):
+    required = [
+        name for name in REQUIRED if not (aiven_only and name.startswith("MLFLOW_"))
+    ]
+    missing = [name for name in required if not os.getenv(name, "").strip()]
     if missing:
         raise ValueError(
             "BLOCKED — NOT VERIFIED: missing configuration names: " + ", ".join(missing)
@@ -35,9 +37,20 @@ def prepare(directory: Path):
         "sslmode"
     ) != ["verify-full"]:
         raise ValueError("DATABASE_URL must specify PostgreSQL and sslmode=verify-full")
-    if urlsplit(os.environ["REDIS_URL"]).scheme != "rediss":
+    redis = urlsplit(os.environ["REDIS_URL"])
+    if redis.scheme != "rediss":
         raise ValueError("REDIS_URL must specify rediss:// with verified TLS")
-    if not os.environ["MLFLOW_TRACKING_URI"].startswith("https://dagshub.com/"):
+    query = parse_qs(redis.query)
+    if query.get("ssl_cert_reqs", ["required"])[0].lower() not in {
+        "required",
+        "2",
+    } or query.get("ssl_check_hostname", ["true"])[0].lower() not in {"true", "1"}:
+        raise ValueError(
+            "REDIS_URL must not disable certificate or hostname verification"
+        )
+    if not aiven_only and not os.environ["MLFLOW_TRACKING_URI"].startswith(
+        "https://dagshub.com/"
+    ):
         raise ValueError(
             "Free cloud profile requires the DagsHub HTTPS tracking endpoint"
         )
@@ -50,6 +63,8 @@ def prepare(directory: Path):
         "POSTGRES_CA_PEM": "POSTGRES_SSLROOTCERT",
         "VALKEY_CA_PEM": "REDIS_SSL_CA",
     }.items():
+        if secret == "VALKEY_CA_PEM" and not os.getenv(secret, "").strip():
+            continue  # Aiven Valkey normally uses public CA roots; verify with system trust.
         content = os.environ[secret]
         if "-----BEGIN " not in content or "-----END " not in content:
             raise ValueError(f"{secret} must contain a PEM certificate/key")
@@ -63,9 +78,10 @@ def prepare(directory: Path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--github-env", action="store_true")
+    parser.add_argument("--aiven-only", action="store_true")
     args = parser.parse_args()
     try:
-        exports = prepare(Path(".certs"))
+        exports = prepare(Path(".certs"), aiven_only=args.aiven_only)
     except ValueError as exc:
         raise SystemExit(str(exc)) from None
     if args.github_env:

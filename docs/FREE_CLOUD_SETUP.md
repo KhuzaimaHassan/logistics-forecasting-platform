@@ -4,6 +4,13 @@
 [DEPLOYMENT_REPORT.md](DEPLOYMENT_REPORT.md) for verification and
 [FREE_TIER_RESEARCH.md](FREE_TIER_RESEARCH.md) for current official offers.
 
+**Provisioning update (2026-10-18):** the owner successfully provisioned Aiven
+from Pakistan. The supplied Console screenshot shows `pg-11e9a1b`,
+`valkey-21c27f8` and `kafka-1b938f` Running on Free plans. PostgreSQL/Valkey
+show DigitalOcean Bangalore (`blr`); Kafka's region is not shown. These existing
+services must be reused. Their connection details and data-plane access remain
+NOT VERIFIED. Follow [Aiven credential handoff](#aiven-credential-handoff).
+
 ## Architecture and data meaning
 
 ```mermaid
@@ -44,7 +51,7 @@ Do not paste credentials into chat. Do not add a card, choose a trial, upgrade o
 accept paid resources. If a provider requires billing verification, record the
 blocker rather than proceeding.
 
-1. In Aiven Console create **Free** Kafka, **Free** PostgreSQL and **Free** Valkey.
+1. Reuse the existing **Free** Kafka, **Free** PostgreSQL and **Free** Valkey.
    Kafka Free is currently Console-only. Select only an actually offered Free
    region. PostgreSQL 16 must be available; otherwise record the compatibility
    blocker. Use a dedicated `logistics` database. Download each service CA and
@@ -87,7 +94,7 @@ Create the GitHub Actions environment `free-cloud` and store these secrets there
 | `CLOUD_KAFKA_CERT_PEM` | Multiline Kafka client certificate |
 | `CLOUD_KAFKA_KEY_PEM` | Multiline Kafka private key |
 | `CLOUD_POSTGRES_CA_PEM` | Multiline PostgreSQL CA |
-| `CLOUD_VALKEY_CA_PEM` | Multiline Valkey CA |
+| `CLOUD_VALKEY_CA_PEM` | Optional custom Valkey CA only; normally omit for Aiven's publicly trusted certificate |
 | `CLOUD_MLFLOW_TRACKING_URI` | Actual `https://dagshub.com/OWNER/REPO.mlflow` |
 | `CLOUD_MLFLOW_USERNAME` | DagsHub username |
 | `CLOUD_MLFLOW_TOKEN` | Scoped DagsHub token |
@@ -161,11 +168,13 @@ It does not claim live prediction drift without live observations.
 
 ## API and dashboard hosting settings
 
-Render variables are enumerated in `render.yaml`. Upload two secret files in
-Render settings before first launch:
+Render variables are enumerated in `render.yaml`. Upload secret files in
+Render settings only when needed (one required, one optional):
 
 - `/etc/secrets/postgres-ca.pem`: actual PostgreSQL CA.
-- `/etc/secrets/valkey-ca.pem`: actual Valkey CA.
+- Optional `/etc/secrets/valkey-ca.pem`: custom Valkey CA only if the service
+  actually needs one; set `REDIS_SSL_CA` to this path only in that case. Normally
+  omit both and use system trust with hostname/certificate verification enabled.
 
 Set `DATABASE_URL`, `REDIS_URL`, DagsHub endpoint/auth, `DEPLOYMENT_MODE=cloud`,
 `MLFLOW_MODEL_LOAD_MODE=native`, and the actual dashboard origin in `CORS_ORIGINS`.
@@ -232,3 +241,128 @@ actual response/table/map. Let Render sleep naturally or restart it, then repeat
 ready/demand/ETA checks and inspect persisted predictions. Inspect an actual
 scheduled-event Actions run to prove cron execution. An HTTP shell or manual DB
 run row alone proves neither visual rendering nor scheduler execution.
+
+## Aiven credential handoff
+
+The `free-cloud` GitHub environment now exists. CLI authentication has `repo` and
+`workflow` scopes and repository admin permission; its environment API creation
+and secret-name listing succeeded. Secret values cannot be read back from GitHub.
+No Aiven token or Console session has been supplied to this agent. Do not create
+another service, enable a trial or change any plan.
+
+### Retrieve the existing connection details
+
+Open the existing project in Aiven Console, then each existing service:
+
+1. **Kafka `kafka-1b938f`:** Overview -> Connection information / Quick connect ->
+   Client certificate (SSL). Copy the bootstrap hostname and **that SSL port**,
+   without a URI scheme. Download the CA certificate (`ca.pem`), service/client
+   certificate (`service.cert` or `.crt`) and access/private key (`service.key`).
+   Some Console versions offer a combined download. Use the certificate/key for
+   the selected service user; do not mix files from another project/user. Do not
+   copy the Schema Registry URL or SASL port. Our profile uses `SSL` mutual TLS,
+   not SASL, with hostname verification. See [official connection instructions](https://aiven.io/docs/products/kafka/howto/kcat).
+2. **PostgreSQL `pg-11e9a1b`:** Overview -> Connection information. Record hostname,
+   port, username, password and server major version; download its CA certificate.
+   In **Databases**, check whether `logistics` already exists. If absent, create
+   only this database in the existing Free service (no new service). Preserve
+   `defaultdb` and all existing databases. Use the migration-capable service user
+   for bootstrap; a restricted job/API role follows after schema setup. The
+   target is PostgreSQL 16; a higher provisioned major version requires recorded
+   compatibility verification, not recreation/downgrade. This stage's probe reports
+   the actual version and requires at least 16. See [database creation](https://aiven.io/docs/products/postgresql/howto/create-database).
+3. **Valkey `valkey-21c27f8`:** Overview -> Connection information. Record its
+   hostname, TLS port, actual username and password; use logical database `0`.
+   Do not assume the username matches PostgreSQL. Aiven normally uses a publicly
+   trusted certificate, **no downloadable project CA is needed**. Never substitute
+   Kafka/PG CA or disable verification. See [Aiven TLS trust](https://aiven.io/docs/platform/concepts/tls-ssl-certificates)
+   and [Valkey connection details](https://aiven.io/docs/products/valkey/howto/connect-python).
+
+Save downloaded certificates/keys in a private folder outside the repository and
+OneDrive (for example a folder under your local profile). Do not upload them to
+chat, commit them, or paste service URIs/passwords into commands. The passwords
+below are entered raw; the helper percent-encodes them exactly once.
+
+### Database and topics
+
+The connection database is **`logistics`**, not `defaultdb`. Bootstrap applies the
+existing Alembic migrations for `raw`/`warehouse` and explicitly creates `feast`
+for its SQL registry. DagsHub owns MLflow storage separately. Do not precreate
+application tables manually or grant the eventual API role administrative rights.
+
+In Kafka -> **Topics**, inspect before creating anything:
+
+| Setting | Expected |
+|---|---|
+| Topic names | `trip.events`, `trip.events.deadletter` only initially |
+| Partitions | Two per topic if fixed by Free; existing one/two partitions are supported |
+| Replication | Keep provider-managed Free default; do not force the local single-broker setting |
+| Retention | Keep fixed Free default; the application does not extend it |
+| Cleanup | Preserve default delete/retention behavior; do not enable compaction for trip events |
+| Consumer group | `logistics-free-scheduled-v1`, created automatically by the consumer |
+| Producer acknowledgements | `all`; consumer auto-commit disabled |
+
+Do not enable sample-data generators or add three unused live-feed topics. Free
+allows up to five topics, each with two partitions; throughput is 250 KiB/s in
+and out and retention is provider-fixed. If topic creation controls are absent,
+report that limitation rather than upgrading. The initial Aiven probe **does not
+create topics**; bootstrap reuses existing topics. Limited topic/group read/write
+ACLs are preferred where Free permits them. See [current Free limits](https://aiven.io/docs/products/kafka/free-tier/kafka-free-tier).
+
+### Configure encrypted environment secrets
+
+From a **private interactive PowerShell terminal**, in the project folder:
+
+```powershell
+.venv/Scripts/python.exe scripts/configure_cloud_secrets.py aiven
+```
+
+The helper prompts for PostgreSQL and Valkey fields, Kafka `HOST:PORT` and the
+four certificate/key file paths. Passwords are hidden. It sends values directly
+to `gh secret set --env free-cloud --repo KhuzaimaHassan/logistics-forecasting-platform`
+via stdin; no credential-bearing command arguments, local secret file or printed
+secret values are produced. Uploads are incremental; a failed run may be rerun.
+The helper does not create or change any cloud resource. Downloaded files remain
+under your control; it does not delete them. Check names only afterward:
+
+```powershell
+gh secret list --repo KhuzaimaHassan/logistics-forecasting-platform --env free-cloud
+```
+
+Expected Aiven names: `CLOUD_DATABASE_URL`, `CLOUD_REDIS_URL`,
+`CLOUD_KAFKA_BROKER`, `CLOUD_KAFKA_CA_PEM`, `CLOUD_KAFKA_CERT_PEM`,
+`CLOUD_KAFKA_KEY_PEM`, `CLOUD_POSTGRES_CA_PEM`. `CLOUD_VALKEY_CA_PEM` is optional.
+The helper constructs `sslmode=verify-full` PostgreSQL and `rediss://` Valkey URLs.
+Alternatively use GitHub Settings -> Environments -> free-cloud -> Add environment
+secret with the exact names in the table above; this does not require the helper.
+
+After configuring these names, tell the agent **Aiven secrets configured** (no
+values). The new workflow is not on `main` yet (confirmed HTTP 404), so direct dispatch
+will not be available until reviewed integration. The already registered ETL
+workflow provides a manual bridge to the exact same Aiven job on this branch,
+without merging or changing protected branches. The agent can dispatch:
+
+```powershell
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f verify_aiven=true
+```
+
+This manual-only check does not require `CLOUD_DEPLOYMENT_ENABLED=true`, DagsHub
+or hosting. Preflight checks configuration/TLS file shape; connectivity is a
+separate step. Actual tests write/read a PostgreSQL session temporary table,
+write/read a unique Valkey key with 120-second expiry, and publish/read one
+validated authentic TLC event at its exact Kafka offset. No existing data is
+deleted. The trip event may subsequently be consumed by the normal idempotent
+pipeline. JSON contains sanitized evidence or exception type only. Feast online
+materialization remains NOT VERIFIED until the genuine bootstrap completes.
+
+### Remaining providers and full verification
+
+DagsHub tracking/artifacts/registry, Render API, Community Cloud UI and optional
+LLM credentials still require owner account access. For DagsHub, after creating
+its Free repository/token, run the helper's `mlflow` group. The `agent` group
+uploads a shared API/UI access key from your password manager; it is optional for
+initial infrastructure checks. The LLM provider key belongs on the API host.
+Do not enable full scheduled operations until MLflow and managed checks pass.
+The agent can independently inspect secret names, dispatch checks, fix code,
+review sanitized artifacts and update the report; it cannot retrieve passwords,
+private keys or service details from your screenshot or GitHub secrets.
