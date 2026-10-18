@@ -1,14 +1,17 @@
 # Logistics Demand & ETA Forecasting Platform
 
-> **Cloud deployment status (2026-10-17): no public deployment verified yet.**
+> **Cloud deployment status (2026-10-18): no public deployment verified yet.**
 > The free-cloud profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow,
 > Render FastAPI, Community Cloud Streamlit and GitHub Actions running Prefect
 > flows. It processes authentic historical samples on a schedule. Forecasts are
 > computed by trained models; sampled historical data is explicitly labelled.
+> The authentic-data profile passed end to end on disposable CI services.
 > Cloud accounts/credentials are still required. See the
 > [deployment report](docs/DEPLOYMENT_REPORT.md),
 > [setup commands and secrets](docs/FREE_CLOUD_SETUP.md), and
 > [verified provider research](docs/FREE_TIER_RESEARCH.md).
+> The audit also removed future-target leakage in missing corridor history;
+> prior ETA benchmark figures below require recertification with corrected data.
 
 [![CI/CD Pipeline](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)

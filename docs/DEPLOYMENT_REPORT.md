@@ -1,4 +1,4 @@
-# Deployment report — 2026-10-17
+# Deployment report — 2026-10-18
 
 ## Outcome
 
@@ -51,7 +51,8 @@ executing Prefect OSS flows; optional Free Groq/Gemini agent. See
 [provider evidence](FREE_TIER_RESEARCH.md) and
 [complete setup/secrets/commands](FREE_CLOUD_SETUP.md).
 
-This is a working-code deployment candidate, conditional on account eligibility
+The authentic bounded profile passed end to end on disposable CI services.
+This deployment remains conditional on account eligibility
 and live resource proof. Render full-model Linux memory remains an acceptance
 gate. It has no continuous trip worker/SLA, and source trips are an explicitly
 labelled historical sample. Kafka processing is real but scheduled. Finite free
@@ -78,7 +79,37 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 | Restart/cold-start behavior | **NOT VERIFIED** | Requires actual hosted restart/sleep and repeated predictions |
 | Offline cloud/consumer regression checks | **VERIFIED** | 20 tests passed on local Python 3.11; scope is hermetic contracts only |
 | Cloud API import memory | **VERIFIED** | Windows process RSS 204.8 MiB; full MLflow pyfunc not imported; not Linux full-model peak proof |
-| Full revised test suite / CI | **NOT VERIFIED** | Broader validation underway; final actual results will be recorded |
+| Full revised unit/contract suite | **VERIFIED** | 363 passed, 1 skipped on [run 39045754025](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39045754025); latest [run 39046510008](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046510008) also passed all three jobs on commit 62717dd |
+| Compose build/integration | **VERIFIED** | Corrected [full CI run](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046510008) passed Docker builds and real disposable-service integration; fixture tests are not managed-cloud proof |
+| Linux free-runtime memory gate | **VERIFIED** | [Memory job](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39044393912/job/117430124274) measured 296.8 MiB peak inside 512 MiB; includes API/agent imports and fixture-trained Booster, not hosted production models |
+| Authentic bounded profile on CI services | **VERIFIED** | [Run 39046508012](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046508012), commit 62717dd; actual TLC -> Kafka -> PostgreSQL -> Feast/Redis -> MLflow -> FastAPI -> persisted reports; [sanitized evidence](free-profile-e2e-evidence.json) |
+| ARM64 image builds | **VERIFIED** | [Run 39046506079](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046506079) succeeded |
+
+### Authentic-data results and limitations
+
+The manual CI run published/consumed and persisted **9,232 valid trips** from
+10,000 deterministically sampled source rows (768 rejected by validation). It
+created 107,155 zone and 8,760 corridor feature rows using official zone centroids.
+Training completed in 15.31 seconds after feature construction. The existing
+promotion gates accepted both genuine models: demand MAE 0.0493 versus baseline
+0.0540; ETA MAE 430.30 seconds versus baseline 666.49 seconds. These are sparse
+historical-sample holdout results, not full-population or live benchmarks.
+
+FastAPI readiness confirmed PostgreSQL, Redis and MLflow; both model versions
+were Production version 1 with `is_fallback=false`. Demand returned 0.71 pickups
+for zone 7; ETA returned 1,310.7 seconds for corridor 244_262. Both identified
+`data_as_of=2023-01-31T23:00:00+00:00`, and two predictions were persisted.
+Monitoring persisted three HTML reports and **raised drift/performance alerts**;
+its status was `completed_with_alerts`, with automatic retraining disabled. It is
+a historical backtest, not live drift evidence. Disposable CI artifacts and model
+registrations are not production storage and must be rebuilt on managed services.
+
+The first authentic run failed because the initial migrations lacked the Feast
+schema; the explicit schema initialization fixed it. A subsequent superseded run
+was cancelled while diagnosing costly point-in-time joins. The cloud profile
+uses a one-hour zone snapshot TTL and bulk PostgreSQL feature upserts; the local
+feature definition remains unchanged. Corrected corridor training no longer
+fills missing history using the future target. No failed promotion gate was bypassed.
 
 ## Infrastructure, security and cost
 
@@ -111,17 +142,20 @@ No cloud URL or successful deployment is fabricated to fill these blockers.
 
 ## Change inventory
 
-The final generated inventory and check results are appended after validation.
+The inventory below covers the deployment branch relative to dev.
 The pre-existing Oracle retry script edit is preserved and excluded from this
 deployment change set.
 
 
 ### Deployment file inventory
 
+53 changed or new deployment files:
+
 - `.dockerignore`
 - `.env.example`
 - `.github/workflows/ci.yml`
 - `.github/workflows/deploy.yml`
+- `.github/workflows/etl_live_smoke.yml`
 - `.github/workflows/free-cloud.yml`
 - `.gitignore`
 - `.streamlit/config.toml`
@@ -135,18 +169,23 @@ deployment change set.
 - `docs/FREE_CLOUD_SETUP.md`
 - `docs/FREE_TIER_RESEARCH.md`
 - `docs/cloud-verification.json`
+- `docs/free-profile-e2e-evidence.json`
 - `pyproject.toml`
 - `render.yaml`
 - `scripts/cloud_preflight.py`
+- `scripts/probe_cloud_memory.py`
 - `scripts/validate_cloud_config.py`
 - `scripts/verify_cloud_deployment.py`
+- `scripts/verify_free_profile_e2e.py`
 - `src/agents/providers.py`
 - `src/common/config.py`
 - `src/common/db.py`
 - `src/common/kafka_utils.py`
 - `src/extract/authoritative_zones.py`
 - `src/extract/live_feed_producers.py`
+- `src/features/client.py`
 - `src/features/config.py`
+- `src/features/offline_extractor.py`
 - `src/monitoring/service.py`
 - `src/orchestration/flows/free_tier_pipeline.py`
 - `src/orchestration/free_tier_jobs.py`
@@ -155,10 +194,13 @@ deployment change set.
 - `src/serving/cloud_policy.py`
 - `src/serving/feature_extractor.py`
 - `src/serving/model_loader.py`
+- `src/serving/schemas.py`
+- `src/training/dataset.py`
 - `src/training/pipeline.py`
 - `src/transform/stream_consumer.py`
 - `tests/test_cloud_deployment.py`
 - `tests/test_stream_consumer.py`
+- `tests/test_training_dataset.py`
 - `ui/app.py`
 - `ui/requirements.txt`
 - `uv.lock`

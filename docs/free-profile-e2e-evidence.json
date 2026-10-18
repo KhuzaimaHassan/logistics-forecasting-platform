@@ -1,0 +1,184 @@
+{
+  "scope": "Authentic TLC data, real disposable CI PostgreSQL/Redis/Kafka/MLflow; no managed cloud verification",
+  "bootstrap": {
+    "observation_start": "2023-01-01T05:00:00+00:00",
+    "observation_end": "2023-01-31T23:00:00+00:00",
+    "warehouse_rows": 9232,
+    "zone_feature_rows": 107155,
+    "corridor_feature_rows": 8760,
+    "zone_reference": "official_tlc_polygon_centroids_v1",
+    "source": "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2023-01.parquet",
+    "source_sha256": "9f0e03dd7f8f94ecc15949cdbfd2a4e1fc9ebb41a11882215158c9fc95012e31",
+    "sample_size": 9232,
+    "rejected_source_rows": 768,
+    "next_index": 9232,
+    "published_events": 9232,
+    "remaining_sample_events": 0,
+    "feature_checkpoint_index": 9232,
+    "mode": "scheduled_historical_sample"
+  },
+  "training": {
+    "status": "success",
+    "elapsed_seconds": 15.311856061000015,
+    "datasets": {
+      "demand_train_rows": 99414,
+      "demand_val_rows": 43921,
+      "corridor_train_rows": 4586,
+      "corridor_val_rows": 2061
+    },
+    "demand": {
+      "baseline_mae": 0.054,
+      "model_mae": 0.0493,
+      "lift_pct": 8.7,
+      "run_id": "73953067cb1941a280f9fb09a8d3a225",
+      "promotion": {
+        "model_name": "demand_lightgbm_model",
+        "promoted": true,
+        "version": "1",
+        "stage": "Production",
+        "reason": "Inaugural promotion (cold start): Candidate MAE (0.0493) beat baseline (0.0540)",
+        "candidate_mae": 0.0493,
+        "baseline_mae": 0.054,
+        "production_mae": null,
+        "production_version": null,
+        "hurdle_mae": null,
+        "min_improvement_pct": 0.02,
+        "actual_improvement_pct": null
+      }
+    },
+    "duration": {
+      "baseline_mae": 666.4875,
+      "model_mae": 430.3019,
+      "lift_pct": 35.44,
+      "run_id": "3767becb27f743ccabee737e055ed347",
+      "promotion": {
+        "model_name": "corridor_duration_lightgbm_model",
+        "promoted": true,
+        "version": "1",
+        "stage": "Production",
+        "reason": "Inaugural promotion (cold start): Candidate MAE (430.3019) beat baseline (666.4875)",
+        "candidate_mae": 430.3019,
+        "baseline_mae": 666.4875,
+        "production_mae": null,
+        "production_version": null,
+        "hurdle_mae": null,
+        "min_improvement_pct": 0.02,
+        "actual_improvement_pct": null
+      }
+    },
+    "r2_backup": {
+      "status": "skipped",
+      "reason": "backup_disabled"
+    },
+    "evaluation_mode": "historical_sample_holdout"
+  },
+  "monitoring": {
+    "run_id": "monitor-9dd232f99aaf",
+    "status": "completed_with_alerts",
+    "elapsed_seconds": 0.9215479549999941,
+    "datasets": {
+      "current_count": 2000,
+      "reference_count": 2000,
+      "is_cold_start_fallback": false
+    },
+    "report_ids": {
+      "data_drift": "ce024e82-681c-4006-9114-791e95ad86a2",
+      "prediction_drift": "2e36c788-3c54-40dc-b3fb-f2158e18a9bc",
+      "performance_decay": "89fb30bf-4a5f-4943-99cc-0c18776e9427"
+    },
+    "trigger_decision": {
+      "retrain_recommended": true,
+      "action": "alert_logged",
+      "retrain_triggered": false,
+      "alert_reasons": [
+        "Feature 'pickup_count_last_15m' drifted (p=2.1612e-02 < 0.1)",
+        "Feature 'day_of_week' drifted (p=0.0000e+00 < 0.1)",
+        "Feature 'pickup_count_same_hour_last_week' drifted (p=1.8192e-02 < 0.1)",
+        "Feature 'pickup_count_last_1h' drifted (p=2.3921e-02 < 0.1)",
+        "Feature 'pickup_count_last_24h' drifted (p=2.3451e-02 < 0.1)",
+        "Feature 'is_holiday' drifted (p=0.0000e+00 < 0.1)",
+        "Feature 'is_weekend' drifted (p=0.0000e+00 < 0.1)",
+        "Prediction output distribution drifted (p=2.3155e-02 < 0.1, current mean=0.07, reference mean=0.07)",
+        "Model MAE degraded by 29.9% (Current MAE 0.06 vs MLflow Production Baseline 0.05, threshold 15.0%)"
+      ]
+    },
+    "baseline_mae": 0.0493,
+    "evaluation_mode": "historical_sample_backtest; not live prediction drift"
+  },
+  "health": {
+    "status": "ok",
+    "dependencies": {
+      "database": "connected",
+      "redis": "connected",
+      "mlflow": "reachable"
+    },
+    "models": {
+      "demand": {
+        "name": "demand_lightgbm_model",
+        "version": "1",
+        "stage": "Production",
+        "status": "production",
+        "is_fallback": false,
+        "run_id": "73953067cb1941a280f9fb09a8d3a225",
+        "loaded_at": "2026-10-17T15:50:04.831872+00:00"
+      },
+      "demand_lightgbm_model": {
+        "name": "demand_lightgbm_model",
+        "version": "1",
+        "stage": "Production",
+        "status": "production",
+        "is_fallback": false,
+        "run_id": "73953067cb1941a280f9fb09a8d3a225",
+        "loaded_at": "2026-10-17T15:50:04.831872+00:00"
+      },
+      "duration": {
+        "name": "corridor_duration_lightgbm_model",
+        "version": "1",
+        "stage": "Production",
+        "status": "production",
+        "is_fallback": false,
+        "run_id": "3767becb27f743ccabee737e055ed347",
+        "loaded_at": "2026-10-17T15:50:05.134480+00:00"
+      },
+      "corridor_duration_lightgbm_model": {
+        "name": "corridor_duration_lightgbm_model",
+        "version": "1",
+        "stage": "Production",
+        "status": "production",
+        "is_fallback": false,
+        "run_id": "3767becb27f743ccabee737e055ed347",
+        "loaded_at": "2026-10-17T15:50:05.134480+00:00"
+      }
+    },
+    "timestamp": "2026-10-17T15:50:05.477874+00:00"
+  },
+  "demand": {
+    "data_as_of": "2023-01-31T23:00:00+00:00",
+    "zone_id": 7,
+    "horizon_minutes": 60,
+    "predicted_pickups": 0.71,
+    "status": "ok",
+    "cache_hit": true,
+    "model_version": "1",
+    "as_of": "2026-10-17T15:50:05.552854+00:00",
+    "warning": null
+  },
+  "eta": {
+    "data_as_of": "2023-01-31T23:00:00+00:00",
+    "origin_zone_id": 244,
+    "dest_zone_id": 262,
+    "corridor_id": "244_262",
+    "predicted_duration_seconds": 1310.7,
+    "predicted_duration_minutes": 21.85,
+    "status": "ok",
+    "cache_hit": true,
+    "model_version": "1",
+    "as_of": "2026-10-17T15:50:05.716424+00:00",
+    "warning": null
+  },
+  "persisted_prediction_count": 2,
+  "persisted_html_count": 3,
+  "status": "VERIFIED",
+  "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046508012",
+  "code_commit": "62717dd"
+}

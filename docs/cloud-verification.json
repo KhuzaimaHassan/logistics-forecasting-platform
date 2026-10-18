@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-17T15:03:00.541182+00:00",
+  "generated_at": "2026-10-17T15:47:37.412341+00:00",
   "checks": {
     "postgresql": {
       "status": "NOT VERIFIED",
@@ -49,5 +49,7 @@
       "status": "NOT VERIFIED",
       "reason": "Requires successful GitHub scheduled event evidence"
     }
-  }
+  },
+  "automated_checks_complete": false,
+  "manual_acceptance_complete": false
 }

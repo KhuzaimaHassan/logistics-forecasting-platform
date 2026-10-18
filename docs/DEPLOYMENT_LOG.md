@@ -58,6 +58,34 @@ Implementation results and actual check output are appended as work completes.
   edit has an import-order issue and remains untouched/excluded from our commit.
 - `git diff --check` passed.
 - Broad local test collection is being diagnosed; no full-suite pass claimed.
+- Subsequent GitHub CI passed all 362 tests (one skipped), lint, formatting and
+  offline manifests. The first container attempt exposed a health-contract
+  regression, fixed with an actual MLflow probe; the corrected full Compose CI
+  subsequently passed. Linux 512 MiB image probe passed at 296.8 MiB peak RSS
+  including API/agent imports and an explicitly fixture-trained Booster.
+- Authentic-data CI found that fresh migrations did not create the Feast schema;
+  fixed by ensuring it before registry apply. Retest is running. The source audit
+  also found corridor training imputed missing historical duration from its future
+  label. Removed this target leakage and added a missing-history regression check;
+  historical ETA benchmark numbers are not recertified by prior green tests.
 - `verify_cloud_deployment.py` ran without cloud credentials and correctly
   returned nonzero with all cloud checks NOT VERIFIED. Sanitized output is
   retained at `docs/cloud-verification.json`.
+
+## D6–D7 validation closeout — 2026-10-18
+
+- Authentic-data run 39046508012 succeeded on commit 62717dd: 9,232 valid TLC
+  trips passed through real CI Kafka/PostgreSQL, 107,155 zone/8,760 corridor
+  feature rows, Feast/Redis materialization, genuine MLflow training/promotion,
+  FastAPI demand/ETA and durable predictions/monitoring HTML. Sanitized complete
+  output is retained in docs/free-profile-e2e-evidence.json.
+- Both existing promotion gates passed without overrides. ETA holdout MAE was
+  430.30 seconds versus 666.49 baseline after removing future-label imputation.
+  Monitoring completed with alerts; this result is not described as healthy live
+  monitoring. The source remains explicitly historical January 2023 observations.
+- Full CI run 39046510008 and ARM64 builds 39046506079 succeeded. Prior full unit
+  output was 363 passed, one skipped; latest lint/test, Compose and 512 MiB runtime
+  jobs all passed. No local Docker was used.
+- Report and README updated with actual evidence, complete inventory, account
+  setup/secrets guide, conditional $0 cost and outstanding managed verification.
+  No account/resource/public URL exists yet. Managed checks remain NOT VERIFIED.
