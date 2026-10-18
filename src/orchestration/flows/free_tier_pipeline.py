@@ -290,7 +290,7 @@ def scheduled_sample_pipeline(max_events=1000, bootstrap=False):
                         raise RuntimeError(
                             "Acknowledged batch not persisted; its checkpoint remains unchanged"
                         )
-                    result = consumer.consume_batch(
+                    result = consumer.consume_trip_batch(
                         max_messages=100, timeout_seconds=10
                     )
                     if result["deadlettered"]:

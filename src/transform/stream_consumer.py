@@ -383,10 +383,8 @@ class StreamConsumerService:
         )
         future.get(timeout=30)
 
-    def process_trip_event(
-        self, payload: Dict[str, Any], session: Session
-    ) -> Dict[str, Any]:
-        """Validate, normalize, and insert a trip event into warehouse.trips."""
+    def normalize_trip_event(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and normalize a trip with identical rules for both consumers."""
         validated = TripEventPayload(**payload)
 
         # Validate zone IDs against dynamic DB lookup
@@ -432,6 +430,13 @@ class StreamConsumerService:
             "source": validated.source or "replay",
         }
 
+        return db_record
+
+    def process_trip_event(
+        self, payload: Dict[str, Any], session: Session
+    ) -> Dict[str, Any]:
+        """Validate, normalize, and insert a trip event into warehouse.trips."""
+        db_record = self.normalize_trip_event(payload)
         execute_idempotent_insert(
             session=session,
             model_cls=WarehouseTrip,
@@ -681,14 +686,91 @@ class StreamConsumerService:
         except Exception:
             # poll() advances every partition's position. Rewind all to durable
             # commits so an unprocessed partition cannot be skipped on retry.
-            self._buffered_messages.clear()
-            for partition in self.consumer.assignment():
-                committed = self.consumer.committed(partition)
-                if committed is None:
-                    self.consumer.seek_to_beginning(partition)
-                else:
-                    self.consumer.seek(partition, committed)
+            self._rewind_to_committed()
             raise
+
+    def _rewind_to_committed(self):
+        self._buffered_messages.clear()
+        for partition in self.consumer.assignment():
+            committed = self.consumer.committed(partition)
+            if committed is None:
+                self.consumer.seek_to_beginning(partition)
+            else:
+                self.consumer.seek(partition, committed)
+
+    def consume_trip_batch(self, max_messages=100, timeout_seconds=10):
+        """Bounded scheduled-only transaction; offsets follow all durable effects.
+
+        Per-partition order from poll/buffer is preserved. A failed database write,
+        DLQ acknowledgement or offset commit rewinds every assigned partition;
+        replays remain safe through the existing deterministic trip IDs.
+        """
+        if self.enable_feature_push or self.topics != [TOPIC_TRIP_EVENTS]:
+            raise ValueError(
+                "Trip batching requires trip-only topics and feature push disabled"
+            )
+        if not 1 <= max_messages <= 100:
+            raise ValueError("Trip batches must contain at most 100 messages")
+        counts = {
+            "processed": 0,
+            "deadlettered": 0,
+            "trips": 0,
+            "traffic": 0,
+            "transit": 0,
+            "weather": 0,
+        }
+        messages = self._buffered_messages[:max_messages]
+        self._buffered_messages = self._buffered_messages[max_messages:]
+        if not messages:
+            records = self.consumer.poll(
+                timeout_ms=int(timeout_seconds * 1000), max_records=max_messages
+            )
+            fetched = [message for batch in records.values() for message in batch]
+            messages = fetched[:max_messages]
+            self._buffered_messages.extend(fetched[max_messages:])
+        if not messages:
+            return counts
+        offsets, rows = {}, []
+        try:
+            for message in messages:
+                if message.topic != TOPIC_TRIP_EVENTS:
+                    raise RuntimeError("Unexpected topic in trip-only batch")
+                try:
+                    rows.append(self.normalize_trip_event(message.value))
+                except (ValidationError, ValueError) as exc:
+                    self.route_to_deadletter(
+                        topic=message.topic,
+                        raw_payload=message.value,
+                        reason=str(exc),
+                        partition=message.partition,
+                        offset=message.offset,
+                    )
+                    counts["deadlettered"] += 1
+                offsets[TopicPartition(message.topic, message.partition)] = (
+                    OffsetAndMetadata(message.offset + 1, "")
+                )
+            if rows:
+                if self.engine.dialect.name == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert
+                elif (
+                    self.engine.dialect.name == "sqlite"
+                ):  # Hermetic unit fixtures only.
+                    from sqlalchemy.dialects.sqlite import insert
+                else:
+                    raise RuntimeError("Trip batching requires PostgreSQL")
+                with Session(bind=self.engine) as session:
+                    session.execute(
+                        insert(WarehouseTrip)
+                        .values(rows)
+                        .on_conflict_do_nothing(index_elements=["trip_id"])
+                    )
+                    session.commit()
+                counts["processed"] = counts["trips"] = len(rows)
+            self.consumer.commit(offsets)
+        except Exception:
+            self._rewind_to_committed()
+            raise
+        return counts
 
     def run_forever(self) -> None:
         """Run continuous stream consumer loop until interrupted."""

@@ -1,5 +1,6 @@
 """Additive initialization contracts; no provider credentials or connections."""
 
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -66,3 +67,34 @@ def test_topics_create_only_missing_with_topology_replication_and_no_overrides()
         with pytest.raises(Exception) as error:
             ensure_topics()
         assert "sensitive provider output" not in str(error.value)
+
+
+def test_bootstrap_missing_credentials_never_attempts_provider_calls(
+    monkeypatch, tmp_path
+):
+    from scripts import verify_aiven_services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["verify_aiven_services.py", "--bootstrap"])
+    for name in (
+        "DATABASE_URL",
+        "POSTGRES_SSLROOTCERT",
+        "REDIS_URL",
+        "REDPANDA_BROKER",
+        "KAFKA_SSL_CAFILE",
+        "KAFKA_SSL_CERTFILE",
+        "KAFKA_SSL_KEYFILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    with (
+        patch.object(verify_aiven_services, "get_engine") as engine,
+        patch.object(verify_aiven_services, "get_kafka_producer") as producer,
+    ):
+        with pytest.raises(SystemExit) as exit_code:
+            verify_aiven_services.main()
+        assert exit_code.value.code == 1
+        engine.assert_not_called()
+        producer.assert_not_called()
+    results = json.loads((tmp_path / "artifacts/aiven-verification.json").read_text())
+    assert len(results["checks"]) == 5
+    assert all(row["status"] == "NOT VERIFIED" for row in results["checks"].values())
