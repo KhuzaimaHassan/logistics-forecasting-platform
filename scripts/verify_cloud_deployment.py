@@ -18,10 +18,12 @@ from tempfile import TemporaryDirectory
 import requests
 
 
-def run_checks():
+def run_checks(only=None):
     results = {}
 
     def check(name, required, action):
+        if only is not None and name not in only:
+            return
         missing = [value for value in required if not os.getenv(value)]
         if missing:
             results[name] = {
@@ -178,10 +180,12 @@ def run_checks():
                 dst_path=str(Path(directory) / "readback"),
             )
             assert hashlib.sha256(Path(downloaded).read_bytes()).hexdigest() == expected
+            client.search_registered_models(max_results=1)
             return {
                 "run_id": run.info.run_id,
                 "metric_readback": 1.0,
                 "artifact_sha256": expected,
+                "registry_list_access": True,
             }
 
     def scheduled():
@@ -324,15 +328,18 @@ def main():
     parser.add_argument(
         "--output", type=Path, default=Path("artifacts/cloud-verification.json")
     )
+    parser.add_argument("--only-mlflow", action="store_true")
     args = parser.parse_args()
-    result = run_checks()
+    result = run_checks(only={"mlflow"} if args.only_mlflow else None)
     manual = {"streamlit_visual_predictions", "cold_start_restart", "cron_trigger"}
     automatic_ok = all(
         value["status"] == "VERIFIED"
         for key, value in result["checks"].items()
         if key not in manual
     )
-    result["automated_checks_complete"] = automatic_ok
+    result["verification_scope"] = "mlflow_only" if args.only_mlflow else "full"
+    result["selected_checks_complete"] = automatic_ok
+    result["automated_checks_complete"] = automatic_ok and not args.only_mlflow
     result["manual_acceptance_complete"] = False
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, default=str))

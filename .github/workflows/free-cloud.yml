@@ -11,7 +11,7 @@ on:
       job:
         description: Operation (bootstrap is required once before train)
         type: choice
-        options: [initialize-aiven, verify-aiven, bootstrap-aiven, verify, bootstrap, pipeline, train, monitor]
+        options: [initialize-aiven, verify-aiven, bootstrap-aiven, verify-mlflow, verify, bootstrap, pipeline, train, monitor]
         default: verify
   schedule:
     - cron: '17 3,15 * * *'
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   operate:
     # Explicit opt-in: missing accounts never masquerade as a successful deploy.
-    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["verify-aiven","initialize-aiven","bootstrap-aiven"]'), inputs.job))
+    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","train","monitor","verify"]'), inputs.job))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: free-cloud
@@ -104,8 +104,11 @@ jobs:
       - name: Verify managed services and public applications
         if: steps.operation.outputs.name == 'verify'
         run: uv run python scripts/verify_cloud_deployment.py --output artifacts/cloud-verification.json
+      - name: Verify DagsHub metrics artifacts and registry access
+        if: steps.operation.outputs.name == 'verify-mlflow'
+        run: uv run python scripts/verify_cloud_deployment.py --only-mlflow --output artifacts/cloud-verification.json
       - name: Capture sanitized verification matrix
-        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven"]'), steps.operation.outputs.name)
+        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow"]'), steps.operation.outputs.name)
         uses: actions/upload-artifact@v4
         with:
           name: cloud-verification-${{ github.run_id }}
