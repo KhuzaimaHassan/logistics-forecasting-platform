@@ -199,3 +199,10 @@ Implementation results and actual check output are appended as work completes.
   row-per-RTT claim was not established. Demand join had completed after about
   four minutes. No speculative SQL-entity optimization was implemented. Restarted
   unchanged training path as 39139455829 and will allow its configured timeout.
+
+- Latest full CI 39139531145 (3159201) passed all three jobs: unit/contracts
+  375 passed, one skipped, 45 warnings, 76.32s; Compose integration and Linux
+  fixture memory gate also passed. Managed models remain a separate live gate.
+- Training/monitor CLI now supports explicit JSON output artifacts without
+  changing model parameters or gates; future managed jobs retain sanitized
+  structured results in addition to logs.

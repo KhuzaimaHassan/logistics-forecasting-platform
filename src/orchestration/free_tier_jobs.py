@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from prefect import flow
 from sqlalchemy import text
@@ -166,12 +167,15 @@ def monitor():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", choices=["train", "monitor"])
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    print(
-        json.dumps(
-            train() if args.job == "train" else monitor(), default=str, sort_keys=True
-        )
+    output = json.dumps(
+        train() if args.job == "train" else monitor(), default=str, sort_keys=True
     )
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(output + "\n", encoding="utf-8")
+    print(output)
 
 
 if __name__ == "__main__":

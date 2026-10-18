@@ -97,10 +97,10 @@ jobs:
         run: uv run python -m src.orchestration.flows.free_tier_pipeline --max-events 1000
       - name: Train, evaluate and apply existing promotion gates
         if: steps.operation.outputs.name == 'train'
-        run: uv run python -m src.orchestration.free_tier_jobs train
+        run: uv run python -m src.orchestration.free_tier_jobs train --output artifacts/training.json
       - name: Evaluate observed historical sample drift
         if: steps.operation.outputs.name == 'monitor'
-        run: uv run python -m src.orchestration.free_tier_jobs monitor
+        run: uv run python -m src.orchestration.free_tier_jobs monitor --output artifacts/monitoring.json
       - name: Verify managed services and public applications
         if: steps.operation.outputs.name == 'verify'
         run: uv run python scripts/verify_cloud_deployment.py --output artifacts/cloud-verification.json
@@ -130,7 +130,7 @@ jobs:
         if: always() && steps.operation.outputs.name == 'runtime'
         run: sudo chown -R "$(id -u):$(id -g)" .certs artifacts/runtime
       - name: Capture sanitized verification matrix
-        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","runtime"]'), steps.operation.outputs.name)
+        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","runtime","train","monitor"]'), steps.operation.outputs.name)
         uses: actions/upload-artifact@v4
         with:
           name: cloud-verification-${{ github.run_id }}
@@ -138,5 +138,7 @@ jobs:
             artifacts/cloud-verification.json
             artifacts/aiven-verification.json
             artifacts/runtime/*.json
+            artifacts/training.json
+            artifacts/monitoring.json
           if-no-files-found: warn
           retention-days: 14
