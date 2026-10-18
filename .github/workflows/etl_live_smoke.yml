@@ -11,6 +11,11 @@ on:
         description: Verify existing managed Aiven services using free-cloud environment secrets
         type: boolean
         default: false
+      aiven_operation:
+        description: Managed operation when verify_aiven=true (bootstrap runs real bounded ingestion and Feast)
+        type: choice
+        options: [verify-aiven, bootstrap-aiven]
+        default: verify-aiven
       free_profile:
         description: Verify bounded free profile with authentic data on disposable CI infrastructure
         type: boolean
@@ -35,7 +40,7 @@ jobs:
     uses: ./.github/workflows/free-cloud.yml
     secrets: inherit
     with:
-      job: verify-aiven
+      job: ${{ inputs.aiven_operation || 'verify-aiven' }}
   live-etl-smoke-test:
     if: github.event_name != 'workflow_dispatch' || (!inputs.free_profile && !inputs.verify_aiven && !inputs.initialize_aiven)
     name: Live TLC CloudFront Extraction & PostgreSQL Bulk Load Smoke Test

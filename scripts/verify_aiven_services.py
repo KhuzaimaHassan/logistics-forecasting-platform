@@ -1,4 +1,4 @@
-"""Real bounded Aiven checks before MLflow/bootstrap; never creates services/topics."""
+"""Real bounded Aiven checks; --initialize adds only authorized DB/topics, no services."""
 
 import argparse
 import json
@@ -133,6 +133,11 @@ def main():
         action="store_true",
         help="Create only missing logistics database and two required topics",
     )
+    parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="Run bounded authentic ingestion/migrations and verify Feast against managed Valkey",
+    )
     args = parser.parse_args()
     results = {}
     for name, action in (
@@ -161,8 +166,66 @@ def main():
             results[name] = {"status": "VERIFIED", "evidence": action()}
         except Exception as exc:
             results[name] = {"status": "FAILED", "reason": type(exc).__name__}
+    if args.bootstrap:
+        if all(row["status"] == "VERIFIED" for row in results.values()):
+            try:
+                from src.orchestration.flows.free_tier_pipeline import (
+                    scheduled_sample_pipeline,
+                )
+
+                results["pipeline"] = {
+                    "status": "VERIFIED",
+                    "evidence": scheduled_sample_pipeline(
+                        max_events=10000, bootstrap=True
+                    ),
+                }
+            except Exception as exc:
+                results["pipeline"] = {"status": "FAILED", "reason": type(exc).__name__}
+        else:
+            results["pipeline"] = {
+                "status": "NOT VERIFIED",
+                "reason": "BLOCKED: prerequisite managed checks did not pass",
+            }
+        if results["pipeline"]["status"] == "VERIFIED":
+            try:
+                from src.features.client import FeastOnlineClient
+
+                with get_engine().connect() as conn:
+                    zone, expected = conn.execute(
+                        text(
+                            "SELECT zone_id, pickup_count_last_1h FROM warehouse.zone_demand_features_hourly ORDER BY pickup_datetime DESC, zone_id LIMIT 1"
+                        )
+                    ).one()
+                    size = conn.execute(
+                        text("SELECT pg_database_size(current_database())")
+                    ).scalar_one()
+                feature = FeastOnlineClient().get_zone_demand_features(
+                    [zone], use_push_features=False
+                )[0]
+                assert (
+                    feature.cache_hit
+                    and feature.pickup_count_last_1h == expected
+                    and feature.observed_at is not None
+                )
+                results["feast"] = {
+                    "status": "VERIFIED",
+                    "evidence": {
+                        "zone_id": zone,
+                        "pickups_last_hour": expected,
+                        "online_matches_postgres": True,
+                        "observed_at": feature.observed_at.isoformat(),
+                        "database_bytes": size,
+                    },
+                }
+            except Exception as exc:
+                results["feast"] = {"status": "FAILED", "reason": type(exc).__name__}
+        else:
+            results["feast"] = {
+                "status": "NOT VERIFIED",
+                "reason": "BLOCKED: bootstrap did not complete",
+            }
     output = {
-        "scope": "Managed Aiven connectivity/write/read only; no public deployment or Feast proof",
+        "scope": "Managed Aiven checks; Feast/pipeline only verified when explicitly listed; no public deployment proof",
         "checks": results,
     }
     path = Path("artifacts/aiven-verification.json")
