@@ -11,7 +11,7 @@ on:
       job:
         description: Operation (bootstrap is required once before train)
         type: choice
-        options: [initialize-aiven, verify-aiven, bootstrap-aiven, verify-mlflow, verify, bootstrap, pipeline, train, monitor]
+        options: [initialize-aiven, verify-aiven, bootstrap-aiven, verify-mlflow, verify, bootstrap, pipeline, train, monitor, runtime]
         default: verify
   schedule:
     - cron: '17 3,15 * * *'
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   operate:
     # Explicit opt-in: missing accounts never masquerade as a successful deploy.
-    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","train","monitor","verify"]'), inputs.job))
+    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","train","monitor","runtime","verify"]'), inputs.job))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: free-cloud
@@ -107,13 +107,36 @@ jobs:
       - name: Verify DagsHub metrics artifacts and registry access
         if: steps.operation.outputs.name == 'verify-mlflow'
         run: uv run python scripts/verify_cloud_deployment.py --only-mlflow --output artifacts/cloud-verification.json
+      - name: Build the real minimal API image on CI only
+        if: steps.operation.outputs.name == 'runtime'
+        run: docker build -f src/serving/Dockerfile.cloud -t logistics-cloud:managed .
+      - name: Verify genuine inference and two fresh container starts within Free resource limits
+        if: steps.operation.outputs.name == 'runtime'
+        run: |
+          mkdir -p artifacts/runtime
+          sudo chown 10001:10001 "$POSTGRES_SSLROOTCERT" artifacts/runtime
+          for attempt in 1 2; do
+            docker run --rm --memory=512m --cpus=0.1 \
+              -e DEPLOYMENT_MODE -e MLFLOW_MODEL_LOAD_MODE -e DATABASE_URL -e REDIS_URL \
+              -e MLFLOW_TRACKING_URI -e MLFLOW_TRACKING_USERNAME -e MLFLOW_TRACKING_PASSWORD \
+              -e POSTGRES_SSLROOTCERT=/tmp/postgres-ca.pem -e OMP_NUM_THREADS=1 \
+              -e RUNTIME_PROBE_ATTEMPT="$attempt" \
+              -v "$POSTGRES_SSLROOTCERT:/tmp/postgres-ca.pem:ro" \
+              -v "$PWD/scripts/probe_managed_runtime.py:/tmp/probe_managed_runtime.py:ro" \
+              -v "$PWD/artifacts/runtime:/evidence" \
+              logistics-cloud:managed python /tmp/probe_managed_runtime.py
+          done
+      - name: Restore CI ownership of private probe files
+        if: always() && steps.operation.outputs.name == 'runtime'
+        run: sudo chown -R "$(id -u):$(id -g)" .certs artifacts/runtime
       - name: Capture sanitized verification matrix
-        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow"]'), steps.operation.outputs.name)
+        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","runtime"]'), steps.operation.outputs.name)
         uses: actions/upload-artifact@v4
         with:
           name: cloud-verification-${{ github.run_id }}
           path: |
             artifacts/cloud-verification.json
             artifacts/aiven-verification.json
+            artifacts/runtime/*.json
           if-no-files-found: warn
           retention-days: 14

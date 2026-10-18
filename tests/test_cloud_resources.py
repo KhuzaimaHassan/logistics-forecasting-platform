@@ -98,3 +98,42 @@ def test_bootstrap_missing_credentials_never_attempts_provider_calls(
     results = json.loads((tmp_path / "artifacts/aiven-verification.json").read_text())
     assert len(results["checks"]) == 5
     assert all(row["status"] == "NOT VERIFIED" for row in results["checks"].values())
+
+
+def test_mlflow_only_missing_credentials_does_not_call_other_services(monkeypatch):
+    from scripts.verify_cloud_deployment import run_checks
+
+    for name in (
+        "MLFLOW_TRACKING_URI",
+        "MLFLOW_TRACKING_USERNAME",
+        "MLFLOW_TRACKING_PASSWORD",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    with patch("src.common.db.get_engine") as engine:
+        result = run_checks(only={"mlflow"})
+        engine.assert_not_called()
+    assert result["checks"]["mlflow"]["status"] == "NOT VERIFIED"
+    assert "postgresql" not in result["checks"]
+
+
+def test_partial_mlflow_success_never_marks_full_acceptance_complete(
+    monkeypatch, tmp_path
+):
+    from scripts import verify_cloud_deployment
+
+    output = tmp_path / "mlflow.json"
+    monkeypatch.setattr(
+        "sys.argv", ["verify", "--only-mlflow", "--output", str(output)]
+    )
+    with patch.object(
+        verify_cloud_deployment,
+        "run_checks",
+        return_value={"checks": {"mlflow": {"status": "VERIFIED"}}},
+    ):
+        with pytest.raises(SystemExit) as exit_code:
+            verify_cloud_deployment.main()
+        assert exit_code.value.code == 0
+    result = json.loads(output.read_text())
+    assert result["selected_checks_complete"] is True
+    assert result["automated_checks_complete"] is False
+    assert result["manual_acceptance_complete"] is False
