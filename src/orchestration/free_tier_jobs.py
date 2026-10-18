@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -169,6 +170,12 @@ def main():
     parser.add_argument("job", choices=["train", "monitor"])
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    training_logger = logging.getLogger("src.training")
+    training_logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(message)s"))
+    training_logger.addHandler(handler)
+    training_logger.propagate = False
     output = json.dumps(
         train() if args.job == "train" else monitor(), default=str, sort_keys=True
     )

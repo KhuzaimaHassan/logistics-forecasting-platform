@@ -1,6 +1,7 @@
 """Point-in-time training dataset generation and time-based splitting (M3-2, ADR-016)."""
 
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -180,9 +181,15 @@ def _fetch_historical_features_in_batches(
         Concatenated DataFrame containing retrieved historical features.
     """
     if len(entity_df) <= batch_size:
-        return store.get_historical_features(
+        started = time.perf_counter()
+        logger.info("Feast single batch starting (%d rows)", len(entity_df))
+        result = store.get_historical_features(
             entity_df=entity_df, features=features
         ).to_df()
+        logger.info(
+            "Feast single batch finished in %.1fs", time.perf_counter() - started
+        )
+        return result
 
     dfs = []
     num_batches = (len(entity_df) + batch_size - 1) // batch_size
@@ -193,10 +200,23 @@ def _fetch_historical_features_in_batches(
     )
     for i in range(num_batches):
         batch_entity_df = entity_df.iloc[i * batch_size : (i + 1) * batch_size].copy()
+        started = time.perf_counter()
+        logger.info(
+            "Feast batch %d/%d starting (%d rows)",
+            i + 1,
+            num_batches,
+            len(batch_entity_df),
+        )
         batch_res = store.get_historical_features(
             entity_df=batch_entity_df, features=features
         ).to_df()
         dfs.append(batch_res)
+        logger.info(
+            "Feast batch %d/%d finished in %.1fs",
+            i + 1,
+            num_batches,
+            time.perf_counter() - started,
+        )
     return pd.concat(dfs, ignore_index=True)
 
 

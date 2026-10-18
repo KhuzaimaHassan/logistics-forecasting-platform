@@ -206,3 +206,7 @@ Implementation results and actual check output are appended as work completes.
 - Training/monitor CLI now supports explicit JSON output artifacts without
   changing model parameters or gates; future managed jobs retain sanitized
   structured results in addition to logs.
+
+- Added training-namespace INFO logs and per-Feast-batch row-count/timing messages
+  to make future managed-run stalls diagnosable. No query, data, model or gate
+  semantics changed. Seven training dataset tests passed in 35.35s; Ruff passed.
