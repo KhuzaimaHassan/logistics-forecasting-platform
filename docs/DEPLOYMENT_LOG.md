@@ -390,3 +390,16 @@ Implementation results and actual check output are appended as work completes.
   explicit successful tool fixtures and verified the requested tools are called.
   Managed database checks remain separate and real. No live download or cloud
   secret is added to required PR unit checks.
+
+- Final source 92bddd7: CI 39270540972 SUCCEEDED (393 passed, one skipped,
+  45 warnings in 80.14s), Compose and memory checks passed; ARM64 39270528695
+  SUCCEEDED. Render automatically rolled out 92bddd7.
+- Public Streamlit Copilot then used real Groq gpt-oss-20b, returned ten actual
+  pipeline records and cited warehouse.pipeline_runs (observed latency 1107.3ms).
+  Found presentation bug: running/completed_with_alerts were shown as FAILED;
+  corrected labels to RUNNING/ALERT, retained actual failures, eight focused
+  schema/dependency/status tests passed (1.90s).
+- Initial post-redeploy readiness was HTTP503 with no models loaded. A real
+  demand request recovered through the existing lazy Production load in 31.55s
+  and returned 0.71, model v1, historical source timestamp intact. No dummy model
+  or synthetic forecast substituted; the earlier failed readiness is preserved.

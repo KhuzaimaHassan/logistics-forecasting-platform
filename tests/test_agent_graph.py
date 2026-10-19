@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from src.agents.graph import (
+    _format_pipeline_section,
     _serialize_tool_for_llm,
     create_copilot_graph,
     run_copilot,
@@ -22,6 +23,24 @@ from src.agents.tools import TOOL_ALLOWLIST
 
 class TestAgentGraphWorkflow:
     """Tests covering graph compilation, routing, tool dispatch, and response formatting."""
+
+    @pytest.mark.parametrize(
+        "status,label",
+        [
+            ("running", "[RUNNING]"),
+            ("completed_with_alerts", "[ALERT]"),
+            ("failed", "[FAILED]"),
+        ],
+    )
+    def test_pipeline_status_labels_preserve_actual_state(self, status, label):
+        response = "\n".join(
+            _format_pipeline_section(
+                {"latest_runs": [{"job_name": "sample", "status": status}]}
+            )
+        )
+        assert label in response
+        if status != "failed":
+            assert "[FAILED]" not in response
 
     @pytest.mark.parametrize("status", ["error", "degraded_fallback"])
     def test_cloud_tool_dependency_failure_is_not_success(self, monkeypatch, status):

@@ -284,7 +284,15 @@ def _format_pipeline_section(res: Dict[str, Any]) -> List[str]:
     lines = [f"### Pipeline Execution Health: `{overall}` ({total_runs} recent runs)"]
     for r in runs[:5]:
         status = str(r.get("status", ""))
-        status_icon = "[OK]" if status in ("success", "completed") else "[FAILED]"
+        status_icon = {
+            "success": "[OK]",
+            "completed": "[OK]",
+            "running": "[RUNNING]",
+            "in_progress": "[RUNNING]",
+            "completed_with_alerts": "[ALERT]",
+            "failed": "[FAILED]",
+            "error": "[FAILED]",
+        }.get(status, "[UNKNOWN]")
         name = r.get("job_name") or r.get("pipeline_name", "pipeline")
         duration = r.get("duration_seconds")
         dur_str = f"{float(duration):.1f}s" if duration is not None else "N/A"
