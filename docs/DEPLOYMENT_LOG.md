@@ -316,3 +316,10 @@ Implementation results and actual check output are appended as work completes.
   Owner asked to configure free-provider/shared access credentials or leave blocked.
 - Final freshness-source and forecast-rerun checks: 10 passed in 24.52s.
   Ruff, Black formatting and offline manifest validation passed before push.
+- Remote branch gained owner commit 7d83bdd (.devcontainer). Initial push was
+  rejected; fetched and merged normally as 067e963, preserving both histories and
+  the unrelated Oracle edit. Cancelled mis-dispatched old-source monitoring
+  39242429156, then started corrected-source monitoring 39242531954.
+- CI 39242532012 stopped at Black: two new test files needed the configured
+  Python 3.11 target formatting. Applied the exact target; no test failure was
+  hidden and monitoring behavior was not changed by the formatting correction.

@@ -64,9 +64,10 @@ def test_forecasts_survive_eta_rerun_and_disabled_agent_is_honest(monkeypatch):
             for z, value in [(74, 3.69), (75, 5.55), (166, 2.26)]
         ],
     }
-    with patch("requests.get", side_effect=get), patch(
-        "requests.post", return_value=response(payload)
-    ) as post:
+    with (
+        patch("requests.get", side_effect=get),
+        patch("requests.post", return_value=response(payload)) as post,
+    ):
         app = AppTest.from_file("ui/app.py", default_timeout=30).run()
         assert not app.exception
         assert all(

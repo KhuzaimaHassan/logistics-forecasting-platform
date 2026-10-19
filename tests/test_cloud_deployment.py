@@ -182,9 +182,10 @@ def test_deployment_freshness_never_uses_cursor_update_as_materialization(
     second = MagicMock()
     second.scalars.return_value = ["75_237"]
     session.execute.side_effect = [first, second]
-    with patch("src.serving.app.is_cloud_deployment", return_value=True), patch(
-        "src.serving.app.get_db_session"
-    ) as manager:
+    with (
+        patch("src.serving.app.is_cloud_deployment", return_value=True),
+        patch("src.serving.app.get_db_session") as manager,
+    ):
         manager.return_value.__enter__.return_value = session
         result = deployment_status()
     assert result["observations"]["refreshed_at"] == materialized_at
