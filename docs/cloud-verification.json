@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-10-19T10:44:30.671408+00:00",
+  "generated_at": "2026-10-19T11:19:19.573073+00:00",
   "checks": {
     "postgresql": {
       "status": "VERIFIED",
       "evidence": {
         "engine": "PostgreSQL",
-        "run_id": "verification-e925eccecd8d41ecb2af12273b16d8ff",
+        "run_id": "verification-8e286d4ba31046fea8986c295379e18b",
         "write_read": true
       }
     },
@@ -14,8 +14,8 @@
       "evidence": {
         "topic": "trip.events",
         "partition": 1,
-        "produced_offset": 4667,
-        "consumed_offset": 4667,
+        "produced_offset": 4669,
+        "consumed_offset": 4669,
         "authentic_trip_id": 1108463825441794175
       }
     },
@@ -31,9 +31,9 @@
     "mlflow": {
       "status": "VERIFIED",
       "evidence": {
-        "run_id": "54daf1ebb22e4bde80e991fbdf1af5f1",
+        "run_id": "ce69cdb0288a4a148ce581dee379ff3c",
         "metric_readback": 1.0,
-        "artifact_sha256": "cead4366b710b9f140c56a4afad716634f21fc5eaaa54cc0449f59df8e8edda2",
+        "artifact_sha256": "3c306068cec84b430d68ea628de3727a457d7a1e49ebc449bf5921c44e1ecff3",
         "registry_list_access": true
       }
     },
@@ -48,24 +48,31 @@
     "fastapi_real_model": {
       "status": "VERIFIED",
       "evidence": {
+        "public_url": "https://logistics-forecasting-platform.onrender.com",
         "zone_id": 7,
         "predicted_pickups": 0.71,
         "model_version": "1",
-        "eta_seconds": 715.8
+        "eta_seconds": 715.8,
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "persisted_prediction_delta": 2,
+        "durable_forecast_rows_matched": 2
       }
     },
     "streamlit_http": {
-      "status": "NOT VERIFIED",
-      "reason": "BLOCKED: missing STREAMLIT_URL"
+      "status": "VERIFIED",
+      "evidence": {
+        "http_status": 200,
+        "scope": "HTTP shell only; visual prediction rendering still requires browser verification"
+      }
     },
     "llm_agent": {
-      "status": "NOT VERIFIED",
-      "reason": "BLOCKED: missing AGENT_API_KEY"
+      "status": "FAILED",
+      "reason": "AssertionError"
     },
     "monitoring": {
       "status": "VERIFIED",
       "evidence": {
-        "report_id": "c70923f6-4fba-4ada-ab72-3b36ceedadfc",
+        "report_id": "8cd77425-d9b7-4c19-a388-db2fcc7ce98e",
         "report_type": "performance_decay",
         "html_characters": 3701744,
         "evaluation_mode": "historical_sample_backtest"
@@ -87,11 +94,5 @@
   "verification_scope": "full",
   "selected_checks_complete": false,
   "automated_checks_complete": false,
-  "manual_acceptance_complete": false,
-  "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39239093732",
-  "code_commit": "5a836da",
-  "evidence_notes": [
-    "All seven configured checks, including public real-model forecasts, passed. Workflow failure reflects absent Streamlit URL and agent access key; visual rendering, hosted restart/cold start and cron are also not verified.",
-    "Separate scoped public API run 39239560159 on 30e9172 confirmed two newly persisted matching prediction rows in actual managed PostgreSQL."
-  ]
+  "manual_acceptance_complete": false
 }

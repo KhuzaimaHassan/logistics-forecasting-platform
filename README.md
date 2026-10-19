@@ -1,25 +1,23 @@
 # Logistics Demand & ETA Forecasting Platform
 
-> **Cloud deployment status (2026-10-19): public FastAPI verified; Streamlit pending.**
-> The free-cloud profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow,
-> Render FastAPI, Community Cloud Streamlit and GitHub Actions running Prefect
-> flows. It processes authentic historical samples on a schedule. Forecasts are
-> computed by trained models; sampled historical data is explicitly labelled.
-> The authentic-data profile passed end to end on disposable CI services.
-> Managed Aiven ingestion/Feast, DagsHub metric/artifact checks and real training
-> passed. Both LightGBM models reached Production v1 with native reload; see
-> [managed holdout evidence](docs/managed-training-evidence.json) for scoped metrics.
-> Real API inference/persistence also passed two fresh 512 MiB/0.1 CPU containers
-> with peak process RSS 386.7 MiB; this is not public hosting proof.
-> Managed monitoring and report HTML readback passed; drift alerts were logged
-> without retraining. [Public FastAPI](https://logistics-forecasting-platform.onrender.com/docs)
-> readiness and genuine forecasts passed; Streamlit, live agent and final
-> acceptance remain pending. See the
-> [deployment report](docs/DEPLOYMENT_REPORT.md),
-> [setup commands and secrets](docs/FREE_CLOUD_SETUP.md), and
-> [verified provider research](docs/FREE_TIER_RESEARCH.md).
-> The audit also removed future-target leakage in missing corridor history;
-> prior ETA benchmark figures below require recertification with corrected data.
+> **Cloud deployment status (2026-10-19): public dashboard and real-model API verified; acceptance remains partial.**
+> Open the [dashboard](https://logistics-forecasting-platform.streamlit.app/) or
+> [FastAPI documentation](https://logistics-forecasting-platform.onrender.com/docs).
+> The Free profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow, Render,
+> Streamlit Community Cloud, and GitHub Actions executing Prefect OSS flows.
+> Real Kafka events, durable PostgreSQL rows, Feast retrieval, experiment artifacts,
+> trained Production models and monitoring HTML have been exercised on managed services.
+> Forecasts describe a bounded January 2023 TLC sample, not current NYC totals.
+> Public dashboard demand/ETA/map rendering is verified. Acceptance exposed
+> monitoring score interpretation, forecast rerun and misleading-label defects;
+> corrected monitoring is verified, while UI fix rollout and live Copilot tool
+> execution remain pending. Cron and controlled idle cold starts are not verified.
+> Real-model containers passed 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB).
+> See the [deployment report](docs/DEPLOYMENT_REPORT.md),
+> [setup and secrets](docs/FREE_CLOUD_SETUP.md), and
+> [official provider research](docs/FREE_TIER_RESEARCH.md).
+> Prior full-population ETA benchmark figures below require recertification after
+> the cloud audit removed future-target leakage from missing corridor history.
 
 [![CI/CD Pipeline](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)

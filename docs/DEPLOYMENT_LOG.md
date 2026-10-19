@@ -336,3 +336,15 @@ Implementation results and actual check output are appended as work completes.
   readiness and both forecasts passed on revision 751a075; this proves hosted
   redeploy recovery, not controlled idle wake latency. Successful materialization
   recorded 2026-10-19T11:18:10.259847+00:00. Owner rebooted Streamlit for new source.
+
+- Agent fix 0bcad87 passed 28 focused agent/API tests (94.09s) and seven cloud
+  verifier tests (2.40s); Ruff, exact Python 3.11 Black check and offline manifest
+  validation passed. Black CLI required approved loopback access on this host;
+  only its two blocked diagnostic invocations were interrupted.
+- Full CI 39244387332 on 0bcad87 SUCCEEDED, all three jobs: 388 passed, one
+  skipped, 45 warnings in 79.39s, actual disposable Compose integration and
+  fixture memory probe. ARM64 run 39244382411 SUCCEEDED.
+- Scoped agent run 39244420687 failed its real-tool assertion while public
+  Render still reported pre-fix revision 751a075. Kept the failure; no successful
+  post-fix hosted tool execution claimed. Public Streamlit still showed older
+  labels after owner reboot; requested owner source settings/build-log check.

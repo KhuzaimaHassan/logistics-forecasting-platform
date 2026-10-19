@@ -493,4 +493,47 @@ This checks actual Production demand/ETA and reads back matching new predictions
 from managed PostgreSQL. A scoped success cannot mark the complete deployment
 accepted. Initial public request latency was 93.4s in one observation; give the
 service time to wake and retry unavailable dashboard requests. Controlled hosted
-sleep/restart remains unverified. Agent and Streamlit are not yet verified.
+sleep/restart remains unverified. Public Streamlit forecast rendering is now verified; live agent tool execution and UI fix rollout remain under acceptance testing.
+
+
+### Public dashboard and Copilot access
+
+Dashboard: https://logistics-forecasting-platform.streamlit.app/
+
+Community Cloud secrets must contain `FASTAPI_URL` pointing to the Render URL.
+`AGENT_API_KEY` is an access password you generate yourself, separate from the
+Groq provider key. Generate it only in a private terminal:
+
+```powershell
+.venv/Scripts/python.exe -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Save the output in a password manager. Enter the same value as Render environment
+variable `AGENT_API_KEY` and Community Cloud TOML secret `AGENT_API_KEY`.
+Run the hidden prompt to upload it as GitHub environment secret
+`CLOUD_AGENT_ACCESS_KEY`:
+
+```powershell
+.venv/Scripts/python.exe scripts/configure_cloud_secrets.py agent
+```
+
+Do not paste keys into chat, commit them, or store them in a synced repository.
+The helper sends the access key to `gh secret set` through stdin; it does not write
+it to `.env`. GitHub does not let you read back secret values. Keep your own copy
+or rotate the same shared password in all three stores if lost.
+
+Obtain `GROQ_API_KEY` in your Groq Free account's API Keys page and configure it
+on Render only. GitHub's agent verifier calls Render; it does not need a provider
+key. Leave billing disabled. Never put either key in a browser URL. The public
+Streamlit server sends the shared key to Render server-side, subject to the API's
+three-requests-per-minute agent limit. For a scoped real provider/tool check:
+
+```powershell
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f cloud_job=verify-agent
+```
+
+Wait until Render `/deployment/status` reports the intended source revision before
+running this check. A successful scoped operation never marks full acceptance
+complete. The public dashboard should use branch `feature/d0-free-cloud-deployment`,
+entrypoint `ui/app.py`; compare the deployed labels to the current source after a
+Community Cloud restart. Application build logs and settings require owner access.
