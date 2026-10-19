@@ -291,7 +291,7 @@ def run_checks(only=None):
         return {
             "report_id": row[0],
             "report_type": row[1],
-            "html_bytes": row[3],
+            "html_characters": row[3],
             "evaluation_mode": summary["evaluation_mode"],
         }
 

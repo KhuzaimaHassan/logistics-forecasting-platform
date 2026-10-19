@@ -232,3 +232,34 @@ Implementation results and actual check output are appended as work completes.
   continues. Reports session wait states, elapsed seconds and database bytes,
   excludes SQL/connection text, enforces a read-only transaction and 10s statement
   timeout. It cannot cancel queries or mutate infrastructure/data.
+- Managed training retry 39228745442 SUCCEEDED in 635.55s. All 6,647 corridor
+  entities traversed 27 PIT batches. Demand MAE 0.0493 vs 0.0540; ETA 430.3019s
+  vs 666.4875s. Both genuine models promoted to Production v1 and loaded natively.
+  Persisted sanitized actual training artifact. Runtime retry 39230564684 started;
+  queued monitoring after it. Read-only diagnostic 39230529574 passed, no remaining
+  sessions at capture time, database 37,418,687 bytes.
+- Managed runtime 39230564684 SUCCEEDED twice in fresh 512 MiB/0.1 CPU
+  containers: both Production v1 models, actual demand=0.71 and ETA=715.8s at
+  source timestamp Jan 31 2023 23:00 UTC; four concurrent 145-zone batches,
+  582 durable predictions per start. Peak process RSS 386.7 MiB/cgroup 373.6 MiB.
+  This is not hosted Render cold-start proof. Full CI 39230526314 passed all jobs
+  (377 passed, 1 skipped, 45 warnings, 80.27s); ARM64 39230518994 passed.
+- Managed monitoring 39230637533 SUCCEEDED: actual 2,000-row reference/current
+  windows, three report IDs, Production baseline MAE 0.0493, drift/performance
+  alerts logged, retrain recommended but not triggered. Actual result persisted
+  as managed-monitoring-evidence.json; aggregate check 39231511998 will verify
+  HTML readback and retain missing-public-hosting gates explicitly.
+- Aggregate 39231511998 finished: PostgreSQL, Kafka (partition 1 offset 4666),
+  Feast/Valkey, MLflow metric/artifact, pipeline output and persisted monitoring
+  HTML all VERIFIED. Workflow failure is expected from missing public API/UI URLs
+  and agent key; hosted cold start/visual UI/cron also remain NOT VERIFIED.
+  Replaced initial missing-config baseline with actual sanitized aggregate artifact.
+- Corrected monitoring verifier output label html_bytes -> html_characters: SQL
+  length(text) measured 3,701,744 characters. Original artifact retained with an
+  explicit explanatory note; no byte measurement was invented.
+- Independent backend work is complete. Remaining owner steps: create Render
+  Free and Community Cloud apps, configure their private settings, optional Free
+  LLM key, and reviewed default-branch integration/schedule enablement. No paid
+  resources, service recreation or existing-data deletion occurred.
+- Final focused initialization/scoped-acceptance/read-only diagnostic tests:
+  6 passed in 4.42s; Ruff and offline deployment configuration validator passed.

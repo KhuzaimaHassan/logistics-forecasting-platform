@@ -6,8 +6,13 @@
 exists. Aiven Kafka, PostgreSQL 18.6 and Valkey are running on existing Free plans.
 Actual managed bootstrap persisted 9,232 authentic TLC trips and materialized
 Feast online features into Valkey. DagsHub metric/artifact readback and registry
-listing are verified. Managed training exceeded its 25-minute job budget; the
-constrained API check then failed readiness because Production models were absent. Public hosting and live LLM verification remain
+listing are verified. Three managed monitoring reports persisted, with HTML
+readback verified; historical drift alerts did not trigger retraining. Managed
+training completed in 635.55s and both real
+LightGBM models were promoted to DagsHub Production v1 and reloaded natively.
+The real API passed inference, persistence, concurrency and two fresh container
+starts within 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB). Public hosting
+and live LLM verification remain
 outstanding. No paid resource, trial, automatic upgrade or data deletion was used.
 
 ## D0 feasibility and source audit
@@ -54,8 +59,8 @@ executing Prefect OSS flows; optional Free Groq/Gemini agent. See
 
 The authentic bounded profile passed end to end on disposable CI services.
 This deployment remains conditional on account eligibility
-and live resource proof. Render full-model Linux memory remains an acceptance
-gate. It has no continuous trip worker/SLA, and source trips are an explicitly
+and live resource proof. The full-model Linux resource gate passed; actual Render deployment remains an
+acceptance gate. It has no continuous trip worker/SLA, and source trips are an explicitly
 labelled historical sample. Kafka processing is real but scheduled. Finite free
 storage stops at a safety threshold instead of deleting records or upgrading.
 All original local/full-capacity technology remains available.
@@ -73,21 +78,21 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 | Feast materialization + Valkey retrieval | **VERIFIED** | [Run 39121607882](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39121607882): 107,155 zone/8,760 corridor rows; zone 7 online pickups=1 equals PostgreSQL, observed_at=2023-01-31T23:00:00Z |
 | DagsHub MLflow metrics/artifacts/registry | **VERIFIED** | [Run 39138839993](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39138839993): metric 1.0 read back, artifact SHA-256 matched, registry list accessible; model-version promotion verified separately |
 | Scheduled cloud pipeline output | **VERIFIED** | Genuine managed pipeline manually invoked: checkpoint advanced 600 -> 9,232, remaining_sample_events=0, official centroids; this does not prove cron execution |
-| Managed training/promotion | **FAILED** | [Run 39139455829](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139455829) exceeded 25-minute budget (Actions conclusion: cancelled). No successful managed promotion claimed; smaller corridor batches and timing logs prepared for retry |
-| Managed-model constrained API probe | **FAILED** | [Run 39139567159](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139567159) failed readiness with unavailable Production models; [sanitized readiness result](managed-runtime-failure-evidence.json); this is not evidence of a Render memory failure |
+| Managed training/promotion | **VERIFIED** | [Run 39228745442](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228745442) completed in 635.55s; both Production v1 models loaded natively; [metrics and promotion evidence](managed-training-evidence.json). Earlier 39139455829 exceeded 25-minute budget; corrected batch sizing passed |
+| Managed-model constrained API probe | **VERIFIED** | [Run 39230564684](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230564684): two fresh 512 MiB/0.1 CPU containers; genuine demand/ETA v1, four concurrent batches of 145 zones, 582 predictions persisted per start; peak process RSS 386.7 MiB, cgroup peak 373.6 MiB. [Evidence](managed-runtime-evidence.json). Prior failed readiness result retained for audit; no public-hosting proof |
 | Actual cron execution | **NOT VERIFIED** | Requires scheduled-event Actions run, not a manual invocation |
-| Public FastAPI real-model demand/ETA | **NOT VERIFIED** | BLOCKED: Render service and genuinely trained promoted artifacts absent |
+| Public FastAPI real-model demand/ETA | **NOT VERIFIED** | BLOCKED — NOT VERIFIED: Render service/public endpoint absent; real Production models now exist |
 | Streamlit actual forecast rendering | **NOT VERIFIED** | BLOCKED: Community Cloud OAuth/app and API absent |
 | Live LangGraph LLM + dependencies | **NOT VERIFIED** | BLOCKED: Free provider key/hosted dependencies absent |
-| Persisted managed monitoring report | **NOT VERIFIED** | Managed warehouse exists; actual champion/backtest/HTML verification pending |
+| Persisted managed monitoring report | **VERIFIED** | [Monitoring 39230637533](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230637533) persisted three real historical-backtest reports; [aggregate 39231511998](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39231511998) read back performance HTML (3,701,744 characters). Drift/MAE alerts logged; retraining disabled. [Evidence](managed-monitoring-evidence.json) |
 | Restart/cold-start behavior | **NOT VERIFIED** | Requires actual hosted restart/sleep and repeated predictions |
 | Offline cloud/consumer regression checks | **VERIFIED** | 20 tests passed on local Python 3.11; scope is hermetic contracts only |
 | Cloud API import memory | **VERIFIED** | Windows process RSS 204.8 MiB; full MLflow pyfunc not imported; not Linux full-model peak proof |
-| Full revised unit/contract suite | **VERIFIED** | [Run 39228738178](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228738178), commit 373c53b: 376 passed, 1 skipped, 45 warnings in 82.99s; all three CI jobs passed |
-| Compose build/integration | **VERIFIED** | Corrected [full CI run](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228738178) passed Docker builds and real disposable-service integration; fixture tests are not managed-cloud proof |
+| Full revised unit/contract suite | **VERIFIED** | [Run 39230526314](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230526314), commit 6ea2fc6: 377 passed, 1 skipped, 45 warnings in 80.27s; all three CI jobs passed |
+| Compose build/integration | **VERIFIED** | Corrected [full CI run](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230526314) passed Docker builds and real disposable-service integration; fixture tests are not managed-cloud proof |
 | Linux free-runtime memory gate | **VERIFIED** | [Memory job](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39044393912/job/117430124274) measured 296.8 MiB peak inside 512 MiB; includes API/agent imports and fixture-trained Booster, not hosted production models |
 | Authentic bounded profile on CI services | **VERIFIED** | [Run 39046508012](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046508012), commit 62717dd; actual TLC -> Kafka -> PostgreSQL -> Feast/Redis -> MLflow -> FastAPI -> persisted reports; [sanitized evidence](free-profile-e2e-evidence.json) |
-| ARM64 image builds | **VERIFIED** | [Run 39228731042](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228731042), commit 373c53b, succeeded |
+| ARM64 image builds | **VERIFIED** | [Run 39230518994](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230518994), commit 6ea2fc6, succeeded |
 
 ### Authentic-data results and limitations
 
@@ -199,8 +204,22 @@ Gemini's official country list explicitly includes Pakistan.
 No cloud URL or successful deployment is fabricated to fill these blockers.
 
 Managed training retry [39228745442](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228745442)
-uses commit 373c53b and passed configuration preflight. Its outcome is pending;
-this does not supersede the recorded failed acceptance checks.
+passed on 373c53b: 99,414/43,921 demand train/validation rows and 4,586/2,061
+corridor rows. Demand MAE 0.0493 vs 0.0540 baseline (8.7% lift); ETA MAE 430.3019s
+vs 666.4875s (35.44% lift). Both inaugural promotions passed existing gates.
+These are explicitly historical-sample holdout results, not current NYC traffic
+quality. The read-only database diagnostic found no remaining sessions after
+training and measured 37,418,687 bytes. Runtime retry 39230564684 and managed monitoring 39230637533 passed. Aggregate
+verification 39231511998 passed all six managed backend checks, including actual
+HTML readback. Its workflow conclusion is failure because public API/UI URLs and
+agent credentials are absent; no missing capability was marked passed. The
+[aggregate artifact](cloud-verification.json) retains those NOT VERIFIED gates.
+Online Feast features were refreshed during aggregate verification; their 24-hour
+TTL requires the documented refresh until real default-branch schedules operate.
+Managed monitoring logged drift/MAE-degradation alerts on two real 2,000-row
+windows; no retraining was triggered. Its HTML length is 3,701,744 characters:
+the original artifact field html_bytes was a length(text) label error, documented
+in artifact notes and corrected to html_characters for future checks.
 
 ## Change inventory
 
@@ -211,7 +230,7 @@ deployment change set.
 
 ### Deployment file inventory
 
-65 changed or new deployment files:
+68 changed or new deployment files:
 
 - `.dockerignore`
 - `.env.example`
@@ -234,8 +253,11 @@ deployment change set.
 - `docs/aiven-initialization-evidence.json`
 - `docs/cloud-verification.json`
 - `docs/free-profile-e2e-evidence.json`
-- `docs/mlflow-verification-evidence.json`
+- `docs/managed-monitoring-evidence.json`
+- `docs/managed-runtime-evidence.json`
 - `docs/managed-runtime-failure-evidence.json`
+- `docs/managed-training-evidence.json`
+- `docs/mlflow-verification-evidence.json`
 - `pyproject.toml`
 - `render.yaml`
 - `scripts/cloud_preflight.py`
@@ -269,8 +291,8 @@ deployment change set.
 - `src/training/dataset.py`
 - `src/training/pipeline.py`
 - `src/transform/stream_consumer.py`
-- `tests/test_cloud_deployment.py`
 - `tests/test_cloud_database_diagnostics.py`
+- `tests/test_cloud_deployment.py`
 - `tests/test_cloud_resources.py`
 - `tests/test_cloud_secret_setup.py`
 - `tests/test_stream_consumer.py`

@@ -190,8 +190,9 @@ compatibility. Startup failures remain explicit and later prediction requests ca
 retry model initialization. There is no application SQLite fallback. Native
 LightGBM reloads from DagsHub after ephemeral disk loss and avoids pyfunc/pickle
 execution. The image has one worker/eight concurrent requests and excludes
-XGBoost, full MLflow server, training and Evidently. Full-model Linux peak memory
-must still pass the 512 MB acceptance check before claiming Render suitability.
+XGBoost, full MLflow server, training and Evidently. The managed-model Linux gate
+passed twice at 512 MiB/0.1 CPU, with peak process RSS 386.7 MiB. Actual Render
+startup, resource behavior and public predictions remain separate acceptance gates.
 
 Community Cloud secrets (top-level values become environment variables):
 
@@ -217,7 +218,7 @@ is claimed. Optional Prefect Serverless is not configured or verified.
 
 | Component | Bounded resource plan |
 |---|---|
-| API | One process/OpenMP thread; Windows import RSS 204.8 MiB measured; Render 512 MB full-model/concurrency/restart peak remains unverified |
+| API | One process/OpenMP thread; genuine managed models + 4 concurrent 145-zone batches passed twice at 512 MiB/0.1 CPU; peak RSS 386.7 MiB. Hosted Render behavior remains unverified |
 | UI | Thin Streamlit/requests/Pandas/PyDeck process, no local model/Feast stack |
 | Jobs | Two training threads; <=10k sample rows, <=500k scanned rows, <=64 MiB source, <=32-day feature window; standard Linux runner |
 | PostgreSQL | 1 GB provider disk, stop at 700 MiB; low pools (API 2+0, registry 1+0, offline max 2) leave room below 20 connections |
@@ -461,3 +462,18 @@ This independent read-only job reports database session timings/wait states and
 size without exposing raw SQL or connection values. It can run while a training
 job occupies the mutation concurrency group. It does not cancel queries or
 modify records; its VERIFIED status covers diagnostics only.
+
+### Feature refresh before hosting handoff
+
+Online feature keys expire after 24 hours. Until the reviewed workflows reach the
+default branch and scheduled operations are explicitly enabled, refresh the real
+bounded sample before testing a newly created Render app:
+
+```powershell
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f verify_aiven=true -f aiven_operation=bootstrap-aiven
+```
+
+The completed source cursor is reused; this does not recreate services, topics or
+the database. Wait for success before testing `/health/ready` and predictions.
+A later successful aggregate `verify` also reconciles Feast from PostgreSQL.
+Without these refreshes or active schedules, feature availability is not continuous.

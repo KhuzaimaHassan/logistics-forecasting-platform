@@ -1,0 +1,35 @@
+{
+  "baseline_mae": 0.0493,
+  "datasets": {
+    "current_count": 2000,
+    "is_cold_start_fallback": false,
+    "reference_count": 2000
+  },
+  "elapsed_seconds": 9.394225637999966,
+  "evaluation_mode": "historical_sample_backtest; not live prediction drift",
+  "report_ids": {
+    "data_drift": "4de5f199-b83b-43c5-aa11-a47694702726",
+    "performance_decay": "c70923f6-4fba-4ada-ab72-3b36ceedadfc",
+    "prediction_drift": "9190039b-971a-4b68-89f1-035c17eec2e4"
+  },
+  "run_id": "monitor-a1be3c87afa9",
+  "status": "completed_with_alerts",
+  "trigger_decision": {
+    "action": "alert_logged",
+    "alert_reasons": [
+      "Feature 'pickup_count_same_hour_last_week' drifted (p=1.8192e-02 < 0.1)",
+      "Feature 'pickup_count_last_1h' drifted (p=2.3921e-02 < 0.1)",
+      "Feature 'pickup_count_last_15m' drifted (p=2.1612e-02 < 0.1)",
+      "Feature 'day_of_week' drifted (p=0.0000e+00 < 0.1)",
+      "Feature 'pickup_count_last_24h' drifted (p=2.3451e-02 < 0.1)",
+      "Feature 'is_holiday' drifted (p=0.0000e+00 < 0.1)",
+      "Feature 'is_weekend' drifted (p=0.0000e+00 < 0.1)",
+      "Prediction output distribution drifted (p=2.3155e-02 < 0.1, current mean=0.07, reference mean=0.07)",
+      "Model MAE degraded by 29.9% (Current MAE 0.06 vs MLflow Production Baseline 0.05, threshold 15.0%)"
+    ],
+    "retrain_recommended": true,
+    "retrain_triggered": false
+  },
+  "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230637533",
+  "code_commit": "6ea2fc6"
+}

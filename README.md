@@ -1,13 +1,18 @@
 # Logistics Demand & ETA Forecasting Platform
 
-> **Cloud deployment status (2026-10-18): no public deployment verified yet.**
+> **Cloud deployment status (2026-10-19): no public deployment verified yet.**
 > The free-cloud profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow,
 > Render FastAPI, Community Cloud Streamlit and GitHub Actions running Prefect
 > flows. It processes authentic historical samples on a schedule. Forecasts are
 > computed by trained models; sampled historical data is explicitly labelled.
 > The authentic-data profile passed end to end on disposable CI services.
-> Managed Aiven ingestion/Feast and DagsHub metric/artifact checks have passed.
-> Public hosting and final acceptance remain pending. See the
+> Managed Aiven ingestion/Feast, DagsHub metric/artifact checks and real training
+> passed. Both LightGBM models reached Production v1 with native reload; see
+> [managed holdout evidence](docs/managed-training-evidence.json) for scoped metrics.
+> Real API inference/persistence also passed two fresh 512 MiB/0.1 CPU containers
+> with peak process RSS 386.7 MiB; this is not public hosting proof.
+> Managed monitoring and report HTML readback passed; drift alerts were logged
+> without retraining. Public hosting and final acceptance remain pending. See the
 > [deployment report](docs/DEPLOYMENT_REPORT.md),
 > [setup commands and secrets](docs/FREE_CLOUD_SETUP.md), and
 > [verified provider research](docs/FREE_TIER_RESEARCH.md).
