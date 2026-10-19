@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 def _serialize_tool_for_llm(tool_obj: Any) -> Dict[str, Any]:
     """Serialize LangChain tool to OpenAI function definition format."""
-    return {
+    definition = {
         "type": "function",
         "function": {
             "name": tool_obj.name,
@@ -52,6 +52,14 @@ def _serialize_tool_for_llm(tool_obj: Any) -> Dict[str, Any]:
             ),
         },
     }
+    parameters = definition["function"]["parameters"]
+    parameters["additionalProperties"] = False
+    # GPT-OSS otherwise sometimes emits {"": ""} for a zero-argument tool.
+    # Strict decoding is safe here: there are no optional/default fields to alter.
+    if not parameters.get("properties"):
+        parameters["required"] = []
+        definition["function"]["strict"] = True
+    return definition
 
 
 def input_guardrail_node(state: CopilotState) -> Dict[str, Any]:
@@ -166,6 +174,14 @@ def tool_execution_node(state: CopilotState) -> Dict[str, Any]:
 
         tool_obj = TOOL_ALLOWLIST[tool_name]
         try:
+            if not isinstance(tool_args, dict):
+                raise ValueError("Tool arguments must be an object")
+            schema = getattr(tool_obj, "args_schema", None)
+            if schema is not None:
+                fields = schema.model_fields
+                if set(tool_args) - set(fields):
+                    raise ValueError("Tool arguments contain unsupported fields")
+                tool_args = schema.model_validate(tool_args).model_dump()
             # Invoke the tool
             func = getattr(tool_obj, "func", tool_obj)
             res = func(**tool_args)
@@ -402,9 +418,11 @@ def synthesis_node(state: CopilotState) -> Dict[str, Any]:
         sections.append(f"\n---\n**Data Sources Cited**: {citations}")
 
     final_content = "\n".join(sections).strip()
+    failed_tools = [item for item in tool_results if item.get("error")]
     return {
         "response": sanitize_output(final_content),
-        "status": "success",
+        "status": "error" if failed_tools else "success",
+        "error": "One or more requested tools failed." if failed_tools else None,
     }
 
 

@@ -6,7 +6,7 @@ on:
       cloud_job:
         description: Explicit managed-cloud operation; none preserves existing ETL jobs
         type: choice
-        options: [none, diagnose-db, verify-api, verify-mlflow, train, monitor, runtime, verify]
+        options: [none, diagnose-db, verify-api, verify-agent, verify-mlflow, train, monitor, runtime, verify]
         default: none
       initialize_aiven:
         description: Create only the authorized logistics database and two topics on existing services, then verify

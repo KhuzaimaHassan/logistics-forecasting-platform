@@ -117,7 +117,12 @@ def test_mlflow_only_missing_credentials_does_not_call_other_services(monkeypatc
 
 
 @pytest.mark.parametrize(
-    "flag,check", [("--only-mlflow", "mlflow"), ("--only-api", "fastapi_real_model")]
+    "flag,check",
+    [
+        ("--only-mlflow", "mlflow"),
+        ("--only-api", "fastapi_real_model"),
+        ("--only-agent", "llm_agent"),
+    ],
 )
 def test_partial_success_never_marks_full_acceptance_complete(
     monkeypatch, tmp_path, flag, check

@@ -6,13 +6,54 @@ and ADR-024 (dual-provider fallback cascade and explicit mock labeling).
 
 from unittest.mock import patch
 
-from src.agents.graph import create_copilot_graph, run_copilot, tool_execution_node
+from src.agents.graph import (
+    _serialize_tool_for_llm,
+    create_copilot_graph,
+    run_copilot,
+    synthesis_node,
+    tool_execution_node,
+)
 from src.agents.providers import MockLLMProvider, get_llm_provider
 from src.agents.state import CopilotState
+from src.agents.tools import TOOL_ALLOWLIST
 
 
 class TestAgentGraphWorkflow:
     """Tests covering graph compilation, routing, tool dispatch, and response formatting."""
+
+    def test_zero_argument_tool_uses_strict_empty_object_schema(self):
+        definition = _serialize_tool_for_llm(TOOL_ALLOWLIST["query_pipeline_status"])
+        function = definition["function"]
+        assert function["strict"] is True
+        assert function["parameters"]["properties"] == {}
+        assert function["parameters"]["required"] == []
+        assert function["parameters"]["additionalProperties"] is False
+
+    def test_invalid_tool_arguments_never_execute_or_report_success(self):
+        tool = TOOL_ALLOWLIST["query_pipeline_status"]
+        with patch.object(tool, "func") as execute:
+            result = tool_execution_node(
+                {"tool_calls": [{"name": "query_pipeline_status", "args": {"": ""}}]}
+            )
+        execute.assert_not_called()
+        assert result["tools_used"] == []
+        assert result["tool_results"][0]["status"] == "error"
+        response = synthesis_node({**result, "provider": "groq"})
+        assert response["status"] == "error"
+        assert response["error"]
+
+    def test_valid_zero_argument_tool_executes_and_cites_database(self):
+        tool = TOOL_ALLOWLIST["query_pipeline_status"]
+        with patch.object(
+            tool, "func", return_value={"overall_health": "healthy"}
+        ) as execute:
+            result = tool_execution_node(
+                {"tool_calls": [{"name": "query_pipeline_status", "args": {}}]}
+            )
+        execute.assert_called_once_with()
+        assert result["tools_used"] == ["query_pipeline_status"]
+        assert result["sources"] == ["warehouse.pipeline_runs"]
+        assert synthesis_node({**result, "provider": "groq"})["status"] == "success"
 
     def test_graph_compiles_successfully(self):
         """Verify the StateGraph compiles cleanly."""

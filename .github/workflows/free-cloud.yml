@@ -11,7 +11,7 @@ on:
       job:
         description: Operation (bootstrap is required once before train)
         type: choice
-        options: [initialize-aiven, verify-aiven, bootstrap-aiven, verify-api, verify-mlflow, verify, bootstrap, pipeline, train, monitor, runtime]
+        options: [initialize-aiven, verify-aiven, bootstrap-aiven, verify-api, verify-agent, verify-mlflow, verify, bootstrap, pipeline, train, monitor, runtime]
         default: verify
   schedule:
     - cron: '17 3,15 * * *'
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   operate:
     # Explicit opt-in: missing accounts never masquerade as a successful deploy.
-    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","verify-api","train","monitor","runtime","verify"]'), inputs.job))
+    if: vars.CLOUD_DEPLOYMENT_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","verify-api","verify-agent","train","monitor","runtime","verify"]'), inputs.job))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: free-cloud
@@ -108,6 +108,9 @@ jobs:
       - name: Verify public real-model API and managed prediction readback
         if: steps.operation.outputs.name == 'verify-api'
         run: uv run python scripts/verify_cloud_deployment.py --only-api --output artifacts/cloud-verification.json
+      - name: Verify live LLM routing and managed pipeline tool
+        if: steps.operation.outputs.name == 'verify-agent'
+        run: uv run python scripts/verify_cloud_deployment.py --only-agent --output artifacts/cloud-verification.json
       - name: Verify DagsHub metrics artifacts and registry access
         if: steps.operation.outputs.name == 'verify-mlflow'
         run: uv run python scripts/verify_cloud_deployment.py --only-mlflow --output artifacts/cloud-verification.json
@@ -134,7 +137,7 @@ jobs:
         if: always() && steps.operation.outputs.name == 'runtime'
         run: sudo chown -R "$(id -u):$(id -g)" .certs artifacts/runtime
       - name: Capture sanitized verification matrix
-        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","verify-api","runtime","train","monitor"]'), steps.operation.outputs.name)
+        if: always() && contains(fromJSON('["verify","verify-aiven","initialize-aiven","bootstrap-aiven","verify-mlflow","verify-api","verify-agent","runtime","train","monitor"]'), steps.operation.outputs.name)
         uses: actions/upload-artifact@v4
         with:
           name: cloud-verification-${{ github.run_id }}

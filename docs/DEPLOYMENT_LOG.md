@@ -323,3 +323,16 @@ Implementation results and actual check output are appended as work completes.
 - CI 39242532012 stopped at Black: two new test files needed the configured
   Python 3.11 target formatting. Applied the exact target; no test failure was
   hidden and monitoring behavior was not changed by the formatting correction.
+
+- Corrected managed monitoring 39242531954 passed: v2 summaries agree with
+  Evidently, only hour_of_day feature drift and actual MAE degradation remain;
+  prediction drift is false. Direct public readback validated each flag.
+- Aggregate 39242666434 verified eight infrastructure/public checks but FAILED
+  its real LLM tool assertion. Browser reproduced Groq routing with an invalid
+  empty-name argument for the zero-argument pipeline tool; UI incorrectly showed
+  OK. Added closed/typed argument validation, strict zero-argument decoding and
+  failure propagation, plus a scoped agent verification operation.
+- Real Render redeploy loaded the same genuine Production v1 models afresh,
+  readiness and both forecasts passed on revision 751a075; this proves hosted
+  redeploy recovery, not controlled idle wake latency. Successful materialization
+  recorded 2026-10-19T11:18:10.259847+00:00. Owner rebooted Streamlit for new source.

@@ -321,6 +321,7 @@ def run_checks(only=None):
             "provider": data["provider"],
             "model_name": data["model_name"],
             "tools_used": data["tools_used"],
+            "sources": data["sources"],
         }
 
     def monitoring():
@@ -380,11 +381,16 @@ def main():
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument("--only-mlflow", action="store_true")
     selection.add_argument("--only-api", action="store_true")
+    selection.add_argument("--only-agent", action="store_true")
     args = parser.parse_args()
     only = (
         {"mlflow"}
         if args.only_mlflow
-        else {"fastapi_real_model"} if args.only_api else None
+        else (
+            {"fastapi_real_model"}
+            if args.only_api
+            else {"llm_agent"} if args.only_agent else None
+        )
     )
     result = run_checks(only=only)
     manual = {"streamlit_visual_predictions", "cold_start_restart", "cron_trigger"}
@@ -394,7 +400,11 @@ def main():
         if key not in manual
     )
     result["verification_scope"] = (
-        "mlflow_only" if args.only_mlflow else "api_only" if args.only_api else "full"
+        "mlflow_only"
+        if args.only_mlflow
+        else (
+            "api_only" if args.only_api else "agent_only" if args.only_agent else "full"
+        )
     )
     result["selected_checks_complete"] = automatic_ok
     result["automated_checks_complete"] = automatic_ok and only is None

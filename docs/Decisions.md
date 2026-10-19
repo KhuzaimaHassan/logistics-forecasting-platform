@@ -653,3 +653,12 @@ labels must describe scheduled historical observations, not continuous taxi
 telemetry. Keep successful forecast results across unrelated Streamlit reruns,
 and record a feature_materialized_at timestamp only after genuine materialization
 succeeds; cursor modification time must not stand in for feature freshness.
+
+ADR-029 public Copilot acceptance (2026-10-19): a real Groq call emitted an
+unsupported empty-name argument for the zero-argument pipeline tool, while the
+synthesizer marked its execution error successful. Advertise closed argument
+schemas, strict empty-object decoding for zero-argument tools, validate against
+the existing typed argument models before invocation, and propagate execution
+errors to the existing cloud HTTP 503 path. Never discard unknown arguments or
+substitute fabricated tool results. Groq documents GPT-OSS strict function schemas:
+https://console.groq.com/docs/reasoning#quick-start-with-tool-use
