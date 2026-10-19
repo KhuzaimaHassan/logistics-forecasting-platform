@@ -452,3 +452,12 @@ agent/provider/CORS values can follow when those components are configured.
 A live process is not readiness: `/health/ready` and real predictions must pass
 before claiming the deployment complete. If billing/card/paid fallback is required,
 record a blocker rather than enabling it.
+
+### Read-only training diagnostics
+
+`gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f cloud_job=diagnose-db`
+
+This independent read-only job reports database session timings/wait states and
+size without exposing raw SQL or connection values. It can run while a training
+job occupies the mutation concurrency group. It does not cancel queries or
+modify records; its VERIFIED status covers diagnostics only.

@@ -6,7 +6,7 @@ on:
       cloud_job:
         description: Explicit managed-cloud operation; none preserves existing ETL jobs
         type: choice
-        options: [none, verify-mlflow, train, monitor, runtime, verify]
+        options: [none, diagnose-db, verify-mlflow, train, monitor, runtime, verify]
         default: none
       initialize_aiven:
         description: Create only the authorized logistics database and two topics on existing services, then verify
@@ -31,13 +31,40 @@ on:
 
 jobs:
   cloud-operation:
-    if: github.event_name == 'workflow_dispatch' && inputs.cloud_job && inputs.cloud_job != 'none'
+    if: github.event_name == 'workflow_dispatch' && inputs.cloud_job && inputs.cloud_job != 'none' && inputs.cloud_job != 'diagnose-db'
     permissions:
       contents: read
     uses: ./.github/workflows/free-cloud.yml
     secrets: inherit
     with:
       job: ${{ inputs.cloud_job }}
+  database-diagnostics:
+    if: github.event_name == 'workflow_dispatch' && inputs.cloud_job == 'diagnose-db'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: free-cloud
+    env:
+      DATABASE_URL: ${{ secrets.CLOUD_DATABASE_URL }}
+      POSTGRES_CA_PEM: ${{ secrets.CLOUD_POSTGRES_CA_PEM }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v2
+        with:
+          version: '0.9.4'
+      - run: uv sync --frozen --extra core
+      - name: Read database timings and wait states without SQL text
+        run: uv run python scripts/diagnose_cloud_database.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: database-diagnostics-${{ github.run_id }}
+          path: artifacts/database-diagnostics.json
+          if-no-files-found: warn
   aiven-initialization:
     if: github.event_name == 'workflow_dispatch' && inputs.initialize_aiven && (!inputs.cloud_job || inputs.cloud_job == 'none')
     permissions:

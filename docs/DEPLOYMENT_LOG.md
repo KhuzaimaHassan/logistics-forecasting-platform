@@ -221,3 +221,14 @@ Implementation results and actual check output are appended as work completes.
   Eight dataset tests passed in 30.23s; Ruff passed.
 - Latest completed full CI 39141169493 and ARM64 39141166641 passed on 1b64de2.
   Real managed model/promotion and public endpoint acceptance remain separate.
+- Dispatched training retry 39228745442 on 373c53b; full cloud preflight passed.
+  Unit/contract CI job passed: 376 passed, one skipped, 45 warnings in 82.99s.
+  Added sanitized failed-runtime evidence; its scope remains unavailable models,
+  not measured full-model memory. Owner will configure Render after independent
+  engineering work; no public URL exists yet.
+- Full CI 39228738178 completed successfully, including Compose integration and
+  fixture memory gate; ARM64 build 39228731042 also passed on 373c53b.
+- Added an independent read-only PostgreSQL diagnostic operation while training
+  continues. Reports session wait states, elapsed seconds and database bytes,
+  excludes SQL/connection text, enforces a read-only transaction and 10s statement
+  timeout. It cannot cancel queries or mutate infrastructure/data.

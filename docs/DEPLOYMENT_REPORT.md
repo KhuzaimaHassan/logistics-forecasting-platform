@@ -74,7 +74,7 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 | DagsHub MLflow metrics/artifacts/registry | **VERIFIED** | [Run 39138839993](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39138839993): metric 1.0 read back, artifact SHA-256 matched, registry list accessible; model-version promotion verified separately |
 | Scheduled cloud pipeline output | **VERIFIED** | Genuine managed pipeline manually invoked: checkpoint advanced 600 -> 9,232, remaining_sample_events=0, official centroids; this does not prove cron execution |
 | Managed training/promotion | **FAILED** | [Run 39139455829](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139455829) exceeded 25-minute budget (Actions conclusion: cancelled). No successful managed promotion claimed; smaller corridor batches and timing logs prepared for retry |
-| Managed-model constrained API probe | **FAILED** | [Run 39139567159](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139567159) failed readiness with unavailable Production models; this is not evidence of a Render memory failure |
+| Managed-model constrained API probe | **FAILED** | [Run 39139567159](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139567159) failed readiness with unavailable Production models; [sanitized readiness result](managed-runtime-failure-evidence.json); this is not evidence of a Render memory failure |
 | Actual cron execution | **NOT VERIFIED** | Requires scheduled-event Actions run, not a manual invocation |
 | Public FastAPI real-model demand/ETA | **NOT VERIFIED** | BLOCKED: Render service and genuinely trained promoted artifacts absent |
 | Streamlit actual forecast rendering | **NOT VERIFIED** | BLOCKED: Community Cloud OAuth/app and API absent |
@@ -83,11 +83,11 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 | Restart/cold-start behavior | **NOT VERIFIED** | Requires actual hosted restart/sleep and repeated predictions |
 | Offline cloud/consumer regression checks | **VERIFIED** | 20 tests passed on local Python 3.11; scope is hermetic contracts only |
 | Cloud API import memory | **VERIFIED** | Windows process RSS 204.8 MiB; full MLflow pyfunc not imported; not Linux full-model peak proof |
-| Full revised unit/contract suite | **VERIFIED** | [Run 39139531145](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139531145), commit 3159201: 375 passed, 1 skipped, 45 warnings in 76.32s; all three CI jobs passed |
-| Compose build/integration | **VERIFIED** | Corrected [full CI run](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139531145) passed Docker builds and real disposable-service integration; fixture tests are not managed-cloud proof |
+| Full revised unit/contract suite | **VERIFIED** | [Run 39228738178](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228738178), commit 373c53b: 376 passed, 1 skipped, 45 warnings in 82.99s; all three CI jobs passed |
+| Compose build/integration | **VERIFIED** | Corrected [full CI run](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228738178) passed Docker builds and real disposable-service integration; fixture tests are not managed-cloud proof |
 | Linux free-runtime memory gate | **VERIFIED** | [Memory job](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39044393912/job/117430124274) measured 296.8 MiB peak inside 512 MiB; includes API/agent imports and fixture-trained Booster, not hosted production models |
 | Authentic bounded profile on CI services | **VERIFIED** | [Run 39046508012](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046508012), commit 62717dd; actual TLC -> Kafka -> PostgreSQL -> Feast/Redis -> MLflow -> FastAPI -> persisted reports; [sanitized evidence](free-profile-e2e-evidence.json) |
-| ARM64 image builds | **VERIFIED** | [Run 39046506079](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39046506079) succeeded |
+| ARM64 image builds | **VERIFIED** | [Run 39228731042](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228731042), commit 373c53b, succeeded |
 
 ### Authentic-data results and limitations
 
@@ -189,12 +189,18 @@ Gemini's official country list explicitly includes Pakistan.
    Prepare remaining hosting Free accounts as documented, without paid trials/cards.
 2. Add optional agent/provider keys and hosting variables, Render secret files/environment
    and Community Cloud API/access-key secrets. Do not send credentials in chat.
-3. Complete reviewed branch integration, bootstrap, real training/promotion,
-   monitoring and managed smoke workflow. Keep failed gates visible.
+3. Review and integrate the deployment branch through the existing protected
+   branch process after engineering checks pass. Bootstrap is already complete.
+   Training/promotion, monitoring and managed runtime checks are agent work; no
+   further owner credentials are required for those checks.
 4. Verify browser-rendered predictions and genuine cold-start/restart persistence;
    update this matrix with sanitized output and actual URLs only afterward.
 
 No cloud URL or successful deployment is fabricated to fill these blockers.
+
+Managed training retry [39228745442](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228745442)
+uses commit 373c53b and passed configuration preflight. Its outcome is pending;
+this does not supersede the recorded failed acceptance checks.
 
 ## Change inventory
 
@@ -205,7 +211,7 @@ deployment change set.
 
 ### Deployment file inventory
 
-62 changed or new deployment files:
+65 changed or new deployment files:
 
 - `.dockerignore`
 - `.env.example`
@@ -229,10 +235,12 @@ deployment change set.
 - `docs/cloud-verification.json`
 - `docs/free-profile-e2e-evidence.json`
 - `docs/mlflow-verification-evidence.json`
+- `docs/managed-runtime-failure-evidence.json`
 - `pyproject.toml`
 - `render.yaml`
 - `scripts/cloud_preflight.py`
 - `scripts/configure_cloud_secrets.py`
+- `scripts/diagnose_cloud_database.py`
 - `scripts/probe_cloud_memory.py`
 - `scripts/probe_managed_runtime.py`
 - `scripts/validate_cloud_config.py`
@@ -262,6 +270,7 @@ deployment change set.
 - `src/training/pipeline.py`
 - `src/transform/stream_consumer.py`
 - `tests/test_cloud_deployment.py`
+- `tests/test_cloud_database_diagnostics.py`
 - `tests/test_cloud_resources.py`
 - `tests/test_cloud_secret_setup.py`
 - `tests/test_stream_consumer.py`
