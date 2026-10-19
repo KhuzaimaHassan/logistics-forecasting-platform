@@ -2,12 +2,27 @@
 
 import json
 import logging
+import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from src.agents.graph import _serialize_tool_for_llm, tool_execution_node
 from src.agents.providers import GroqProvider
 from src.agents.tools import TOOL_ALLOWLIST
+
+
+def safe_provider_message(message):
+    """Redact configured secrets and URLs before retaining a bounded API schema error."""
+    value = str(message)
+    for name, secret in os.environ.items():
+        if secret and any(
+            word in name.upper()
+            for word in ("KEY", "TOKEN", "PASSWORD", "DATABASE_URL", "REDIS_URL")
+        ):
+            value = value.replace(secret, "[REDACTED]")
+    value = re.sub(r"https?://\S+", "[URL REDACTED]", value)
+    return value[:400]
 
 
 def diagnose():
@@ -71,10 +86,28 @@ def diagnose():
                     error = response.json().get("error", {})
                     result["provider_error_type"] = error.get("type")
                     result["provider_error_code"] = error.get("code")
+                    result["provider_message"] = safe_provider_message(
+                        error.get("message", "")
+                    )
                 except (ValueError, AttributeError):
                     pass
     finally:
         logging.disable(logging.NOTSET)
+    try:
+        from src.features.client import FeastOnlineClient
+        from src.serving.cloud_policy import missing_feature_fields
+
+        features = FeastOnlineClient().get_zone_demand_features([7, 74, 75, 166])
+        result["online_feature_readback"] = [
+            {
+                "zone_id": row.zone_id,
+                "missing_fields": missing_feature_fields(row),
+                "observed_at": str(row.observed_at),
+            }
+            for row in features
+        ]
+    except Exception as exc:
+        result["online_feature_error_type"] = type(exc).__name__
     return result
 
 
