@@ -362,12 +362,14 @@ write/read a unique Valkey key with 120-second expiry, and publish/read one
 validated authentic TLC event at its exact Kafka offset. No existing data is
 deleted. The trip event may subsequently be consumed by the normal idempotent
 pipeline. JSON contains sanitized evidence or exception type only. Feast online
-materialization remains NOT VERIFIED until the genuine bootstrap completes.
+materialization is verified separately by the completed bootstrap and aggregate
+checks linked in DEPLOYMENT_REPORT.md.
 
 ### Remaining providers and full verification
 
 DagsHub tracking/artifacts/registry, Render API, Community Cloud UI and optional
-LLM credentials still require owner account access. For DagsHub, after creating
+LLM credentials require owner account access for a fresh deployment; these are
+already configured and verified for this deployment. For DagsHub, after creating
 its Free repository/token, run the helper's `mlflow` group. The `agent` group
 uploads a shared API/UI access key from your password manager; it is optional for
 initial infrastructure checks. The LLM provider key belongs on the API host.
@@ -523,8 +525,10 @@ it to `.env`. GitHub does not let you read back secret values. Keep your own cop
 or rotate the same shared password in all three stores if lost.
 
 Obtain `GROQ_API_KEY` in your Groq Free account's API Keys page and configure it
-on Render only. GitHub's agent verifier calls Render; it does not need a provider
-key. Leave billing disabled. Never put either key in a browser URL. The public
+on Render. GitHub's normal agent verifier calls Render; it does not need a
+provider key. An optional environment secret GROQ_API_KEY lets the failure-only
+diagnostic distinguish provider/schema errors from hosted failures; the owner has
+configured it for this deployment. Leave billing disabled. Never put either key in a browser URL. The public
 Streamlit server sends the shared key to Render server-side, subject to the API's
 three-requests-per-minute agent limit. For a scoped real provider/tool check:
 
@@ -537,3 +541,38 @@ running this check. A successful scoped operation never marks full acceptance
 complete. The public dashboard should use branch `feature/d0-free-cloud-deployment`,
 entrypoint `ui/app.py`; compare the deployed labels to the current source after a
 Community Cloud restart. Application build logs and settings require owner access.
+
+### Retention and rollout acceptance
+
+Feast 0.65 skips equal event timestamps before renewing Redis expiry. The bounded
+cloud flow therefore renews only its exact entity keys after materialization,
+without changing historical feature values/event times. A completed source cursor
+still requires periodic materialization/retention renewal. The flow fails before
+recording refresh success if any expected online key is missing.
+
+Wait for the selected Render source revision before dispatching public acceptance.
+A pre-deploy check of the old endpoint can fail and block a checksPass deployment;
+use an owner manual deploy of the already-tested commit if necessary. Provider
+diagnostics from an Actions runner are separate from public endpoint acceptance.
+Do not run repeated queued mutations: the shared cloud concurrency group permits
+only one running and one pending job.
+
+Once the reviewed workflow reaches the default branch and the repository opt-in
+variable is enabled, the configured schedule is:
+
+| Operation | UTC | Pakistan (Asia/Karachi) |
+|---|---|---|
+| Bounded Kafka processing/feature retention refresh | Daily 03:17 and 15:17 | Daily 08:17 and 20:17 |
+| Training with existing promotion gates | Sunday 04:43 | Sunday 09:43 |
+| Historical monitoring | Daily 05:47 | Daily 10:47 |
+
+These are intended schedules, not verified execution times. GitHub scheduling can
+be delayed/dropped; a manual dispatch does not prove a scheduled-event run.
+
+Current acceptance (2026-10-19): all nine managed/public checks passed in run
+39272455345, and source f9a5605 passed full CI 39274527934 (398 tests plus
+Compose/memory) and ARM64 39274521143. Repository CLOUD_DEPLOYMENT_ENABLED was
+set to true only after this evidence. Default main still has no free-cloud.yml;
+cron remains NOT VERIFIED until protected integration and a scheduled-event run.
+Keep using the existing Free services; do not recreate them or deploy duplicate
+Blueprint resources.

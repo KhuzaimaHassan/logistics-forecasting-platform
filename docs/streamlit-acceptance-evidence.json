@@ -2,7 +2,7 @@
   "generated_at": "2026-10-19T11:29:25.663420+00:00",
   "public_url": "https://logistics-forecasting-platform.streamlit.app/",
   "verification_method": "Browser accessibility tree and visible rendered screenshots; no mocked backend",
-  "overall_acceptance": "PARTIAL",
+  "overall_acceptance": "Public applications verified; cron trigger remains NOT VERIFIED",
   "observations": {
     "demand": {
       "status": "VERIFIED",
@@ -14,7 +14,7 @@
       },
       "horizon_minutes": 60,
       "data_as_of": "2023-01-31T23:00:00+00:00",
-      "screenshot": "evidence/streamlit-public-demand.png"
+      "screenshot": "evidence/streamlit-corrected-demand.png"
     },
     "map": {
       "status": "VERIFIED",
@@ -34,12 +34,63 @@
     },
     "monitoring": {
       "status": "VERIFIED",
-      "observation": "Model Monitoring displayed persisted reports and rendered real embedded Evidently performance HTML"
+      "observation": "Corrected drift score 0.0232, MAE 0.06 vs baseline 0.05 (+29.9%), historical-data label and genuine persisted HTML rendered.",
+      "screenshot": "evidence/streamlit-corrected-monitoring.png"
     },
     "agent_initial": {
       "status": "NOT VERIFIED",
       "observation": "Before provider configuration, Drift Alerts returned HTTP503 agent_disabled; no mock response substituted"
     },
+    "agent_configured": {
+      "status": "VERIFIED",
+      "action": "Public Retraining Status query after Render deployed 92bddd7",
+      "provider": "groq",
+      "model_name": "openai/gpt-oss-20b",
+      "pipeline_run_count": 10,
+      "source": "warehouse.pipeline_runs",
+      "observed_latency_ms": 1107.3,
+      "http_verification_run": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39272455345",
+      "final_public_revision": "f9a56051a95a3dc1cade42d89ba992194a25cf0d",
+      "additional_verified_tools": [
+        "get_features",
+        "query_drift_reports"
+      ],
+      "legacy_report_warning_verified": true
+    },
+    "forecast_rerun": {
+      "status": "VERIFIED",
+      "action": "Demand request followed by corridor ETA request",
+      "demand_rows_retained": true,
+      "map_retained": true,
+      "eta_displayed_minutes": 11.9,
+      "feature_materialized_at": "2026-10-19T14:25:11.772810+00:00",
+      "model_scored_at": "2026-10-19T14:26:56.426184+00:00",
+      "screenshot": "evidence/streamlit-corrected-demand.png",
+      "eta_screenshot": "evidence/streamlit-corrected-eta.png",
+      "scope": "Public rerun persistence; selection invalidation also has hermetic AppTest coverage."
+    },
+    "public_ui_revision": {
+      "status": "VERIFIED",
+      "observation": "After owner reboot, corrected Forecasts & Map tab, bounded historical header, live-provider requirement and actual materialization label displayed."
+    },
+    "historical_data_label": {
+      "status": "VERIFIED",
+      "observation": "Forecast panel explicitly labels scheduled historical data and January 2023 observations; old global real-time label still requires UI fix rollout"
+    },
+    "temporary_online_feature_outage": {
+      "status": "VERIFIED",
+      "observation": "Both Render and CI found missing online fields after original Redis expiry. Source audit confirmed Feast skips equal event timestamps before TTL renewal. Managed aggregate 39268160345 restored actual features; no dummy predictions substituted."
+    }
+  },
+  "scope_limits": [
+    "No continuous real-time telemetry claim",
+    "No actual scheduled-event run verified",
+    "No controlled idle cold-start measurement",
+    "HTTP success alone is not visual verification"
+  ],
+  "supporting_managed_run": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39242666434",
+  "updated_at": "2026-10-19T14:32:54.113459+00:00",
+  "initial_failures": {
     "agent_configured": {
       "status": "FAILED",
       "action": "Retraining Status quick query after credentials configured",
@@ -54,17 +105,6 @@
     "public_ui_revision": {
       "status": "NOT VERIFIED",
       "observation": "After owner reboot, old Live Forecasts & Map label still visible despite committed source using Forecasts & Map; owner settings/build logs requested"
-    },
-    "historical_data_label": {
-      "status": "VERIFIED",
-      "observation": "Forecast panel explicitly labels scheduled historical data and January 2023 observations; old global real-time label still requires UI fix rollout"
     }
-  },
-  "scope_limits": [
-    "No continuous real-time telemetry claim",
-    "No actual scheduled-event run verified",
-    "No controlled idle cold-start measurement",
-    "HTTP success alone is not visual verification"
-  ],
-  "supporting_managed_run": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39242666434"
+  }
 }

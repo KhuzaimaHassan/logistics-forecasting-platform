@@ -416,3 +416,22 @@ Implementation results and actual check output are appended as work completes.
   old structural-guard unit dependency fixture; malicious tool remains blocked.
   All 76 agent/tool/API checks passed (67.90s); no external fixtures are called
   to make hermetic success assertions pass.
+
+- Final f9a5605 CI 39274527934 SUCCEEDED: 398 passed, one skipped, 45 warnings
+  in 54.61s, Compose and memory passed. ARM64 39274521143 SUCCEEDED.
+- Final Render revision f9a5605: readiness HTTP200 before/after requests, demand
+  0.71 and ETA 715.8s, genuine Production v1 models, no fallback.
+- Public Copilot retrieved actual zone 74 Feast values (3 last-hour pickups, 66
+  last-24-hour pickups, historical event timestamp) via Groq; separate monitoring
+  query returned five real reports, correct MAE metric, normal current prediction
+  drift and explicit warning for the legacy prediction-drift report.
+- Set repository CLOUD_DEPLOYMENT_ENABLED=true only after all nine real checks
+  passed. Read-only GitHub tree confirmed default main lacks free-cloud.yml.
+  No scheduled-event execution claimed; protected integration is still required.
+
+- Final owner confirmation: Render shows Free compute and Groq has no payment
+  method. Render payment-method/overage settings remain NOT VERIFIED; documented
+  official overage behavior without claiming a guaranteed billing cap.
+- Final evidence links distinguish the actual Feast screenshot from the later
+  pipeline screenshot; retained successful nine-service run source 92bddd7 and
+  final public/CI source f9a5605 separately. Complete change inventory refreshed.

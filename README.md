@@ -10,8 +10,10 @@
 > Forecasts describe a bounded January 2023 TLC sample, not current NYC totals.
 > Public dashboard demand/ETA/map rendering is verified. Acceptance exposed
 > monitoring score interpretation, forecast rerun and misleading-label defects;
-> corrected monitoring is verified, while UI fix rollout and live Copilot tool
-> execution remain pending. Cron and controlled idle cold starts are not verified.
+> corrected monitoring and public UI rerun behavior are verified. Real Groq plus
+> Aiven PostgreSQL/Feast tool execution passed through the public Copilot. All nine
+> managed checks passed. Cron and controlled idle cold starts are not verified;
+> actual hosted redeploy recovery passed.
 > Real-model containers passed 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB).
 > See the [deployment report](docs/DEPLOYMENT_REPORT.md),
 > [setup and secrets](docs/FREE_CLOUD_SETUP.md), and
