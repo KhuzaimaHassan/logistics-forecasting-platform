@@ -100,7 +100,8 @@ and mocked unit tests do not certify Aiven, DagsHub or public applications.
 | Corrected monitoring decisions | **VERIFIED** | [39242531954](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39242531954): authoritative Evidently flags match summaries; actual public readback checks per-column count and distance direction; [evidence](corrected-monitoring-evidence.json) |
 | Monitoring HTML persistence | **VERIFIED** | Latest performance report read back 3,701,744 HTML characters; genuine historical backtest |
 | Hosted redeploy recovery | **VERIFIED** | Render 92bddd7 initially returned readiness 503 with no loaded models; a real request recovered through lazy Production loading in 31.55s, then readiness and demand/ETA passed. Same genuine v1 artifacts; [failure + recovery evidence](public-redeploy-evidence.json) |
-| Controlled hosted idle cold start | **NOT VERIFIED** | No controlled sleep/wake timing performed; initial observed 93.4s request is not such proof |
+| Controlled hosted idle cold start | **NOT VERIFIED** | Later idle-interval request recovered in 130.328s with new genuine model load timestamps; same f9a5605 revision, demand/ETA/readiness passed, 9,232 warehouse rows and dashboard forecasts preserved. Provider sleep/start event logs are unavailable, so controlled sleep is not certified. [Evidence](idle-recovery-evidence.json) |
+| Render zero-charge billing safety | **NOT VERIFIED** | Owner confirms Free compute and an attached card; official terms allow bandwidth/build overages. Build spend limit and bandwidth hard cap are not verified. No observed charge claimed |
 | Genuine-model Free runtime limits | **VERIFIED** | [39230564684](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230564684): two fresh 512 MiB/0.1 CPU containers, concurrent 145-zone batches and durable predictions; peak process RSS 386.7 MiB |
 | Full CI including Compose | **VERIFIED** | [39274527934](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39274527934), f9a5605: all three jobs passed; 398 tests passed, one skipped, 45 warnings in 54.61s; Compose includes real disposable-service integrations |
 | ARM64 images | **VERIFIED** | [39274521143](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39274521143), f9a5605, successful multi-arch build |
@@ -176,8 +177,10 @@ corridor PIT batches subsequently passed without changing entities or labels.
 
 Expected recurring hosting cost is **$0/month within existing Free quotas**.
 
-Owner confirms Render displays the Free compute plan and Groq has no payment
-method. Render payment-method and automatic-overage controls are **NOT VERIFIED**.
+Owner confirms Render displays the Free compute plan **and has a card attached**.
+Groq has no payment method. Render hard zero-charge safety is **NOT VERIFIED**;
+bandwidth/build overages are possible with the attached card. No actual overage
+charge has been observed or claimed.
 A Free compute label alone does not establish a hard billing cap: bandwidth/build
 overages can be billed when a payment method is present. Check Render workspace
 Billing before treating this as a guaranteed zero-charge account. Without a
@@ -226,18 +229,37 @@ claimed. GitHub public standard runners replace paid always-on workers.
    online feature TTL expires; manual pipeline history does not prove automation.
 2. Perform a controlled Render idle sleep/wake request and capture recovery timing.
    Actual hosted redeploy recovery is already verified.
-3. Verify Render workspace Billing has no payment method or billable overages;
-   only the Free compute label has been confirmed. Groq has no payment method.
+3. Resolve Render billing safety: owner confirms a card is attached. Set the
+   additional build-pipeline spend limit to $0 if available; that limit does not
+   cap bandwidth. Have the owner verify card removal is possible while preserving
+   the Free service, or obtain provider confirmation that all billable overages
+   are disabled. Groq has no payment method.
 4. Optional Gemini fallback and deployed FAISS index freshness are not verified.
    The exercised Copilot uses Groq with actual PostgreSQL and Feast tools; this
    does not certify every optional provider/retrieval path.
 
+## Latest acceptance follow-up
+
+Normal protected merge of PR #166 into dev was refused while the required
+Lint & Test check remained pending on 7a389f7. The latest CI log records 398 tests
+passed, one skipped and 45 warnings (59.74s); Compose and memory checks succeeded.
+GitHub read/cancel/retry endpoints returned inconsistent completion information;
+the direct retry API returned HTTP403, already running. No required check was
+forged or bypassed. The last fully successful source CI remains f9a5605 above.
+The required branch path is feature -> dev -> main; default main has no cloud
+workflow, so no actual schedule-triggered execution is claimed.
+
+New public recovery evidence and the owner's attached-card confirmation are in
+[idle-recovery-evidence.json](idle-recovery-evidence.json). Final acceptance remains
+incomplete. Additional Render deployments should wait for confirmed billing
+controls; the current public service remains on Free.
+
 ## Complete change inventory
 
-Relative to dev; the owner-provided dev container is identified separately.
-The pre-existing Oracle retry script edit remains untouched and excluded.
+Relative to dev; owner-provided dev container identified separately. The unrelated
+Oracle retry script edit remains untouched and excluded.
 
-96 changed/new files:
+98 changed/new files:
 
 - `.devcontainer/devcontainer.json` (owner-provided)
 - `.dockerignore`
@@ -262,6 +284,7 @@ The pre-existing Oracle retry script edit remains untouched and excluded.
 - `docs/aiven-initialization-evidence.json`
 - `docs/cloud-verification.json`
 - `docs/corrected-monitoring-evidence.json`
+- `docs/evidence/streamlit-after-idle-recovery.png`
 - `docs/evidence/streamlit-corrected-demand.png`
 - `docs/evidence/streamlit-corrected-eta.png`
 - `docs/evidence/streamlit-corrected-monitoring.png`
@@ -270,6 +293,7 @@ The pre-existing Oracle retry script edit remains untouched and excluded.
 - `docs/evidence/streamlit-live-copilot.png`
 - `docs/evidence/streamlit-public-demand.png`
 - `docs/free-profile-e2e-evidence.json`
+- `docs/idle-recovery-evidence.json`
 - `docs/managed-monitoring-evidence.json`
 - `docs/managed-runtime-evidence.json`
 - `docs/managed-runtime-failure-evidence.json`

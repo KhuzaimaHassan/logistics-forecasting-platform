@@ -37,3 +37,9 @@ provider public endpoints with authenticated TLS and hostname/CA verification.
 Never expose an unauthenticated self-hosted database/broker or disable certificate
 checks. Use least-privilege users/ACLs and available IP restrictions. Dynamic
 standard-runner addresses require an operator-reviewed access policy.
+
+2026-10-19 account clarification: owner confirms Render has an attached card and
+Free compute. The zero-charge condition is therefore unresolved: official terms
+permit bandwidth/build overages. A pipeline spend limit only controls pipeline
+minutes, not bandwidth. No billed overage has been observed. Owner account action
+or provider confirmation is required before claiming a guaranteed $0 account.

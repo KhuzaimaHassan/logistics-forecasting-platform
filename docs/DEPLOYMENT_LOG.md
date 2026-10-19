@@ -435,3 +435,23 @@ Implementation results and actual check output are appended as work completes.
 - Final evidence links distinguish the actual Feast screenshot from the later
   pipeline screenshot; retained successful nine-service run source 92bddd7 and
   final public/CI source f9a5605 separately. Complete change inventory refreshed.
+
+### Acceptance continuation — 2026-10-19
+
+- Read dev/main protection rules: strict required checks and admin enforcement;
+  preserve feature -> dev -> main. PR166 normal merge refused pending required CI.
+- Latest head 7a389f7 CI39278167895 logs 398 passed, one skipped, 45 warnings,
+  59.74s, then cleanup/cache-service warning. Compose and memory check success;
+  Lint & Test remains in_progress in API. Cancel said completed while direct
+  rerun returned HTTP403 already running. No admin bypass or fake success used.
+- Timed idle-interval public demand request started 15:50UTC (20:50PKT), HTTP200
+  after130.328s; actual Production model load timestamps changed, same f9a5605
+  revision. Correct source-confirmed ETA/readiness/deployment requests passed.
+  Initial guessed ETA/deployment URLs returned404 and are retained as probe errors.
+- PostgreSQL warehouse remains9,232 rows; UI fresh demand3.69/5.55/2.26 and
+  ETA715.8s confirmed, retained demand after ETA rerun, screenshot saved.
+  Private Render sleep/start logs unavailable: controlled sleep still NOT VERIFIED.
+- Owner now confirms Render card attached; Free badge does not cap overages.
+  Documented official bandwidth/build billing and pipeline-only spending control.
+  No actual charge claimed. Further Render deployments paused pending owner billing
+  controls; no new feature, paid resource, payment-method change or deletion.

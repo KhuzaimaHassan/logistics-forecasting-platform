@@ -13,7 +13,9 @@
 > corrected monitoring and public UI rerun behavior are verified. Real Groq plus
 > Aiven PostgreSQL/Feast tool execution passed through the public Copilot. All nine
 > managed checks passed. Cron and controlled idle cold starts are not verified;
-> actual hosted redeploy recovery passed.
+> actual hosted redeploy and later idle-interval forecast recovery passed.
+> Owner confirms Render has a card attached: bandwidth/build overages are possible;
+> hard zero-charge billing safety remains unverified.
 > Real-model containers passed 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB).
 > See the [deployment report](docs/DEPLOYMENT_REPORT.md),
 > [setup and secrets](docs/FREE_CLOUD_SETUP.md), and

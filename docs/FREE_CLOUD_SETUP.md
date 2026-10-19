@@ -576,3 +576,18 @@ set to true only after this evidence. Default main still has no free-cloud.yml;
 cron remains NOT VERIFIED until protected integration and a scheduled-event run.
 Keep using the existing Free services; do not recreate them or deploy duplicate
 Blueprint resources.
+
+### Attached-card billing acceptance (2026-10-19)
+
+The owner confirms an attached Render card despite selecting Free compute. This
+allows bandwidth/build-minute overage charges under the [official Free terms](https://render.com/docs/free).
+Do not claim a guaranteed $0 bill from the Free badge. No charge is observed here.
+
+In Workspace Settings -> Build Pipeline -> Set/Edit spend limit, set additional
+monthly pipeline spend to $0 if supported and verify the saved value. This limit
+covers pipeline minutes only, not outbound bandwidth. See [the official limit instructions](https://render.com/docs/build-pipeline#setting-a-spend-limit).
+Have the owner check whether the card can be removed without deleting/changing
+the existing Free service, or obtain provider confirmation of a complete overage
+block. Do not remove payment methods, upgrade, delete resources or start new
+billable resources automatically. Usage alerts alone do not establish a hard cap.
+Keep further Render deployments paused until the account controls are confirmed.
