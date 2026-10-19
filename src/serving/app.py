@@ -559,7 +559,8 @@ def deployment_status() -> dict:
                 ).first()
                 if row:
                     metadata = json.loads(row[0])
-                    metadata["refreshed_at"] = row[1].isoformat()
+                    metadata["checkpoint_updated_at"] = row[1].isoformat()
+                    metadata["refreshed_at"] = metadata.get("feature_materialized_at")
                 metadata["available_corridors"] = list(
                     session.execute(
                         text(
@@ -573,6 +574,7 @@ def deployment_status() -> dict:
             ) from exc
     return {
         "mode": "scheduled" if is_cloud_deployment() else "local",
+        "revision": os.getenv("RENDER_GIT_COMMIT") or os.getenv("GITHUB_SHA"),
         "data_source": os.getenv("DATA_SOURCE_LABEL", "NYC TLC recorded trips"),
         "update_description": os.getenv(
             "DATA_UPDATE_DESCRIPTION",

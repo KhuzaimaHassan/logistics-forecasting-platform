@@ -36,6 +36,27 @@ DEFAULT_DECAY_THRESHOLD = 0.15  # 15% MAE degradation flags performance decay
 DEFAULT_CRITICAL_FEATURES = ["pickup_count_last_1h", "avg_trip_duration_last_1h"]
 
 
+def _value_drift_result(snapshot_dict, column, method):
+    """Use Evidently's own decision; distance scores are not p-values."""
+    tests = [
+        test
+        for test in snapshot_dict.get("tests", [])
+        if test.get("metric_config", {}).get("params", {}).get("type")
+        == "evidently:metric_v2:ValueDrift"
+        and test["metric_config"]["params"].get("column") == column
+    ]
+    if len(tests) != 1 or tests[0].get("status") not in {"SUCCESS", "FAIL"}:
+        raise ValueError(f"Missing or inconclusive Evidently drift test for {column}")
+    name = method.lower()
+    if "p_value" in name or "p-value" in name:
+        score_type = "p_value"
+    elif any(label in name for label in ("distance", "divergence", "psi")):
+        score_type = "distance"
+    else:
+        raise ValueError(f"Unsupported Evidently score semantics: {method}")
+    return tests[0]["status"] == "FAIL", score_type
+
+
 class BaseAnalyzer:
     """Base analyzer providing common DataDefinition builders and serialization routines."""
 
@@ -127,7 +148,10 @@ class DataDriftAnalyzer(BaseAnalyzer):
         ref_ds = Dataset.from_pandas(ref_sub, data_definition=data_def)
 
         # Instantiate Evidently Report with DataDriftPreset
-        report = Report([DataDriftPreset(drift_share=self.drift_share_threshold)])
+        report = Report(
+            [DataDriftPreset(drift_share=self.drift_share_threshold)],
+            include_tests=True,
+        )
 
         # MANDATORY ADR-026: Explicit keyword arguments to guarantee target/reference directionality
         snapshot = report.run(current_data=curr_ds, reference_data=ref_ds)
@@ -154,9 +178,11 @@ class DataDriftAnalyzer(BaseAnalyzer):
                 col_name = cfg.get("column", "")
                 method = cfg.get("method", "")
                 thresh = float(cfg.get("threshold", self.stat_test_threshold))
-                p_val = float(val) if val is not None else None
-
-                drift_detected = p_val is not None and p_val < thresh
+                score = float(val) if val is not None else None
+                drift_detected, score_type = _value_drift_result(
+                    snapshot_dict, col_name, method
+                )
+                p_val = score if score_type == "p_value" else None
                 is_crit = col_name in self.critical_features
 
                 c_mean = (
@@ -177,6 +203,8 @@ class DataDriftAnalyzer(BaseAnalyzer):
                         column_name=col_name,
                         drift_detected=drift_detected,
                         p_value=p_val,
+                        drift_score=score,
+                        score_type=score_type,
                         stat_test=method,
                         threshold=thresh,
                         current_mean=c_mean,
@@ -196,7 +224,7 @@ class DataDriftAnalyzer(BaseAnalyzer):
                         )
                     else:
                         alert_reasons.append(
-                            f"Feature '{col_name}' drifted (p={p_val:.4e} < {thresh})"
+                            f"Feature '{col_name}' drifted ({score_type}={score:.4e}, threshold={thresh})"
                         )
 
         # Dataset drift decision per ADR-026
@@ -210,8 +238,10 @@ class DataDriftAnalyzer(BaseAnalyzer):
         has_critical_drift = any(
             m.is_critical
             and m.drift_detected
-            and m.p_value is not None
-            and m.p_value < self.critical_p_threshold
+            and (
+                m.score_type == "distance"
+                or (m.p_value is not None and m.p_value < self.critical_p_threshold)
+            )
             for m in drift_metrics
         )
         retrain_recommended = dataset_drift_detected or has_critical_drift
@@ -227,6 +257,7 @@ class DataDriftAnalyzer(BaseAnalyzer):
         html_content = snapshot.get_html_str(as_iframe=False)
 
         summary_json = {
+            "score_semantics_version": 2,
             "report_id": rep_id,
             "report_type": ReportType.DATA_DRIFT.value,
             "generated_at": gen_at.isoformat(),
@@ -290,20 +321,20 @@ class PredictionDriftAnalyzer(BaseAnalyzer):
         curr_ds = Dataset.from_pandas(curr_sub, data_definition=data_def)
         ref_ds = Dataset.from_pandas(ref_sub, data_definition=data_def)
 
-        report = Report([DataDriftPreset(drift_share=0.5)])
+        report = Report([DataDriftPreset(drift_share=0.5)], include_tests=True)
 
         # MANDATORY ADR-026: Explicit keyword arguments
         snapshot = report.run(current_data=curr_ds, reference_data=ref_ds)
         snapshot_dict = snapshot.dict()
 
-        p_val: Optional[float] = None
+        score: Optional[float] = None
         stat_method = ""
         thresh = self.stat_test_threshold
 
         for metric in snapshot_dict.get("metrics", []):
             cfg = metric.get("config", {})
             if cfg.get("type") == "evidently:metric_v2:ValueDrift":
-                p_val = (
+                score = (
                     float(metric.get("value"))
                     if metric.get("value") is not None
                     else None
@@ -311,7 +342,10 @@ class PredictionDriftAnalyzer(BaseAnalyzer):
                 stat_method = cfg.get("method", "")
                 thresh = float(cfg.get("threshold", self.stat_test_threshold))
 
-        drift_detected = p_val is not None and p_val < thresh
+        drift_detected, score_type = _value_drift_result(
+            snapshot_dict, self.prediction_col, stat_method
+        )
+        p_val = score if score_type == "p_value" else None
         c_mean = float(curr_sub[self.prediction_col].mean())
         r_mean = float(ref_sub[self.prediction_col].mean())
 
@@ -319,6 +353,8 @@ class PredictionDriftAnalyzer(BaseAnalyzer):
             column_name=self.prediction_col,
             drift_detected=drift_detected,
             p_value=p_val,
+            drift_score=score,
+            score_type=score_type,
             stat_test=stat_method,
             threshold=thresh,
             current_mean=c_mean,
@@ -329,13 +365,14 @@ class PredictionDriftAnalyzer(BaseAnalyzer):
         alert_reasons = []
         if drift_detected:
             alert_reasons.append(
-                f"Prediction output distribution drifted (p={p_val:.4e} < {thresh}, current mean={c_mean:.2f}, reference mean={r_mean:.2f})"
+                f"Prediction output distribution drifted ({score_type}={score:.4e}, threshold={thresh}, current mean={c_mean:.2f}, reference mean={r_mean:.2f})"
             )
 
         alert_severity = "WARNING" if drift_detected else "INFO"
         html_content = snapshot.get_html_str(as_iframe=False)
 
         summary_json = {
+            "score_semantics_version": 2,
             "report_id": rep_id,
             "report_type": ReportType.PREDICTION_DRIFT.value,
             "generated_at": gen_at.isoformat(),

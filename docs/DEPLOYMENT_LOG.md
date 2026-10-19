@@ -288,3 +288,31 @@ Implementation results and actual check output are appended as work completes.
 - Public-verifier source commit 30e9172 passed Lint & Test: 378 passed, one
   skipped, 45 warnings in 68.50s; fixture memory gate passed. Compose/ARM64
   reruns were still in progress at this evidence checkpoint.
+
+### 2026-10-19 — public Streamlit acceptance and correctness fixes
+
+- Owner supplied https://logistics-forecasting-platform.streamlit.app/. Configured
+  CLOUD_STREAMLIT_URL and started aggregate check 39240590438. Public browser
+  confirmed real serving status and actual demand for 74/75/166: 3.69/5.55/2.26,
+  official-centroid map, ETA 11.9 minutes (715.8s), six real pipeline records and
+  embedded Evidently performance HTML with the actual degradation alert.
+- Found real acceptance defects: misleading real-time/mock-provider labels,
+  demand/map disappearing on ETA rerun, MAE metric casing mismatch, and cursor
+  updated_at incorrectly shown as feature freshness.
+- More serious: actual 2,000-row monitoring summaries misread distance scores as
+  p-values, reversing per-column/prediction flags relative to Evidently's own
+  count. Preserved old evidence; marked its statistical alerts untrusted pending
+  corrected generation. ADR-029 records the correction without model retraining.
+- Added authoritative Evidently decisions and explicit score semantics, forecast
+  session persistence with selection invalidation, honest disabled-agent controls,
+  and a post-success materialization timestamp. Eighteen focused analyzer/UI
+  tests passed in 47.26s, including real Evidently large-sample regressions and
+  actual Streamlit AppTest reruns (external services mocked in these unit tests).
+- Initial sandbox-local Evidently import blocked in asyncio loopback socketpair;
+  interrupted only the two diagnostic processes, then reran with approved local
+  loopback access and telemetry disabled. This was an environment restriction,
+  not a passed test or a hidden application failure.
+- Actual /agent/chat returned HTTP503 agent_disabled; no live agent claimed.
+  Owner asked to configure free-provider/shared access credentials or leave blocked.
+- Final freshness-source and forecast-rerun checks: 10 passed in 24.52s.
+  Ruff, Black formatting and offline manifest validation passed before push.

@@ -51,6 +51,7 @@ jobs:
       AGENT_API_KEY: ${{ secrets.CLOUD_AGENT_ACCESS_KEY }}
       PREFECT_SERVER_ANALYTICS_ENABLED: 'false'
       EVIDENTLY_DO_NOT_TRACK: '1'
+      DO_NOT_TRACK: '1'
       AUTO_RETRAIN_ON_DRIFT: 'false'
       OMP_NUM_THREADS: '2'
     steps:

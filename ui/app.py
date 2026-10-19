@@ -2,7 +2,7 @@
 
 Features:
 - Ops Copilot tab: conversational assistant calling FastAPI POST /agent/chat.
-- Surfaces active LLM provider and model name (Groq llama-3.3-70b-versatile, Gemini gemini-2.0-flash, or mock-rule-engine).
+- Surfaces actual provider metadata and explicitly unavailable cloud-agent states.
 - Interactive quick-action prompt chips for common operational questions.
 - Metadata inspection for tools used, sources cited, execution latency, and turn status.
 - Live Map and Pipeline Observability tabs for Phase 8 extension.
@@ -187,14 +187,32 @@ def main():
             st.caption("Ensure FastAPI container or local dev server is running.")
 
         st.markdown("---")
+        try:
+            deployment_response = requests.get(
+                f"{api_url.rstrip('/')}/deployment/status", timeout=API_TIMEOUT
+            )
+            deployment_response.raise_for_status()
+            deployment = deployment_response.json()
+        except (requests.RequestException, ValueError):
+            deployment = {}
+        cloud_mode = deployment.get("mode") == "scheduled"
+        agent_available = bool(deployment.get("agent_enabled")) and (
+            not cloud_mode or bool(os.getenv("AGENT_API_KEY"))
+        )
         st.subheader("🛡️ Agent Architecture")
         st.markdown("""
             - **Framework**: LangGraph stategraph
-            - **Primary LLM**: Groq (configured free-tier model)
-            - **Fallback LLM**: Gemini (`gemini-2.0-flash`)
-            - **Offline Fallback**: Rule Engine (`mock-rule-engine`)
+            - **Supported providers**: API-configured Groq or Gemini
             - **Security Boundary**: Read-only tool allowlist (ADR-023)
             """)
+        if cloud_mode:
+            st.caption(
+                "Cloud responses require a live provider; mock responses are disabled."
+            )
+        if not agent_available:
+            st.info(
+                "Ops Copilot is unavailable until agent access and a live provider are configured."
+            )
 
         with st.expander("Allowlisted Tools", expanded=False):
             st.markdown("""
@@ -217,13 +235,15 @@ def main():
 
     st.title("NYC Logistics Forecasting Platform")
     st.markdown(
-        "Real-time NYC taxi demand and corridor trip duration forecasting with integrated LangGraph Ops Copilot."
+        "Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing."
+        if cloud_mode
+        else "NYC taxi demand and corridor ETA forecasting with platform observability."
     )
 
     tab_copilot, tab_map, tab_pipeline, tab_monitoring = st.tabs(
         [
             "🤖 Ops Copilot",
-            "🗺️ Live Forecasts & Map",
+            "🗺️ Forecasts & Map",
             "📈 Pipeline Observability",
             "📉 Model Monitoring",
         ]
@@ -251,19 +271,39 @@ def main():
         quick_query = None
 
         with col1:
-            if st.button("🚕 Zone 161 Demand", use_container_width=True):
+            if st.button(
+                "🚕 Zone 161 Demand",
+                use_container_width=True,
+                disabled=not agent_available,
+            ):
                 quick_query = "What is the current feature state and demand forecast for zone 161?"
         with col2:
-            if st.button("⏱️ Corridor 161 → 236 ETA", use_container_width=True):
+            if st.button(
+                "⏱️ Corridor 161 → 236 ETA",
+                use_container_width=True,
+                disabled=not agent_available,
+            ):
                 quick_query = "What is the ETA prediction for corridor 161 to 236?"
         with col3:
-            if st.button("🔄 Retraining Status", use_container_width=True):
+            if st.button(
+                "🔄 Retraining Status",
+                use_container_width=True,
+                disabled=not agent_available,
+            ):
                 quick_query = "Did the model retraining pipeline run this week?"
         with col4:
-            if st.button("📉 Drift Alerts", use_container_width=True):
+            if st.button(
+                "📉 Drift Alerts",
+                use_container_width=True,
+                disabled=not agent_available,
+            ):
                 quick_query = "Have any feature drift or model performance decay alerts been detected recently?"
         with col5:
-            if st.button("📋 Promotion Hurdle (ADR-021)", use_container_width=True):
+            if st.button(
+                "📋 Promotion Hurdle (ADR-021)",
+                use_container_width=True,
+                disabled=not agent_available,
+            ):
                 quick_query = (
                     "How does the model promotion hurdle rate work in ADR-021?"
                 )
@@ -308,7 +348,8 @@ def main():
 
         # Chat Input Box
         user_input = st.chat_input(
-            "Ask Ops Copilot an operational question (e.g. 'Show recent predictions for zone 161')..."
+            "Ask Ops Copilot an operational question (e.g. 'Show recent predictions for zone 161')...",
+            disabled=not agent_available,
         )
         prompt_to_submit = quick_query or user_input
 
@@ -401,18 +442,15 @@ def main():
             "Free API hosting can take about a minute to wake up. Retry after a temporary unavailable response."
         )
         try:
-            metadata_response = requests.get(
-                f"{api_url.rstrip('/')}/deployment/status", timeout=API_TIMEOUT
-            )
-            metadata_response.raise_for_status()
-            deployment = metadata_response.json()
+            if not deployment:
+                raise ValueError("Deployment metadata is unavailable")
             observations = deployment.get("observations", {})
             st.write(deployment.get("data_source", ""))
             st.write(
                 f"Observed period: {observations.get('observation_start', 'unavailable')} → {observations.get('observation_end', 'unavailable')}"
             )
             st.caption(
-                f"Last feature refresh: {observations.get('refreshed_at', 'unavailable')}"
+                f"Last successful feature materialization: {observations.get('feature_materialized_at') or 'not recorded yet'}"
             )
             zones_response = requests.get(
                 f"{api_url.rstrip('/')}/zones", timeout=API_TIMEOUT
@@ -432,6 +470,7 @@ def main():
                 max_selections=50,
             )
             if st.button("Predict next-hour demand", disabled=not chosen_zones):
+                st.session_state.pop("demand_forecast", None)
                 result = requests.post(
                     f"{api_url.rstrip('/')}/predict/demand/batch",
                     json={"zone_ids": chosen_zones, "horizon_minutes": 60},
@@ -439,47 +478,80 @@ def main():
                 )
                 result.raise_for_status()
                 payload = result.json()
-                predictions = payload.get("predictions", payload.get("results", []))
+                predictions = payload.get("predictions", [])
                 if not predictions:
                     st.warning("API returned no forecast rows.")
                 else:
-                    import pandas as pd
-                    import pydeck as pdk
+                    st.session_state["demand_forecast"] = {
+                        "api_url": api_url,
+                        "zone_ids": chosen_zones,
+                        "payload": payload,
+                    }
+            saved_demand = st.session_state.get("demand_forecast", {})
+            if (
+                saved_demand.get("api_url") == api_url
+                and saved_demand.get("zone_ids") == chosen_zones
+            ):
+                payload = saved_demand["payload"]
+                predictions = payload["predictions"]
+                st.caption(
+                    f"Model v{payload.get('model_version')} · scored at {payload.get('as_of')}"
+                )
+                import pandas as pd
+                import pydeck as pdk
 
-                    frame = pd.DataFrame(predictions)
-                    st.dataframe(frame, hide_index=True)
-                    locations = pd.DataFrame(zones)
-                    mapped = frame.merge(locations, on="zone_id", how="inner").dropna(
-                        subset=["lat", "lon"]
+                frame = pd.DataFrame(predictions)
+                st.dataframe(
+                    frame,
+                    hide_index=True,
+                    column_order=[
+                        "zone_id",
+                        "predicted_pickups",
+                        "data_as_of",
+                        "horizon_minutes",
+                        "status",
+                    ],
+                    column_config={
+                        "zone_id": "Taxi zone",
+                        "predicted_pickups": st.column_config.NumberColumn(
+                            "Next-hour sample pickups", format="%.2f"
+                        ),
+                        "data_as_of": "Feature observation (UTC)",
+                        "horizon_minutes": "Horizon (min)",
+                        "status": "Status",
+                    },
+                )
+                locations = pd.DataFrame(zones)
+                mapped = frame.merge(locations, on="zone_id", how="inner").dropna(
+                    subset=["lat", "lon"]
+                )
+                mapped["radius"] = 100 + mapped["predicted_pickups"].clip(lower=0) * 50
+                st.pydeck_chart(
+                    pdk.Deck(
+                        map_style=None,
+                        initial_view_state=pdk.ViewState(
+                            latitude=40.75, longitude=-73.95, zoom=10
+                        ),
+                        layers=[
+                            pdk.Layer(
+                                "ScatterplotLayer",
+                                data=mapped,
+                                get_position="[lon, lat]",
+                                get_radius="radius",
+                                get_fill_color=[30, 130, 200, 170],
+                                pickable=True,
+                            )
+                        ],
+                        tooltip={
+                            "text": "{zone_name}: {predicted_pickups} sample pickups in next hour"
+                        },
                     )
-                    mapped["radius"] = (
-                        100 + mapped["predicted_pickups"].clip(lower=0) * 50
-                    )
-                    st.pydeck_chart(
-                        pdk.Deck(
-                            map_style=None,
-                            initial_view_state=pdk.ViewState(
-                                latitude=40.75, longitude=-73.95, zoom=10
-                            ),
-                            layers=[
-                                pdk.Layer(
-                                    "ScatterplotLayer",
-                                    data=mapped,
-                                    get_position="[lon, lat]",
-                                    get_radius="radius",
-                                    get_fill_color=[30, 130, 200, 170],
-                                    pickable=True,
-                                )
-                            ],
-                            tooltip={
-                                "text": "{zone_name}: {predicted_pickups} sample pickups in next hour"
-                            },
-                        )
-                    )
+                )
             corridors = observations.get("available_corridors", [])
             if corridors:
                 corridor = st.selectbox("Materialized corridor", corridors)
                 if st.button("Predict corridor ETA"):
+                    st.session_state.pop("eta_forecast", None)
                     origin, destination = corridor.split("_")
                     result = requests.get(
                         f"{api_url.rstrip('/')}/predict/eta",
@@ -487,7 +559,17 @@ def main():
                         timeout=API_TIMEOUT,
                     )
                     result.raise_for_status()
-                    eta = result.json()
+                    st.session_state["eta_forecast"] = {
+                        "api_url": api_url,
+                        "corridor": corridor,
+                        "payload": result.json(),
+                    }
+                saved_eta = st.session_state.get("eta_forecast", {})
+                if (
+                    saved_eta.get("api_url") == api_url
+                    and saved_eta.get("corridor") == corridor
+                ):
+                    eta = saved_eta["payload"]
                     st.metric(
                         "Estimated trip duration",
                         f"{eta['predicted_duration_minutes']:.1f} minutes",
@@ -507,7 +589,7 @@ def main():
     with tab_pipeline:
         st.subheader("Pipeline & Model Observability")
         st.caption(
-            "Live health state across batch ETL, streaming, and scheduled retraining flows."
+            "Recorded pipeline execution results. Manual runs do not prove that a recurring schedule has executed."
         )
 
         pipe_info = get_pipeline_status(api_url)
@@ -594,7 +676,9 @@ def main():
                         None,
                     )
                     subtext = (
-                        f"p-val: {p_score:.4f}" if p_score is not None else "Evaluated"
+                        f"Drift score: {p_score:.4f}"
+                        if p_score is not None
+                        else "See report"
                     )
                     st.metric("Prediction Drift", badge, subtext)
                 else:
@@ -608,7 +692,11 @@ def main():
                         "metrics", []
                     )
                     mae_m = next(
-                        (m for m in perf_metrics if m.get("metric_name") == "MAE"),
+                        (
+                            m
+                            for m in perf_metrics
+                            if str(m.get("metric_name", "")).lower() == "mae"
+                        ),
                         None,
                     )
                     if mae_m and mae_m.get("current_value") is not None:
@@ -628,7 +716,7 @@ def main():
                     st.warning(
                         f"⚠️ **Action Required: Model Retraining Recommended!**\n\n"
                         f"{len(retrain_recs)} recent monitoring reports triggered automated retraining alerts. "
-                        "Under ADR-026 Alert-First policy, review the drift reports below or confirm retraining via Prefect."
+                        "Review the historical backtest reports before triggering retraining."
                     )
 
             st.markdown("---")
@@ -698,6 +786,17 @@ def main():
                 selected_record = next(
                     r for r in reports_list if r["report_id"] == selected_id
                 )
+                if (
+                    selected_record["report_type"] in {"data_drift", "prediction_drift"}
+                    and selected_record.get("summary_json", {}).get(
+                        "score_semantics_version", 1
+                    )
+                    < 2
+                ):
+                    st.warning(
+                        "Legacy drift summary: distance scores were interpreted as p-values. "
+                        "Use a newly generated report; this historical record is retained for audit."
+                    )
 
                 det_col1, det_col2, det_col3, det_col4 = st.columns(4)
                 with det_col1:
@@ -712,7 +811,7 @@ def main():
                     )
                 with det_col4:
                     st.write(
-                        f"**HTML Artifact**: `{selected_record.get('file_path', 'N/A')}`"
+                        f"**Model version**: `{selected_record.get('summary_json', {}).get('model_version', 'unrecorded')}`"
                     )
 
                 if selected_record.get("alert_reasons"):

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +24,8 @@ class DriftMetricSummary(BaseModel):
     column_name: str
     drift_detected: bool
     p_value: Optional[float] = None
+    drift_score: Optional[float] = None
+    score_type: Optional[Literal["p_value", "distance"]] = None
     stat_test: Optional[str] = None
     threshold: Optional[float] = 0.05
     current_mean: Optional[float] = None

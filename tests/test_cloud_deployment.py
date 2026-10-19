@@ -164,3 +164,28 @@ def test_native_booster_matches_training_predictions_and_blocks_path_escape(
         (tmp_path / "MLmodel").write_text(json.dumps(manifest))
         with pytest.raises(ModelUnavailableError):
             load_model_artifact("models:/unit-test/1")
+
+
+@pytest.mark.parametrize("materialized_at", [None, "2026-10-19T11:00:00+00:00"])
+def test_deployment_freshness_never_uses_cursor_update_as_materialization(
+    materialized_at,
+):
+    from src.serving.app import deployment_status
+
+    metadata = (
+        {} if materialized_at is None else {"feature_materialized_at": materialized_at}
+    )
+    updated = datetime(2026, 10, 18, tzinfo=timezone.utc)
+    session = MagicMock()
+    first = MagicMock()
+    first.first.return_value = (json.dumps(metadata), updated)
+    second = MagicMock()
+    second.scalars.return_value = ["75_237"]
+    session.execute.side_effect = [first, second]
+    with patch("src.serving.app.is_cloud_deployment", return_value=True), patch(
+        "src.serving.app.get_db_session"
+    ) as manager:
+        manager.return_value.__enter__.return_value = session
+        result = deployment_status()
+    assert result["observations"]["refreshed_at"] == materialized_at
+    assert result["observations"]["checkpoint_updated_at"] == updated.isoformat()

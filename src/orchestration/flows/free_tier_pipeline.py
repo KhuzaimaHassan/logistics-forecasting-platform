@@ -190,7 +190,25 @@ def reconcile(engine):
         end_date=end + timedelta(seconds=1),
         store=store,
     )
+    materialized_at = datetime.now(timezone.utc).isoformat()
+    with engine.begin() as connection:
+        updated = connection.execute(
+            text(
+                "UPDATE warehouse.pipeline_cursors SET metadata_json="
+                "(metadata_json::jsonb || CAST(:metadata AS jsonb))::text "
+                "WHERE cursor_key=:key"
+            ),
+            {
+                "key": CURSOR_KEY,
+                "metadata": json.dumps({"feature_materialized_at": materialized_at}),
+            },
+        )
+        if updated.rowcount != 1:
+            raise RuntimeError(
+                "Feature materialization timestamp has no pipeline cursor"
+            )
     return {
+        "feature_materialized_at": materialized_at,
         "observation_start": start.isoformat(),
         "observation_end": end.isoformat(),
         "warehouse_rows": count,

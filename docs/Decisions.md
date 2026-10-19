@@ -627,3 +627,29 @@ This bounds each sparse-history join on the existing 1-GB Free database after
 a 25-minute training timeout. Entity membership, labels, timestamps, feature TTL,
 training parameters and promotion gates are unchanged; local batching is retained.
 Actual timing and model success require a new managed run.
+
+
+## ADR-029: Preserve Evidently score semantics in public monitoring
+
+**Date:** 2026-10-19. **Status:** Accepted.
+
+Public application acceptance found that per-column summaries treated every
+Evidently ValueDrift score as a p-value. For the deployed 2,000-row windows,
+Evidently selects Wasserstein/Jensen-Shannon distances: small scores indicate
+similarity. This reversed custom alerts while the preset's aggregate count
+remained correct. Existing small-sample tests did not expose the branch.
+
+Use Evidently Core's own per-column test decisions (`include_tests=True`) and
+serialize a generic drift_score plus score_type. Populate p_value only for true
+p-value tests. Keep the preset's automatic methods/thresholds, dataset drift share
+policy and the stricter critical-feature p-value rule. For distance tests, critical
+feature recommendations use that method's drift decision, never a p-value cutoff.
+Unknown/inconclusive score semantics fail explicitly. Promotion gates and the
+Free profile's automatic-retraining-disabled policy do not change.
+
+Old reports remain intact for audit and are labelled legacy in the UI. Generate
+new real historical-backtest reports with score_semantics_version=2. Public UI
+labels must describe scheduled historical observations, not continuous taxi
+telemetry. Keep successful forecast results across unrelated Streamlit reruns,
+and record a feature_materialized_at timestamp only after genuine materialization
+succeeds; cursor modification time must not stand in for feature freshness.
