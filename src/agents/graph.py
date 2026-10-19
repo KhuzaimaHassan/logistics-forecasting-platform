@@ -11,6 +11,7 @@ mock response labeling ([MOCK / OFFLINE MODE] and provider: 'mock').
 """
 
 import logging
+import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -188,6 +189,11 @@ def tool_execution_node(state: CopilotState) -> Dict[str, Any]:
             # Invoke the tool
             func = getattr(tool_obj, "func", tool_obj)
             res = func(**tool_args)
+            if res.get("status") == "error" or (
+                os.getenv("DEPLOYMENT_MODE") == "cloud"
+                and res.get("status") == "degraded_fallback"
+            ):
+                raise RuntimeError("Requested tool dependency is unavailable")
 
             tools_used.append(tool_name)
             tool_results.append({"tool": tool_name, "args": tool_args, "result": res})

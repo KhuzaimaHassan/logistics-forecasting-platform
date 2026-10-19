@@ -6,6 +6,8 @@ and ADR-024 (dual-provider fallback cascade and explicit mock labeling).
 
 from unittest.mock import patch
 
+import pytest
+
 from src.agents.graph import (
     _serialize_tool_for_llm,
     create_copilot_graph,
@@ -20,6 +22,25 @@ from src.agents.tools import TOOL_ALLOWLIST
 
 class TestAgentGraphWorkflow:
     """Tests covering graph compilation, routing, tool dispatch, and response formatting."""
+
+    @pytest.mark.parametrize("status", ["error", "degraded_fallback"])
+    def test_cloud_tool_dependency_failure_is_not_success(self, monkeypatch, status):
+        monkeypatch.setenv("DEPLOYMENT_MODE", "cloud")
+        tool = TOOL_ALLOWLIST["get_features"]
+        with patch.object(tool, "func", return_value={"status": status}):
+            result = tool_execution_node(
+                {
+                    "tool_calls": [
+                        {
+                            "name": "get_features",
+                            "args": {"entity_type": "zone", "entity_id": "74"},
+                        }
+                    ]
+                }
+            )
+        assert not result["tools_used"]
+        assert not result["sources"]
+        assert synthesis_node({**result, "provider": "groq"})["status"] == "error"
 
     def test_zero_argument_tool_uses_strict_empty_object_schema(self):
         definition = _serialize_tool_for_llm(TOOL_ALLOWLIST["query_pipeline_status"])

@@ -369,3 +369,17 @@ Implementation results and actual check output are appended as work completes.
 - Two retention regressions passed, proving exact pinned-codec zone/corridor
   keys, no HSET/DELETE and explicit missing-key failure. Full focused suite in
   progress; real managed restoration still requires the following cloud run.
+
+- Seventeen focused retention/agent tests passed (62.77s). Managed aggregate
+  39268160345 restored real features and passed eight infrastructure/public
+  checks; its agent check still failed against old public source.
+- Diagnostic 39268227159 executed real Groq gpt-oss-20b with an empty argument
+  object, successfully read nine actual pipeline records from Aiven, and returned
+  complete real online fields for zones 7/74/75/166. This is CI agent integration,
+  not public Render agent acceptance.
+- Browser verified corrected demand table/map remain after ETA 11.9m request;
+  genuine three-zone values and 2023 observation timestamps remained intact.
+  Corrected monitoring score/MAE labels and embedded HTML also displayed.
+- Full CI 39268169927 on e4d5834 and ARM64 39268160966 SUCCEEDED. Added returned
+  dependency-error/cloud fallback rejection and five focused checks passed
+  (3.04s). Future aggregate evidence includes actual retention counts/TTL.

@@ -144,6 +144,8 @@ def run_checks(only=None):
             "observed_pickups_last_hour": expected,
             "online_matches_postgres": True,
             "observation_end": summary["observation_end"],
+            "online_retention": summary["online_retention"],
+            "feature_materialized_at": summary["feature_materialized_at"],
         }
 
     def mlflow():
