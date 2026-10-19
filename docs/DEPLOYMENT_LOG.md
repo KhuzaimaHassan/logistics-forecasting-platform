@@ -263,3 +263,18 @@ Implementation results and actual check output are appended as work completes.
   resources, service recreation or existing-data deletion occurred.
 - Final focused initialization/scoped-acceptance/read-only diagnostic tests:
   6 passed in 4.42s; Ruff and offline deployment configuration validator passed.
+
+### 2026-10-19 — actual public Render API
+
+- Owner supplied https://logistics-forecasting-platform.onrender.com; configured
+  CLOUD_FASTAPI_URL in GitHub environment free-cloud without credential changes.
+- Direct HTTPS readiness HTTP 200: PostgreSQL/Valkey/MLflow connected, both genuine
+  Production v1 models. All 263 official reference zones, 145 observed; scheduled
+  historical mode, agent_enabled=false. Demand zone 7=0.71, ETA 75_237=715.8s,
+  three-zone dashboard batch passed. Saved actual public-render-evidence.json.
+- First observed liveness request took 93.4s; this is not controlled cold-start
+  proof. Later readiness 2.14s, demand 15.59s, ETA 1.42s, batch 1.44s.
+- Started aggregate run 39239093732 with real public URL. Added scoped verify-api
+  operation and matching new PostgreSQL prediction readback, rather than relying
+  on HTTP success alone. Partial acceptance guard covers API-only checks too.
+  Six focused tests passed in 3.27s, Ruff and offline validator passed.

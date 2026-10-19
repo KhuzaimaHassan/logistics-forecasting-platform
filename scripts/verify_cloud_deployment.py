@@ -207,6 +207,12 @@ def run_checks(only=None):
         }
 
     def api():
+        from decimal import Decimal
+
+        from sqlalchemy import text
+
+        from src.common.db import get_engine
+
         base = os.environ["FASTAPI_URL"].rstrip("/")
         health = requests.get(base + "/health/ready", timeout=(10, 120))
         health.raise_for_status()
@@ -219,6 +225,12 @@ def run_checks(only=None):
         observed_zone = next(
             zone for zone in zones if zone.get("has_observed_features", True)
         )
+        engine = get_engine()
+        with engine.connect() as conn:
+            marker = conn.execute(text("SELECT clock_timestamp()")).scalar_one()
+            before = conn.execute(
+                text("SELECT count(*) FROM warehouse.predictions")
+            ).scalar_one()
         response = requests.get(
             base + f"/predict/demand/{observed_zone['zone_id']}",
             params={"horizon_minutes": 60},
@@ -238,12 +250,49 @@ def run_checks(only=None):
             base + "/predict/eta", params={"origin": origin, "dest": dest}, timeout=60
         )
         eta.raise_for_status()
-        assert eta.json()["status"] == "ok"
+        eta_prediction = eta.json()
+        assert eta_prediction["status"] == "ok"
+        assert prediction["data_as_of"] and eta_prediction["data_as_of"]
+        assert state["mode"] == "scheduled"
+        with engine.connect() as conn:
+            after = conn.execute(
+                text("SELECT count(*) FROM warehouse.predictions")
+            ).scalar_one()
+            assert after - before >= 2
+            for entity_type, entity_id, body, field in (
+                ("zone", str(prediction["zone_id"]), prediction, "predicted_pickups"),
+                (
+                    "corridor",
+                    f"{origin}_{dest}",
+                    eta_prediction,
+                    "predicted_duration_seconds",
+                ),
+            ):
+                matched = conn.execute(
+                    text(
+                        "SELECT count(*) FROM warehouse.predictions "
+                        "WHERE created_at >= :marker AND entity_type=:kind "
+                        "AND entity_id=:entity AND model_version=:version "
+                        "AND predicted_value=:value"
+                    ),
+                    {
+                        "marker": marker,
+                        "kind": entity_type,
+                        "entity": entity_id,
+                        "version": str(body["model_version"]),
+                        "value": Decimal(str(round(body[field], 2))),
+                    },
+                ).scalar_one()
+                assert matched >= 1, "Public prediction not found in managed PostgreSQL"
         return {
+            "public_url": base,
             "zone_id": prediction["zone_id"],
             "predicted_pickups": prediction["predicted_pickups"],
             "model_version": prediction["model_version"],
-            "eta_seconds": eta.json()["predicted_duration_seconds"],
+            "eta_seconds": eta_prediction["predicted_duration_seconds"],
+            "data_as_of": prediction["data_as_of"],
+            "persisted_prediction_delta": after - before,
+            "durable_forecast_rows_matched": 2,
         }
 
     def ui_http():
@@ -304,7 +353,7 @@ def run_checks(only=None):
         mlflow,
     )
     check("pipeline_output", ["DATABASE_URL"], scheduled)
-    check("fastapi_real_model", ["FASTAPI_URL"], api)
+    check("fastapi_real_model", ["FASTAPI_URL", "DATABASE_URL"], api)
     check("streamlit_http", ["STREAMLIT_URL"], ui_http)
     check("llm_agent", ["FASTAPI_URL", "AGENT_API_KEY"], agent)
     check("monitoring", ["DATABASE_URL"], monitoring)
@@ -328,18 +377,27 @@ def main():
     parser.add_argument(
         "--output", type=Path, default=Path("artifacts/cloud-verification.json")
     )
-    parser.add_argument("--only-mlflow", action="store_true")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--only-mlflow", action="store_true")
+    selection.add_argument("--only-api", action="store_true")
     args = parser.parse_args()
-    result = run_checks(only={"mlflow"} if args.only_mlflow else None)
+    only = (
+        {"mlflow"}
+        if args.only_mlflow
+        else {"fastapi_real_model"} if args.only_api else None
+    )
+    result = run_checks(only=only)
     manual = {"streamlit_visual_predictions", "cold_start_restart", "cron_trigger"}
     automatic_ok = all(
         value["status"] == "VERIFIED"
         for key, value in result["checks"].items()
         if key not in manual
     )
-    result["verification_scope"] = "mlflow_only" if args.only_mlflow else "full"
+    result["verification_scope"] = (
+        "mlflow_only" if args.only_mlflow else "api_only" if args.only_api else "full"
+    )
     result["selected_checks_complete"] = automatic_ok
-    result["automated_checks_complete"] = automatic_ok and not args.only_mlflow
+    result["automated_checks_complete"] = automatic_ok and only is None
     result["manual_acceptance_complete"] = False
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, default=str))

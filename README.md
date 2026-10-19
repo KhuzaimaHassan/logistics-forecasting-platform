@@ -1,6 +1,6 @@
 # Logistics Demand & ETA Forecasting Platform
 
-> **Cloud deployment status (2026-10-19): no public deployment verified yet.**
+> **Cloud deployment status (2026-10-19): public FastAPI verified; Streamlit pending.**
 > The free-cloud profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow,
 > Render FastAPI, Community Cloud Streamlit and GitHub Actions running Prefect
 > flows. It processes authentic historical samples on a schedule. Forecasts are
@@ -12,7 +12,9 @@
 > Real API inference/persistence also passed two fresh 512 MiB/0.1 CPU containers
 > with peak process RSS 386.7 MiB; this is not public hosting proof.
 > Managed monitoring and report HTML readback passed; drift alerts were logged
-> without retraining. Public hosting and final acceptance remain pending. See the
+> without retraining. [Public FastAPI](https://logistics-forecasting-platform.onrender.com/docs)
+> readiness and genuine forecasts passed; Streamlit, live agent and final
+> acceptance remain pending. See the
 > [deployment report](docs/DEPLOYMENT_REPORT.md),
 > [setup commands and secrets](docs/FREE_CLOUD_SETUP.md), and
 > [verified provider research](docs/FREE_TIER_RESEARCH.md).

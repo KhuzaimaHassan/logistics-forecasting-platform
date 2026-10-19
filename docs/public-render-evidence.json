@@ -1,0 +1,144 @@
+{
+  "public_url": "https://logistics-forecasting-platform.onrender.com",
+  "generated_at": "2026-10-19T10:41:22.988358+00:00",
+  "status": "VERIFIED",
+  "scope": "Public Render readiness and real forecasts; no hosted restart, UI, LLM or cron acceptance",
+  "health": {
+    "http_status": 200,
+    "elapsed_seconds": 2.14,
+    "body": {
+      "status": "ok",
+      "dependencies": {
+        "database": "connected",
+        "redis": "connected",
+        "mlflow": "reachable"
+      },
+      "models": {
+        "demand": {
+          "name": "demand_lightgbm_model",
+          "version": "1",
+          "stage": "Production",
+          "status": "production",
+          "is_fallback": false,
+          "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+          "loaded_at": "2026-10-19T10:40:32.997675+00:00"
+        },
+        "demand_lightgbm_model": {
+          "name": "demand_lightgbm_model",
+          "version": "1",
+          "stage": "Production",
+          "status": "production",
+          "is_fallback": false,
+          "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+          "loaded_at": "2026-10-19T10:40:32.997675+00:00"
+        },
+        "duration": {
+          "name": "corridor_duration_lightgbm_model",
+          "version": "1",
+          "stage": "Production",
+          "status": "production",
+          "is_fallback": false,
+          "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+          "loaded_at": "2026-10-19T10:40:37.906946+00:00"
+        },
+        "corridor_duration_lightgbm_model": {
+          "name": "corridor_duration_lightgbm_model",
+          "version": "1",
+          "stage": "Production",
+          "status": "production",
+          "is_fallback": false,
+          "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+          "loaded_at": "2026-10-19T10:40:37.906946+00:00"
+        }
+      },
+      "timestamp": "2026-10-19T10:41:22.085857+00:00"
+    }
+  },
+  "deployment": {
+    "mode": "scheduled",
+    "data_source": "NYC TLC recorded trips",
+    "update_description": "Scheduled processing of recorded trips; not continuous real-time taxi telemetry.",
+    "agent_enabled": false
+  },
+  "reference": {
+    "zones": 263,
+    "observed_zones": 145,
+    "polygon_source": "official_tlc_polygon_centroids_v1"
+  },
+  "demand": {
+    "http_status": 200,
+    "elapsed_seconds": 15.59,
+    "body": {
+      "data_as_of": "2023-01-31T23:00:00+00:00",
+      "zone_id": 7,
+      "horizon_minutes": 60,
+      "predicted_pickups": 0.71,
+      "status": "ok",
+      "cache_hit": true,
+      "model_version": "1",
+      "as_of": "2026-10-19T10:41:27.656733+00:00",
+      "warning": null
+    }
+  },
+  "eta": {
+    "http_status": 200,
+    "elapsed_seconds": 1.42,
+    "body": {
+      "data_as_of": "2023-01-31T23:00:00+00:00",
+      "origin_zone_id": 75,
+      "dest_zone_id": 237,
+      "corridor_id": "75_237",
+      "predicted_duration_seconds": 715.8,
+      "predicted_duration_minutes": 11.93,
+      "status": "ok",
+      "cache_hit": true,
+      "model_version": "1",
+      "as_of": "2026-10-19T10:41:42.479878+00:00",
+      "warning": null
+    }
+  },
+  "dashboard_batch": {
+    "http_status": 200,
+    "elapsed_seconds": 1.44,
+    "body": {
+      "predictions": [
+        {
+          "data_as_of": "2023-01-31T23:00:00+00:00",
+          "zone_id": 7,
+          "horizon_minutes": 60,
+          "predicted_pickups": 0.71,
+          "status": "ok",
+          "cache_hit": true,
+          "warning": null
+        },
+        {
+          "data_as_of": "2023-01-31T23:00:00+00:00",
+          "zone_id": 9,
+          "horizon_minutes": 60,
+          "predicted_pickups": 0.0,
+          "status": "ok",
+          "cache_hit": true,
+          "warning": null
+        },
+        {
+          "data_as_of": "2023-01-31T23:00:00+00:00",
+          "zone_id": 14,
+          "horizon_minutes": 60,
+          "predicted_pickups": 0.0,
+          "status": "ok",
+          "cache_hit": true,
+          "warning": null
+        }
+      ],
+      "model_version": "1",
+      "as_of": "2026-10-19T10:41:43.901909+00:00",
+      "prediction_count": 3
+    }
+  },
+  "initial_request_observation": {
+    "path": "/health/live",
+    "http_status": 200,
+    "elapsed_seconds": 93.4,
+    "scope": "Initial observed request latency only; no controlled sleep/restart was performed"
+  }
+}

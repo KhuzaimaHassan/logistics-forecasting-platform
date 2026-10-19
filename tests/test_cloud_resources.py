@@ -116,19 +116,20 @@ def test_mlflow_only_missing_credentials_does_not_call_other_services(monkeypatc
     assert "postgresql" not in result["checks"]
 
 
-def test_partial_mlflow_success_never_marks_full_acceptance_complete(
-    monkeypatch, tmp_path
+@pytest.mark.parametrize(
+    "flag,check", [("--only-mlflow", "mlflow"), ("--only-api", "fastapi_real_model")]
+)
+def test_partial_success_never_marks_full_acceptance_complete(
+    monkeypatch, tmp_path, flag, check
 ):
     from scripts import verify_cloud_deployment
 
     output = tmp_path / "mlflow.json"
-    monkeypatch.setattr(
-        "sys.argv", ["verify", "--only-mlflow", "--output", str(output)]
-    )
+    monkeypatch.setattr("sys.argv", ["verify", flag, "--output", str(output)])
     with patch.object(
         verify_cloud_deployment,
         "run_checks",
-        return_value={"checks": {"mlflow": {"status": "VERIFIED"}}},
+        return_value={"checks": {check: {"status": "VERIFIED"}}},
     ):
         with pytest.raises(SystemExit) as exit_code:
             verify_cloud_deployment.main()

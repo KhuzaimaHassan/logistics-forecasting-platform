@@ -477,3 +477,20 @@ The completed source cursor is reused; this does not recreate services, topics o
 the database. Wait for success before testing `/health/ready` and predictions.
 A later successful aggregate `verify` also reconciles Feast from PostgreSQL.
 Without these refreshes or active schedules, feature availability is not continuous.
+
+### Public API now verified
+
+API: https://logistics-forecasting-platform.onrender.com
+
+Set Community Cloud `FASTAPI_URL` to that URL (without `/docs`). For an API-only
+managed verification, avoiding unrelated re-materialization:
+
+```powershell
+gh workflow run etl_live_smoke.yml --ref feature/d0-free-cloud-deployment -f cloud_job=verify-api
+```
+
+This checks actual Production demand/ETA and reads back matching new predictions
+from managed PostgreSQL. A scoped success cannot mark the complete deployment
+accepted. Initial public request latency was 93.4s in one observation; give the
+service time to wake and retry unavailable dashboard requests. Controlled hosted
+sleep/restart remains unverified. Agent and Streamlit are not yet verified.
