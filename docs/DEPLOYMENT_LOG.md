@@ -278,3 +278,13 @@ Implementation results and actual check output are appended as work completes.
   operation and matching new PostgreSQL prediction readback, rather than relying
   on HTTP success alone. Partial acceptance guard covers API-only checks too.
   Six focused tests passed in 3.27s, Ruff and offline validator passed.
+- Aggregate 39239093732 passed all seven configured checks, including actual
+  public demand/ETA. It correctly remained incomplete for absent Streamlit URL,
+  agent access key, visual UI, controlled hosted cold start and cron acceptance.
+- Scoped API verification 39239560159 SUCCEEDED on 30e9172. Prediction count
+  increased by two; both public forecast entity/model/value rows matched new
+  managed PostgreSQL records. Saved readback evidence within public-render JSON.
+  API-only success retains automated/manual whole-platform acceptance=false.
+- Public-verifier source commit 30e9172 passed Lint & Test: 378 passed, one
+  skipped, 45 warnings in 68.50s; fixture memory gate passed. Compose/ARM64
+  reruns were still in progress at this evidence checkpoint.

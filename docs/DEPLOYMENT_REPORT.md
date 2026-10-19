@@ -4,7 +4,8 @@
 
 **The public FastAPI inference service is deployed and verified. The complete
 platform is not yet publicly deployed: Streamlit and the live agent remain
-NOT VERIFIED.** API: [logistics-forecasting-platform.onrender.com](https://logistics-forecasting-platform.onrender.com). Aiven Kafka, PostgreSQL 18.6 and Valkey are running on existing Free plans.
+NOT VERIFIED.** API: [logistics-forecasting-platform.onrender.com](https://logistics-forecasting-platform.onrender.com).
+Aiven Kafka, PostgreSQL 18.6 and Valkey are running on existing Free plans.
 Actual managed bootstrap persisted 9,232 authentic TLC trips and materialized
 Feast online features into Valkey. DagsHub metric/artifact readback and registry
 listing are verified. Three managed monitoring reports persisted, with HTML
@@ -12,7 +13,8 @@ readback verified; historical drift alerts did not trigger retraining. Managed
 training completed in 635.55s and both real
 LightGBM models were promoted to DagsHub Production v1 and reloaded natively.
 The real API passed inference, persistence, concurrency and two fresh container
-starts within 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB). Streamlit hosting, live LLM and controlled hosted cold-start verification remain
+starts within 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB). Streamlit
+hosting, live LLM and controlled hosted cold-start verification remain
 outstanding. No paid resource, trial, automatic upgrade or data deletion was used.
 
 ## D0 feasibility and source audit
@@ -81,7 +83,7 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 | Managed training/promotion | **VERIFIED** | [Run 39228745442](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228745442) completed in 635.55s; both Production v1 models loaded natively; [metrics and promotion evidence](managed-training-evidence.json). Earlier 39139455829 exceeded 25-minute budget; corrected batch sizing passed |
 | Managed-model constrained API probe | **VERIFIED** | [Run 39230564684](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230564684): two fresh 512 MiB/0.1 CPU containers; genuine demand/ETA v1, four concurrent batches of 145 zones, 582 predictions persisted per start; peak process RSS 386.7 MiB, cgroup peak 373.6 MiB. [Evidence](managed-runtime-evidence.json). Prior failed readiness result retained for audit; no public-hosting proof |
 | Actual cron execution | **NOT VERIFIED** | Requires scheduled-event Actions run, not a manual invocation |
-| Public FastAPI real-model demand/ETA | **VERIFIED** | Public Render readiness HTTP 200; both genuine Production v1 models, demand zone 7=0.71, corridor 75_237 ETA=715.8s; three-zone dashboard batch passed. Source observed_at=2023-01-31T23:00:00Z, no fallback. [HTTP evidence](public-render-evidence.json); managed prediction readback is being checked separately |
+| Public FastAPI real-model demand/ETA | **VERIFIED** | Public Render readiness HTTP 200; both genuine Production v1 models, demand zone 7=0.71, corridor 75_237 ETA=715.8s; three-zone dashboard batch passed. Source observed_at=2023-01-31T23:00:00Z, no fallback. [HTTP evidence](public-render-evidence.json); [scoped run 39239560159](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39239560159) read back both new forecast records from actual Aiven PostgreSQL |
 | Streamlit actual forecast rendering | **NOT VERIFIED** | BLOCKED — NOT VERIFIED: Community Cloud OAuth/app absent; public API is ready |
 | Live LangGraph LLM + dependencies | **NOT VERIFIED** | BLOCKED — NOT VERIFIED: Agent access/provider key absent; public API reports agent_enabled=false |
 | Persisted managed monitoring report | **VERIFIED** | [Monitoring 39230637533](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230637533) persisted three real historical-backtest reports; [aggregate 39231511998](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39231511998) read back performance HTML (3,701,744 characters). Drift/MAE alerts logged; retraining disabled. [Evidence](managed-monitoring-evidence.json) |
@@ -194,7 +196,11 @@ The owner supplied the Render URL. Direct HTTPS requests verified readiness, all
 request latency was 93.4s, subsequent readiness 2.14s, demand 15.59s, ETA 1.42s and
 batch 1.44s in the captured sample. These are observations, not latency guarantees
 or controlled cold-start proof. Agent is disabled until configured. No Streamlit
-URL exists yet. CLOUD_FASTAPI_URL is configured in environment free-cloud.
+URL exists yet. Aggregate 39239093732 passed all seven configured backend/public
+API checks; its incomplete result reflects missing Streamlit/agent acceptance.
+Scoped 39239560159 passed public forecasts and PostgreSQL readback: prediction
+count increased by two and both new entity/model/value records matched. The
+scoped check does not mark full deployment accepted. CLOUD_FASTAPI_URL is configured in environment free-cloud.
 
 ## Exact unresolved owner actions
 

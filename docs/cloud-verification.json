@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-10-19T09:46:58.240381+00:00",
+  "generated_at": "2026-10-19T10:44:30.671408+00:00",
   "checks": {
     "postgresql": {
       "status": "VERIFIED",
       "evidence": {
         "engine": "PostgreSQL",
-        "run_id": "verification-9d5ddea91323405e9434a83629b6e3d4",
+        "run_id": "verification-e925eccecd8d41ecb2af12273b16d8ff",
         "write_read": true
       }
     },
@@ -14,8 +14,8 @@
       "evidence": {
         "topic": "trip.events",
         "partition": 1,
-        "produced_offset": 4666,
-        "consumed_offset": 4666,
+        "produced_offset": 4667,
+        "consumed_offset": 4667,
         "authentic_trip_id": 1108463825441794175
       }
     },
@@ -31,9 +31,9 @@
     "mlflow": {
       "status": "VERIFIED",
       "evidence": {
-        "run_id": "6f528b646a7144e2a3de9818602eb1bc",
+        "run_id": "54daf1ebb22e4bde80e991fbdf1af5f1",
         "metric_readback": 1.0,
-        "artifact_sha256": "10f1122ba9ce833c0de3cedb867dec0ac882ab95cb242063f366e2f25c5a82e4",
+        "artifact_sha256": "cead4366b710b9f140c56a4afad716634f21fc5eaaa54cc0449f59df8e8edda2",
         "registry_list_access": true
       }
     },
@@ -46,8 +46,13 @@
       }
     },
     "fastapi_real_model": {
-      "status": "NOT VERIFIED",
-      "reason": "BLOCKED: missing FASTAPI_URL"
+      "status": "VERIFIED",
+      "evidence": {
+        "zone_id": 7,
+        "predicted_pickups": 0.71,
+        "model_version": "1",
+        "eta_seconds": 715.8
+      }
     },
     "streamlit_http": {
       "status": "NOT VERIFIED",
@@ -55,14 +60,14 @@
     },
     "llm_agent": {
       "status": "NOT VERIFIED",
-      "reason": "BLOCKED: missing FASTAPI_URL, AGENT_API_KEY"
+      "reason": "BLOCKED: missing AGENT_API_KEY"
     },
     "monitoring": {
       "status": "VERIFIED",
       "evidence": {
         "report_id": "c70923f6-4fba-4ada-ab72-3b36ceedadfc",
         "report_type": "performance_decay",
-        "html_bytes": 3701744,
+        "html_characters": 3701744,
         "evaluation_mode": "historical_sample_backtest"
       }
     },
@@ -83,10 +88,10 @@
   "selected_checks_complete": false,
   "automated_checks_complete": false,
   "manual_acceptance_complete": false,
-  "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39231511998",
-  "code_commit": "6ea2fc6",
+  "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39239093732",
+  "code_commit": "5a836da",
   "evidence_notes": [
-    "The historical html_bytes field in this run was SQL length(text), hence 3701744 characters, not a measured byte count. Future outputs use html_characters.",
-    "Workflow conclusion failure reflects missing public URLs/agent credentials; all six managed backend checks passed. This is not a public deployment."
+    "All seven configured checks, including public real-model forecasts, passed. Workflow failure reflects absent Streamlit URL and agent access key; visual rendering, hosted restart/cold start and cron are also not verified.",
+    "Separate scoped public API run 39239560159 on 30e9172 confirmed two newly persisted matching prediction rows in actual managed PostgreSQL."
   ]
 }

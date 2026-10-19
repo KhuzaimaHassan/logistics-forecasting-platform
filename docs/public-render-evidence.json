@@ -140,5 +140,41 @@
     "http_status": 200,
     "elapsed_seconds": 93.4,
     "scope": "Initial observed request latency only; no controlled sleep/restart was performed"
+  },
+  "managed_prediction_readback": {
+    "generated_at": "2026-10-19T10:45:07.529123+00:00",
+    "checks": {
+      "fastapi_real_model": {
+        "status": "VERIFIED",
+        "evidence": {
+          "public_url": "https://logistics-forecasting-platform.onrender.com",
+          "zone_id": 7,
+          "predicted_pickups": 0.71,
+          "model_version": "1",
+          "eta_seconds": 715.8,
+          "data_as_of": "2023-01-31T23:00:00+00:00",
+          "persisted_prediction_delta": 2,
+          "durable_forecast_rows_matched": 2
+        }
+      },
+      "streamlit_visual_predictions": {
+        "status": "NOT VERIFIED",
+        "reason": "Requires a browser session displaying actual API predictions"
+      },
+      "cold_start_restart": {
+        "status": "NOT VERIFIED",
+        "reason": "Requires real service restart/sleep and repeat predictions"
+      },
+      "cron_trigger": {
+        "status": "NOT VERIFIED",
+        "reason": "Requires successful GitHub scheduled event evidence"
+      }
+    },
+    "verification_scope": "api_only",
+    "selected_checks_complete": true,
+    "automated_checks_complete": false,
+    "manual_acceptance_complete": false,
+    "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39239560159",
+    "code_commit": "30e9172"
   }
 }
