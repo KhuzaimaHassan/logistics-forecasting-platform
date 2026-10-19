@@ -543,6 +543,9 @@ def query_drift_reports(
                     {
                         "report_id": str(r.report_id),
                         "report_type": str(r.report_type),
+                        "interpretation_trusted": str(r.report_type)
+                        not in {"data_drift", "prediction_drift"}
+                        or s_dict.get("score_semantics_version") == 2,
                         "generated_at": (
                             r.generated_at.isoformat() if r.generated_at else None
                         ),
@@ -561,7 +564,9 @@ def query_drift_reports(
 
             status = "success" if reports_list else "empty"
             has_active_alerts = any(
-                p["retrain_recommended"] or p["drift_detected"] for p in reports_list
+                p["interpretation_trusted"]
+                and (p["retrain_recommended"] or p["drift_detected"])
+                for p in reports_list
             )
             return {
                 "status": status,
@@ -573,14 +578,16 @@ def query_drift_reports(
                 "source": "warehouse.monitoring_reports",
             }
     except Exception as exc:
-        logger.warning("Failed to query monitoring reports from database: %s", exc)
+        logger.warning(
+            "Failed to query monitoring reports from database (%s)", type(exc).__name__
+        )
         return {
-            "status": "empty",
+            "status": "error",
             "reports_count": 0,
             "reports": [],
             "has_active_alerts": False,
             "filter_applied": clean_type,
-            "error": str(exc),
+            "error": type(exc).__name__,
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "source": "warehouse.monitoring_reports",
         }

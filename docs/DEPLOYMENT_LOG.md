@@ -403,3 +403,16 @@ Implementation results and actual check output are appended as work completes.
   demand request recovered through the existing lazy Production load in 31.55s
   and returned 0.71, model v1, historical source timestamp intact. No dummy model
   or synthetic forecast substituted; the earlier failed readiness is preserved.
+
+- Repeated managed pipeline 39271963729 SUCCEEDED: all 9,232 trips preserved,
+  published_events=0, 1,319 exact online keys renewed to 86,400s from prior
+  minimum TTL 84,727s, values/event timestamps unchanged.
+- Full managed run 39272455345 SUCCEEDED on 92bddd7: all nine automated checks,
+  including public Groq tool execution, forecasts plus two matching new PostgreSQL
+  rows, Kafka exact-offset roundtrip, real MLflow artifact readback and monitoring
+  HTML. Manual acceptance remains false for default-branch cron evidence.
+- Copilot integrity follow-up excludes untrusted legacy drift flags from active
+  alerts and surfaces monitoring DB failures explicitly. Corrected one further
+  old structural-guard unit dependency fixture; malicious tool remains blocked.
+  All 76 agent/tool/API checks passed (67.90s); no external fixtures are called
+  to make hermetic success assertions pass.

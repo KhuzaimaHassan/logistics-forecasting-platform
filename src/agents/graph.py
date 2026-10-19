@@ -325,9 +325,11 @@ def _format_drift_reports_section(res: Dict[str, Any]) -> List[str]:
     count = len(reports)
     has_alerts = res.get("has_active_alerts", False)
     overall_badge = "🔴 DRIFT / DECAY DETECTED" if has_alerts else "🟢 ALL NORMAL"
+    if reports and all(r.get("interpretation_trusted") is False for r in reports):
+        overall_badge = "⚠️ LEGACY REPORTS — rerun monitoring"
 
     lines = [
-        f"### Model Drift & Performance Monitoring: {overall_badge} ({count} reports evaluated)"
+        f"### Model Drift & Performance Monitoring: {overall_badge} ({count} reports retrieved)"
     ]
     if not reports:
         lines.append(
@@ -337,6 +339,11 @@ def _format_drift_reports_section(res: Dict[str, Any]) -> List[str]:
         return lines
 
     for r in reports[:5]:
+        if r.get("interpretation_trusted") is False:
+            lines.append(
+                f"- Legacy {r.get('report_type')} report (`{r.get('generated_at')}`): score interpretation predates the correction; rerun monitoring before acting on its flags."
+            )
+            continue
         rtype = r.get("report_type", "unknown").replace("_", " ").title()
         drift_flag = r.get("drift_detected", False)
         retrain_flag = r.get("retrain_recommended", False)
@@ -369,7 +376,7 @@ def _format_drift_reports_section(res: Dict[str, Any]) -> List[str]:
 
         # Highlight performance metrics if performance decay report
         for m in r.get("metrics", []):
-            if m.get("metric_name") in ("MAE", "RMSE", "mean_error"):
+            if str(m.get("metric_name")).lower() in ("mae", "rmse", "mean_error"):
                 c_val = m.get("current_value")
                 r_val = m.get("reference_value")
                 decay = m.get("decay_ratio")

@@ -680,3 +680,9 @@ ADR-029 dependency-status follow-up: an allowlisted function returning status=er
 is also a failed tool, even if Python did not raise. Cloud degraded_fallback results
 are unavailable, not live evidence. Propagate these states through the existing
 HTTP503 boundary; preserve hermetic local mock behavior.
+
+ADR-029 Copilot report integrity: preserve legacy drift records but mark their
+interpretation untrusted, omit their flags from actionable alert aggregation,
+and warn rather than presenting them as current evidence. A monitoring database
+exception is an error, not an empty/healthy report set. Performance metrics use
+case-insensitive names consistently with the dashboard.

@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from src.agents.graph import (
+    _format_drift_reports_section,
     _format_pipeline_section,
     _serialize_tool_for_llm,
     create_copilot_graph,
@@ -23,6 +24,26 @@ from src.agents.tools import TOOL_ALLOWLIST
 
 class TestAgentGraphWorkflow:
     """Tests covering graph compilation, routing, tool dispatch, and response formatting."""
+
+    def test_legacy_drift_is_not_presented_as_normal_or_actionable(self):
+        response = "\n".join(
+            _format_drift_reports_section(
+                {
+                    "reports": [
+                        {
+                            "report_type": "prediction_drift",
+                            "interpretation_trusted": False,
+                            "drift_detected": True,
+                            "alert_reasons": ["untrusted-alert"],
+                        }
+                    ]
+                }
+            )
+        )
+        assert "LEGACY REPORTS" in response
+        assert "rerun monitoring" in response
+        assert "ALL NORMAL" not in response
+        assert "untrusted-alert" not in response
 
     @pytest.mark.parametrize(
         "status,label",
@@ -199,10 +220,15 @@ class TestAgentGraphWorkflow:
 
     def test_run_copilot_drift_reports_query(self):
         """Drift and monitoring queries trigger query_drift_reports."""
-        result = run_copilot(
-            "Has feature or prediction drift been detected this week?",
-            force_provider="mock",
-        )
+        with patch.object(
+            TOOL_ALLOWLIST["query_drift_reports"],
+            "func",
+            return_value={"status": "empty", "reports": []},
+        ):
+            result = run_copilot(
+                "Has feature or prediction drift been detected this week?",
+                force_provider="mock",
+            )
 
         assert result["status"] == "success"
         assert result["provider"] == "mock"
@@ -283,7 +309,12 @@ class TestAgentGraphWorkflow:
             "tool_results": [],
         }
 
-        updated_state = tool_execution_node(poisoned_state)
+        with patch.object(
+            TOOL_ALLOWLIST["query_drift_reports"],
+            "func",
+            return_value={"status": "empty", "reports": []},
+        ):
+            updated_state = tool_execution_node(poisoned_state)
 
         assert "query_drift_reports" in updated_state["tools_used"]
         assert "drop_monitoring_reports" not in updated_state["tools_used"]
