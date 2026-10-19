@@ -1,6 +1,7 @@
 """Point-in-time training dataset generation and time-based splitting (M3-2, ADR-016)."""
 
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -180,6 +181,13 @@ def _fetch_historical_features_in_batches(
     Returns:
         Concatenated DataFrame containing retrieved historical features.
     """
+    if os.getenv("DEPLOYMENT_MODE") == "cloud" and "corridor_id" in entity_df:
+        # Keep sparse-corridor PIT joins small on the Free 1-GB PostgreSQL host.
+        # Sorting groups requests by key; no entities, labels or timestamps change.
+        batch_size = min(batch_size, 250)
+        entity_df = entity_df.sort_values(
+            ["corridor_id", "event_timestamp"], kind="stable"
+        ).reset_index(drop=True)
     if len(entity_df) <= batch_size:
         started = time.perf_counter()
         logger.info("Feast single batch starting (%d rows)", len(entity_df))

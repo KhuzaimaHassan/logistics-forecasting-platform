@@ -620,3 +620,10 @@ transaction and commits only processed partition offsets after database commit
 and acknowledged DLQ deliveries. Database/DLQ/offset failures rewind to durable
 commits. This reduces WAN round trips without changing continuous consumption,
 validation, deduplication, storage or at-least-once guarantees.
+
+ADR-028 managed PIT batch sizing (2026-10-19): cloud corridor joins use at most
+250 entity rows per Feast request, sorted by corridor and observation timestamp.
+This bounds each sparse-history join on the existing 1-GB Free database after
+a 25-minute training timeout. Entity membership, labels, timestamps, feature TTL,
+training parameters and promotion gates are unchanged; local batching is retained.
+Actual timing and model success require a new managed run.

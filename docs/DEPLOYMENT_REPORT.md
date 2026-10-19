@@ -1,4 +1,4 @@
-# Deployment report — 2026-10-18
+# Deployment report — 2026-10-19
 
 ## Outcome
 
@@ -6,8 +6,8 @@
 exists. Aiven Kafka, PostgreSQL 18.6 and Valkey are running on existing Free plans.
 Actual managed bootstrap persisted 9,232 authentic TLC trips and materialized
 Feast online features into Valkey. DagsHub metric/artifact readback and registry
-listing are verified. Genuine managed-model training and the constrained API
-runtime check follow separately. Public hosting and live LLM verification remain
+listing are verified. Managed training exceeded its 25-minute job budget; the
+constrained API check then failed readiness because Production models were absent. Public hosting and live LLM verification remain
 outstanding. No paid resource, trial, automatic upgrade or data deletion was used.
 
 ## D0 feasibility and source audit
@@ -73,6 +73,8 @@ CI result, imported module or HTTP shell is not managed integration evidence.
 | Feast materialization + Valkey retrieval | **VERIFIED** | [Run 39121607882](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39121607882): 107,155 zone/8,760 corridor rows; zone 7 online pickups=1 equals PostgreSQL, observed_at=2023-01-31T23:00:00Z |
 | DagsHub MLflow metrics/artifacts/registry | **VERIFIED** | [Run 39138839993](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39138839993): metric 1.0 read back, artifact SHA-256 matched, registry list accessible; model-version promotion verified separately |
 | Scheduled cloud pipeline output | **VERIFIED** | Genuine managed pipeline manually invoked: checkpoint advanced 600 -> 9,232, remaining_sample_events=0, official centroids; this does not prove cron execution |
+| Managed training/promotion | **FAILED** | [Run 39139455829](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139455829) exceeded 25-minute budget (Actions conclusion: cancelled). No successful managed promotion claimed; smaller corridor batches and timing logs prepared for retry |
+| Managed-model constrained API probe | **FAILED** | [Run 39139567159](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139567159) failed readiness with unavailable Production models; this is not evidence of a Render memory failure |
 | Actual cron execution | **NOT VERIFIED** | Requires scheduled-event Actions run, not a manual invocation |
 | Public FastAPI real-model demand/ETA | **NOT VERIFIED** | BLOCKED: Render service and genuinely trained promoted artifacts absent |
 | Streamlit actual forecast rendering | **NOT VERIFIED** | BLOCKED: Community Cloud OAuth/app and API absent |

@@ -210,3 +210,14 @@ Implementation results and actual check output are appended as work completes.
 - Added training-namespace INFO logs and per-Feast-batch row-count/timing messages
   to make future managed-run stalls diagnosable. No query, data, model or gate
   semantics changed. Seven training dataset tests passed in 35.35s; Ruff passed.
+
+### 2026-10-19 — managed training retry preparation
+
+- Managed training 39139455829 exhausted the 25-minute execution budget; GitHub
+  marked it cancelled. Runtime 39139567159 subsequently failed readiness because
+  Production models were unavailable. Neither run demonstrates a memory failure.
+- Bounded cloud corridor Feast batches to 250 entities with stable grouping;
+  retained every entity, timestamp and label, existing TTL and promotion gates.
+  Eight dataset tests passed in 30.23s; Ruff passed.
+- Latest completed full CI 39141169493 and ARM64 39141166641 passed on 1b64de2.
+  Real managed model/promotion and public endpoint acceptance remain separate.
