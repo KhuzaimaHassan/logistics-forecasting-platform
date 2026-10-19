@@ -111,6 +111,11 @@ jobs:
       - name: Verify live LLM routing and managed pipeline tool
         if: steps.operation.outputs.name == 'verify-agent'
         run: uv run python scripts/verify_cloud_deployment.py --only-agent --output artifacts/cloud-verification.json
+      - name: Diagnose real provider and managed tool after agent failure
+        if: failure() && steps.operation.outputs.name == 'verify-agent'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: uv run python scripts/diagnose_cloud_agent.py
       - name: Verify DagsHub metrics artifacts and registry access
         if: steps.operation.outputs.name == 'verify-mlflow'
         run: uv run python scripts/verify_cloud_deployment.py --only-mlflow --output artifacts/cloud-verification.json
@@ -147,5 +152,6 @@ jobs:
             artifacts/runtime/*.json
             artifacts/training.json
             artifacts/monitoring.json
+            artifacts/agent-diagnostics.json
           if-no-files-found: warn
           retention-days: 14

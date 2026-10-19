@@ -348,3 +348,12 @@ Implementation results and actual check output are appended as work completes.
   Render still reported pre-fix revision 751a075. Kept the failure; no successful
   post-fix hosted tool execution claimed. Public Streamlit still showed older
   labels after owner reboot; requested owner source settings/build-log check.
+
+### 2026-10-19 — owner hosting rollout and continued agent diagnosis
+
+- Owner confirmed both hosting updates. Render now reports 3e66304 with real
+  Production models ready; browser shows corrected historical header/tab labels.
+- Repeated live Copilot still returned explicit HTTP503; scoped run 39247478996
+  failed. It is not a successful agent check. Added opt-in failure diagnostics
+  using the owner-configured Groq secret on CI, with only error class/status/code,
+  tool argument names and managed tool statuses serialized; no exception text.
