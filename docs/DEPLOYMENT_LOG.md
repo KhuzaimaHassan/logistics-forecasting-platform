@@ -383,3 +383,10 @@ Implementation results and actual check output are appended as work completes.
 - Full CI 39268169927 on e4d5834 and ARM64 39268160966 SUCCEEDED. Added returned
   dependency-error/cloud fallback rejection and five focused checks passed
   (3.04s). Future aggregate evidence includes actual retention counts/TTL.
+
+- CI 39269723316 exposed three old unit assertions that treated unavailable
+  localhost PostgreSQL calls as successful tools (390 passed, three failed).
+  Preserved strict error propagation; replaced only those unit dependencies with
+  explicit successful tool fixtures and verified the requested tools are called.
+  Managed database checks remain separate and real. No live download or cloud
+  secret is added to required PR unit checks.

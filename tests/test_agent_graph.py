@@ -124,9 +124,19 @@ class TestAgentGraphWorkflow:
 
     def test_run_copilot_recent_predictions_query(self):
         """Prediction history queries trigger query_recent_predictions."""
-        result = run_copilot(
-            "Show recent predictions for zone 161", force_provider="mock"
-        )
+        with patch.object(
+            TOOL_ALLOWLIST["query_recent_predictions"],
+            "func",
+            return_value={
+                "status": "success",
+                "prediction_count": 0,
+                "predictions": [],
+            },
+        ) as execute:
+            result = run_copilot(
+                "Show recent predictions for zone 161", force_provider="mock"
+            )
+        execute.assert_called_once()
 
         assert result["status"] == "success"
         assert result["provider"] == "mock"
@@ -136,9 +146,19 @@ class TestAgentGraphWorkflow:
 
     def test_run_copilot_pipeline_status_query(self):
         """Pipeline queries trigger query_pipeline_status."""
-        result = run_copilot(
-            "Did the retraining pipeline run this week?", force_provider="mock"
-        )
+        with patch.object(
+            TOOL_ALLOWLIST["query_pipeline_status"],
+            "func",
+            return_value={
+                "status": "success",
+                "overall_health": "healthy",
+                "latest_runs": [],
+            },
+        ) as execute:
+            result = run_copilot(
+                "Did the retraining pipeline run this week?", force_provider="mock"
+            )
+        execute.assert_called_once_with()
 
         assert result["status"] == "success"
         assert result["provider"] == "mock"
