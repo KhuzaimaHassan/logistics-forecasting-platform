@@ -101,7 +101,7 @@ and mocked unit tests do not certify Aiven, DagsHub or public applications.
 | Monitoring HTML persistence | **VERIFIED** | Latest performance report read back 3,701,744 HTML characters; genuine historical backtest |
 | Hosted redeploy recovery | **VERIFIED** | Render 92bddd7 initially returned readiness 503 with no loaded models; a real request recovered through lazy Production loading in 31.55s, then readiness and demand/ETA passed. Same genuine v1 artifacts; [failure + recovery evidence](public-redeploy-evidence.json) |
 | Controlled hosted idle cold start | **NOT VERIFIED** | Later idle-interval request recovered in 130.328s with new genuine model load timestamps; same f9a5605 revision, demand/ETA/readiness passed, 9,232 warehouse rows and dashboard forecasts preserved. Provider sleep/start event logs are unavailable, so controlled sleep is not certified. [Evidence](idle-recovery-evidence.json) |
-| Render zero-charge billing safety | **NOT VERIFIED** | Owner confirms Free compute and an attached card; official terms allow bandwidth/build overages. Build spend limit and bandwidth hard cap are not verified. No observed charge claimed |
+| Render no-payment-method billing condition | **VERIFIED** | Owner explicitly confirms card removed and Free compute retained; private Billing page not independently inspected. Official no-card overages suspend service/builds. Earlier attached-card exposure retained in evidence; no charge observed |
 | Genuine-model Free runtime limits | **VERIFIED** | [39230564684](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230564684): two fresh 512 MiB/0.1 CPU containers, concurrent 145-zone batches and durable predictions; peak process RSS 386.7 MiB |
 | Full CI including Compose | **VERIFIED** | [39274527934](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39274527934), f9a5605: all three jobs passed; 398 tests passed, one skipped, 45 warnings in 54.61s; Compose includes real disposable-service integrations |
 | ARM64 images | **VERIFIED** | [39274521143](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39274521143), f9a5605, successful multi-arch build |
@@ -177,15 +177,14 @@ corridor PIT batches subsequently passed without changing entities or labels.
 
 Expected recurring hosting cost is **$0/month within existing Free quotas**.
 
-Owner confirms Render displays the Free compute plan **and has a card attached**.
-Groq has no payment method. Render hard zero-charge safety is **NOT VERIFIED**;
-bandwidth/build overages are possible with the attached card. No actual overage
-charge has been observed or claimed.
-A Free compute label alone does not establish a hard billing cap: bandwidth/build
-overages can be billed when a payment method is present. Check Render workspace
-Billing before treating this as a guaranteed zero-charge account. Without a
-payment method Render suspends affected services/builds at the documented limits.
-See [official Render Free limits](https://render.com/docs/free).
+Owner confirms Render remains on Free compute and **the attached card has now
+been removed**. Groq has no payment method. This resolves the known attached-card
+overage condition based on owner confirmation; the private Billing page was not
+independently inspected. Under [official Render Free limits](https://render.com/docs/free),
+no-payment-method quota exhaustion suspends affected services or disables builds
+rather than purchasing overages. Keep payment methods absent and plans Free.
+No actual overage charge has been observed or claimed. Prior attached-card
+exposure and the subsequent removal are retained in the acceptance evidence.
 No card, paid plan, promotional credit, paid disk/worker or automatic upgrade is
 required by this implementation. Do not add payment methods or enable billed
 usage. Quota exhaustion can suspend service; storage cannot grow indefinitely.
@@ -229,12 +228,7 @@ claimed. GitHub public standard runners replace paid always-on workers.
    online feature TTL expires; manual pipeline history does not prove automation.
 2. Perform a controlled Render idle sleep/wake request and capture recovery timing.
    Actual hosted redeploy recovery is already verified.
-3. Resolve Render billing safety: owner confirms a card is attached. Set the
-   additional build-pipeline spend limit to $0 if available; that limit does not
-   cap bandwidth. Have the owner verify card removal is possible while preserving
-   the Free service, or obtain provider confirmation that all billable overages
-   are disabled. Groq has no payment method.
-4. Optional Gemini fallback and deployed FAISS index freshness are not verified.
+3. Optional Gemini fallback and deployed FAISS index freshness are not verified.
    The exercised Copilot uses Groq with actual PostgreSQL and Feast tools; this
    does not certify every optional provider/retrieval path.
 
@@ -249,10 +243,10 @@ forged or bypassed. The last fully successful source CI remains f9a5605 above.
 The required branch path is feature -> dev -> main; default main has no cloud
 workflow, so no actual schedule-triggered execution is claimed.
 
-New public recovery evidence and the owner's attached-card confirmation are in
+New public recovery evidence and the owner's card attachment/removal confirmations are in
 [idle-recovery-evidence.json](idle-recovery-evidence.json). Final acceptance remains
-incomplete. Additional Render deployments should wait for confirmed billing
-controls; the current public service remains on Free.
+incomplete for protected integration, actual cron execution and controlled sleep
+proof. Owner confirms card removal; the current public service remains on Free.
 
 ## Complete change inventory
 

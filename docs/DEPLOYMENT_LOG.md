@@ -455,3 +455,8 @@ Implementation results and actual check output are appended as work completes.
   Documented official bandwidth/build billing and pipeline-only spending control.
   No actual charge claimed. Further Render deployments paused pending owner billing
   controls; no new feature, paid resource, payment-method change or deletion.
+
+2026-10-19 subsequent owner confirmation: Render card removed. This resolves
+the known attached-card overage exposure on owner attestation, without independent
+Billing-page inspection. Official no-card quota exhaustion suspends service/builds.
+Free plans preserved; no payment-method change was performed by the agent.

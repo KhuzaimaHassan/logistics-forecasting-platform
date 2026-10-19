@@ -590,4 +590,6 @@ Have the owner check whether the card can be removed without deleting/changing
 the existing Free service, or obtain provider confirmation of a complete overage
 block. Do not remove payment methods, upgrade, delete resources or start new
 billable resources automatically. Usage alerts alone do not establish a hard cap.
-Keep further Render deployments paused until the account controls are confirmed.
+Update: owner subsequently confirmed the card was removed. The attached-card
+blocker is resolved on owner confirmation; private Billing was not independently
+inspected. Preserve no-payment-method status and Free compute.

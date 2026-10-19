@@ -278,15 +278,25 @@
   },
   "billing": {
     "render_compute_plan": "Free (owner confirmation and Console screenshot)",
-    "render_payment_method_attached": true,
-    "source": "Owner explicit confirmation on 2026-10-19; no card details collected",
+    "render_payment_method_attached": false,
+    "source": "Owner explicitly confirms card removed on 2026-10-19; private Billing page not independently inspected",
     "groq_payment_method_attached": false,
-    "hard_zero_charge_safety": "NOT VERIFIED",
-    "known_risk": "A payment method allows outbound bandwidth/build-minute overage billing under official Render terms. No overage charge has been observed or claimed.",
+    "hard_zero_charge_safety": "VERIFIED \u2014 OWNER CONFIRMED NO PAYMENT METHOD",
+    "known_risk": "Official Render no-payment-method behavior is suspension/disabled builds at quota exhaustion rather than automatic overage purchase. Prior attached-card exposure is retained in payment_method_history; no actual charge observed.",
     "pipeline_spend_limit": "NOT VERIFIED",
     "bandwidth_hard_cap": "NOT VERIFIED",
     "official_free_limits": "https://render.com/docs/free",
-    "official_pipeline_limit": "https://render.com/docs/build-pipeline#setting-a-spend-limit"
+    "official_pipeline_limit": "https://render.com/docs/build-pipeline#setting-a-spend-limit",
+    "payment_method_history": [
+      {
+        "state": "attached",
+        "source": "Earlier owner confirmation on 2026-10-19"
+      },
+      {
+        "state": "removed",
+        "source": "Subsequent explicit owner confirmation on 2026-10-19"
+      }
+    ]
   },
   "integration": {
     "status": "NOT VERIFIED",

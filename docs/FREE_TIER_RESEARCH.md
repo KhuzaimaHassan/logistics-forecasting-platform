@@ -43,3 +43,8 @@ Free compute. The zero-charge condition is therefore unresolved: official terms
 permit bandwidth/build overages. A pipeline spend limit only controls pipeline
 minutes, not bandwidth. No billed overage has been observed. Owner account action
 or provider confirmation is required before claiming a guaranteed $0 account.
+
+2026-10-19 subsequent owner confirmation: Render card removed. This resolves
+the known attached-card overage exposure on owner attestation, without independent
+Billing-page inspection. Official no-card quota exhaustion suspends service/builds.
+Free plans preserved; no payment-method change was performed by the agent.
