@@ -357,3 +357,15 @@ Implementation results and actual check output are appended as work completes.
   failed. It is not a successful agent check. Added opt-in failure diagnostics
   using the owner-configured Groq secret on CI, with only error class/status/code,
   tool argument names and managed tool statuses serialized; no exception text.
+
+- Managed diagnostic 39248151952 identified Groq HTTP400: zero-argument
+  schema required=[] rejected after empty-properties normalization. Removed only
+  the unnecessary required clause; strict closed-object validation remains.
+- Both runner and Render read back missing real online features after the
+  original sample keys expired. Feast 0.65 skips equal event timestamps before
+  EXPIRE, so prior rematerializations had not renewed retention. Added exact-key
+  expiry renewal after successful materialization, preserving values/event times
+  and failing on missing keys before recording a successful refresh.
+- Two retention regressions passed, proving exact pinned-codec zone/corridor
+  keys, no HSET/DELETE and explicit missing-key failure. Full focused suite in
+  progress; real managed restoration still requires the following cloud run.

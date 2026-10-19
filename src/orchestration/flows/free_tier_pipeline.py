@@ -34,6 +34,7 @@ from src.features.materialize import materialize_features
 from src.features.offline_extractor import extract_and_load_offline_features
 from src.features.registry import apply_feature_definitions
 from src.features.views import corridor_duration_feature_view, zone_demand_feature_view
+from src.orchestration.online_retention import renew_sample_retention
 from src.transform.batch_transformer import generate_deterministic_trip_id
 from src.transform.schemas import TripEventPayload
 from src.transform.stream_consumer import StreamConsumerService
@@ -190,6 +191,7 @@ def reconcile(engine):
         end_date=end + timedelta(seconds=1),
         store=store,
     )
+    retention = renew_sample_retention(engine, store, end)
     materialized_at = datetime.now(timezone.utc).isoformat()
     with engine.begin() as connection:
         updated = connection.execute(
@@ -209,6 +211,7 @@ def reconcile(engine):
             )
     return {
         "feature_materialized_at": materialized_at,
+        "online_retention": retention,
         "observation_start": start.isoformat(),
         "observation_end": end.isoformat(),
         "warehouse_rows": count,

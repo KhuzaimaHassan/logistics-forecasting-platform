@@ -26,7 +26,7 @@ class TestAgentGraphWorkflow:
         function = definition["function"]
         assert function["strict"] is True
         assert function["parameters"]["properties"] == {}
-        assert function["parameters"]["required"] == []
+        assert "required" not in function["parameters"]
         assert function["parameters"]["additionalProperties"] is False
 
     def test_invalid_tool_arguments_never_execute_or_report_success(self):

@@ -57,7 +57,10 @@ def _serialize_tool_for_llm(tool_obj: Any) -> Dict[str, Any]:
     # GPT-OSS otherwise sometimes emits {"": ""} for a zero-argument tool.
     # Strict decoding is safe here: there are no optional/default fields to alter.
     if not parameters.get("properties"):
-        parameters["required"] = []
+        parameters["properties"] = {}
+        # Groq rejects required=[] after normalizing an empty properties map.
+        # No required clause is needed for a closed, zero-property object.
+        parameters.pop("required", None)
         definition["function"]["strict"] = True
     return definition
 
