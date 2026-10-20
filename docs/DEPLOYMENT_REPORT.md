@@ -1,10 +1,10 @@
-# Deployment report — 2026-10-19
+# Deployment report — 2026-10-20
 
 ## Outcome
 
 **The public dashboard, real-model API and Groq Copilot are verified, along with
 all nine managed integration checks. Scheduled-trigger acceptance remains
-incomplete until protected-branch integration and an actual scheduled-event run.** These are actual deployed URLs:
+incomplete until an actual scheduled-event run. Protected integration is complete.** These are actual deployed URLs:
 
 - [Streamlit dashboard](https://logistics-forecasting-platform.streamlit.app/)
 - [FastAPI documentation](https://logistics-forecasting-platform.onrender.com/docs)
@@ -88,8 +88,9 @@ and mocked unit tests do not certify Aiven, DagsHub or public applications.
 | Managed PostgreSQL write/read | **VERIFIED** | Same aggregate wrote/read a retained verification record; prior bootstrap persisted 9,232 authentic warehouse trips; actual PostgreSQL 18.6 |
 | Valkey TLS + Feast materialization/retrieval | **VERIFIED** | Same aggregate rematerialized real features; zone 7 pickups=1 matched PostgreSQL with historical event timestamp |
 | MLflow metrics/artifacts/registry | **VERIFIED** | Same aggregate read metric 1.0, verified downloaded artifact SHA-256 and registry listing; real training/promotion evidence below |
-| Real pipeline output | **VERIFIED** | Initial managed pipeline processed 8,632 remaining events after checkpoint 600, ending at 9,232 unique rows; repeated run 39271963729 published zero duplicates and renewed 1,319 Feast keys. Manual dispatch is not cron evidence |
-| Actual scheduled trigger | **NOT VERIFIED** | BLOCKED — NOT VERIFIED: repository opt-in is now true, but default main does not contain free-cloud.yml; protected integration and an actual scheduled-event run are still required |
+| Real pipeline output | **VERIFIED** | Initial managed pipeline processed 8,632 remaining events after checkpoint 600, ending at 9,232 unique rows; latest main run 39401271976 succeeded with 9,232 retained trips, zero new sample publications and 1,319 exact keys renewed to 86,400s from minimum 19,279s. Manual workflow_dispatch is not cron evidence |
+| Actual scheduled trigger | **NOT VERIFIED** | Workflow is now active on default main with opt-in true after protected PR 167; first subsequent pipeline slot is 2026-10-20 20:17 Pakistan time. No schedule-event run observed yet; manual dispatch remains separate |
+| Protected default-branch release | **VERIFIED** | PR 166 merged to dev; fully green PR 167 squash-merged to main as required by linear history, release 4450d95; no administrator bypass, branch/data deletion or history rewrite. [Evidence](main-release-evidence.json) |
 | Real training/promotion | **VERIFIED** | [39228745442](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228745442): 635.55s managed run, both genuine LightGBM Production v1 models reloaded natively; [evidence](managed-training-evidence.json) |
 | Public FastAPI genuine demand/ETA | **VERIFIED** | Aggregate produced demand 0.71 and ETA 715.8s, matched two newly persisted Aiven prediction records; no fallback |
 | Streamlit forecast table/map/ETA | **VERIFIED** | Browser actions displayed real 74/75/166 values 3.69/5.55/2.26, map, and 75_237 ETA 11.9m; [screenshot](evidence/streamlit-public-demand.png) |
@@ -100,11 +101,11 @@ and mocked unit tests do not certify Aiven, DagsHub or public applications.
 | Corrected monitoring decisions | **VERIFIED** | [39242531954](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39242531954): authoritative Evidently flags match summaries; actual public readback checks per-column count and distance direction; [evidence](corrected-monitoring-evidence.json) |
 | Monitoring HTML persistence | **VERIFIED** | Latest performance report read back 3,701,744 HTML characters; genuine historical backtest |
 | Hosted redeploy recovery | **VERIFIED** | Render 92bddd7 initially returned readiness 503 with no loaded models; a real request recovered through lazy Production loading in 31.55s, then readiness and demand/ETA passed. Same genuine v1 artifacts; [failure + recovery evidence](public-redeploy-evidence.json) |
-| Controlled hosted idle cold start | **NOT VERIFIED** | Later idle-interval request recovered in 130.328s with new genuine model load timestamps; same f9a5605 revision, demand/ETA/readiness passed, 9,232 warehouse rows and dashboard forecasts preserved. Provider sleep/start event logs are unavailable, so controlled sleep is not certified. [Evidence](idle-recovery-evidence.json) |
+| Recovery after controlled idle interval | **VERIFIED** | No agent API requests for 973.664s; first demand HTTP 200 in 140.968s, X-Cache MISS, ETA MISS 200, readiness 200. Both real Production v1 models reloaded after the interval on unchanged aefb096; all 9,232 rows retained. Fresh dashboard demand/ETA passed after retry; main API check 39402814242 matched two newly persisted prediction rows. [Evidence](controlled-idle-recovery-evidence.json). Provider-internal sleep events and other public traffic remain unobserved |
 | Render no-payment-method billing condition | **VERIFIED** | Owner explicitly confirms card removed and Free compute retained; private Billing page not independently inspected. Official no-card overages suspend service/builds. Earlier attached-card exposure retained in evidence; no charge observed |
 | Genuine-model Free runtime limits | **VERIFIED** | [39230564684](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230564684): two fresh 512 MiB/0.1 CPU containers, concurrent 145-zone batches and durable predictions; peak process RSS 386.7 MiB |
-| Full CI including Compose | **VERIFIED** | [39274527934](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39274527934), f9a5605: all three jobs passed; 398 tests passed, one skipped, 45 warnings in 54.61s; Compose includes real disposable-service integrations |
-| ARM64 images | **VERIFIED** | [39274521143](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39274521143), f9a5605, successful multi-arch build |
+| Full CI including Compose | **VERIFIED** | Protected-release [39400299729](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39400299729), b2e56d4: all three jobs passed; 398 tests passed, one skipped, 45 warnings in 66.56s. Feature-head CI 39282433306 also passed (76.39s). Real disposable-service Compose integrations remain separate from managed infrastructure checks |
+| ARM64 images | **VERIFIED** | Protected-release [39400243947](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39400243947), b2e56d4, all jobs passed; feature aefb096 ARM64 run 39282424920 also passed |
 
 [Latest aggregate JSON](cloud-verification.json) records all nine automated checks
 as verified while preserving manual acceptance=false. Browser/redeploy evidence is separate: an automated
@@ -222,38 +223,76 @@ claimed. GitHub public standard runners replace paid always-on workers.
 
 ## Outstanding acceptance work
 
-1. Review/integrate through protected branches and capture an actual scheduled-event
-   run. CLOUD_DEPLOYMENT_ENABLED is already true after all nine checks passed;
-   the workflow is absent from default main, so cron has not run. Until then manually refresh before the
-   online feature TTL expires; manual pipeline history does not prove automation.
-2. Perform a controlled Render idle sleep/wake request and capture recovery timing.
-   Actual hosted redeploy recovery is already verified.
-3. Optional Gemini fallback and deployed FAISS index freshness are not verified.
+1. Capture an actual successful scheduled-event run. Protected integration is
+   complete: PR 166 -> dev, PR 167 -> main. CLOUD_DEPLOYMENT_ENABLED=true and
+   free-cloud.yml is registered active on main. First subsequent pipeline slot:
+   2026-10-20 20:17 Pakistan time. Manual main-branch refresh 39401271976 is
+   explicitly not schedule evidence. Owner will return after the cron run;
+   no Codex follow-up automation was created.
+2. Optional Gemini fallback and deployed FAISS index freshness are not verified.
    The exercised Copilot uses Groq with actual PostgreSQL and Feast tools; this
    does not certify every optional provider/retrieval path.
 
-## Latest acceptance follow-up
+## Protected release and refresh — 2026-10-20
 
-Normal protected merge of PR #166 into dev was refused while the required
+PR 166 merged into dev after all checks passed. PR 167 passed full CI and ARM64,
+then squash-merged to main 4450d95 under the required linear-history rule. The
+public aefb096 file tree exactly matches that release. The hosting feature branch
+is retained. Post-merge CI 39401266610 passed and legacy VM deploy 39401266605 was
+skipped; no paid or self-hosted deployment was started.
+
+Manual main-branch pipeline 39401271976 passed, preserving 9,232 warehouse trips,
+107,155 zone-feature rows and 8,760 corridor-feature rows, with zero new sample
+publications. Actual materialization at 2026-10-20T09:36:24.899356 UTC renewed 1,319
+known keys to 86,400 seconds (prior minimum 19,279 seconds). Historical event times
+and feature values were unchanged. [Actual metadata/output](main-release-evidence.json).
+This is a manual refresh, not a scheduled-event run. The next intended pipeline
+slot is 2026-10-20 20:17 Pakistan time; GitHub can delay or drop it. Owner chose to
+return afterward, so no Codex follow-up automation was created.
+
+## Idle recovery acceptance — 2026-10-20
+
+Recorded an actual baseline, made no agent API requests for 973.664 seconds, then
+requested real demand/ETA again. The first request took 140.968 seconds, returned
+HTTP 200 and X-Cache MISS. Both native Production v1 models have new load timestamps
+after that interval; deployed revision remained aefb096 and artifact run IDs stayed
+unchanged. ETA was also a cache miss, readiness returned 200, and warehouse row
+count remained 9,232. No restart/redeploy was forced and no model fallback was used.
+This verifies application recovery after controlled agent inactivity; private
+provider sleep/start events and unrelated public requests were not observable.
+
+The browser initially retained an earlier 90-second timeout. After retry, it showed
+Serving Online (OK), fresh demand 3.69/5.55/2.26, the map and ETA 715.8 seconds; demand
+remained after ETA rerun. Both the initial error screenshot and recovered UI are
+preserved in [the evidence](controlled-idle-recovery-evidence.json). A narrow
+main-branch API verification 39402814242 independently matched two newly persisted
+PostgreSQL prediction rows. Its api_only scope does not overwrite the original
+nine-service matrix or certify cron. Slow free-host wakeup can exceed the UI's
+90-second request timeout; retry remains necessary in that case.
+
+## Historical acceptance follow-up — 2026-10-19
+
+On 2026-10-19, normal protected merge of PR #166 into dev was refused while the required
 Lint & Test check remained pending on 7a389f7. The latest CI log records 398 tests
 passed, one skipped and 45 warnings (59.74s); Compose and memory checks succeeded.
 GitHub read/cancel/retry endpoints returned inconsistent completion information;
 the direct retry API returned HTTP403, already running. No required check was
-forged or bypassed. The last fully successful source CI remains f9a5605 above.
-The required branch path is feature -> dev -> main; default main has no cloud
-workflow, so no actual schedule-triggered execution is claimed.
+forged or bypassed. This was resolved on 2026-10-20 by successful CI on aefb096 and the release head.
+The required branch path feature -> dev -> main is now integrated. No actual
+schedule-triggered execution is claimed before the first post-merge cron slot.
 
 New public recovery evidence and the owner's card attachment/removal confirmations are in
 [idle-recovery-evidence.json](idle-recovery-evidence.json). Final acceptance remains
-incomplete for protected integration, actual cron execution and controlled sleep
-proof. Owner confirms card removal; the current public service remains on Free.
+incomplete for actual cron execution. Recovery after a measured quiet interval
+is now verified separately; provider-internal sleep event logs remain unavailable. Owner confirms card removal; the current public service remains on Free.
 
 ## Complete change inventory
 
-Relative to dev; owner-provided dev container identified separately. The unrelated
-Oracle retry script edit remains untouched and excluded.
+Relative to the pre-deployment dev baseline dca 4b 70 (pinned because dev now
+contains the deployment). Owner-provided dev container is identified separately.
+The unrelated local Oracle retry script edit remains untouched and excluded.
 
-98 changed/new files:
+102 changed/new files:
 
 - `.devcontainer/devcontainer.json` (owner-provided)
 - `.dockerignore`
@@ -277,17 +316,21 @@ Oracle retry script edit remains untouched and excluded.
 - `docs/aiven-bootstrap-evidence.json`
 - `docs/aiven-initialization-evidence.json`
 - `docs/cloud-verification.json`
+- `docs/controlled-idle-recovery-evidence.json`
 - `docs/corrected-monitoring-evidence.json`
 - `docs/evidence/streamlit-after-idle-recovery.png`
+- `docs/evidence/streamlit-controlled-idle-recovered.png`
 - `docs/evidence/streamlit-corrected-demand.png`
 - `docs/evidence/streamlit-corrected-eta.png`
 - `docs/evidence/streamlit-corrected-monitoring.png`
 - `docs/evidence/streamlit-demand-before-fixes.png`
 - `docs/evidence/streamlit-feast-copilot.png`
+- `docs/evidence/streamlit-idle-timeout-before-retry.png`
 - `docs/evidence/streamlit-live-copilot.png`
 - `docs/evidence/streamlit-public-demand.png`
 - `docs/free-profile-e2e-evidence.json`
 - `docs/idle-recovery-evidence.json`
+- `docs/main-release-evidence.json`
 - `docs/managed-monitoring-evidence.json`
 - `docs/managed-runtime-evidence.json`
 - `docs/managed-runtime-failure-evidence.json`
