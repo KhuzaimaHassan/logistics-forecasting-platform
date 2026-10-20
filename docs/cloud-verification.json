@@ -1,0 +1,120 @@
+{
+  "generated_at": "2026-10-19T14:58:27.197045+00:00",
+  "checks": {
+    "postgresql": {
+      "status": "VERIFIED",
+      "evidence": {
+        "engine": "PostgreSQL",
+        "run_id": "verification-b788143055254d9aa4b28f525b1ec25e",
+        "write_read": true
+      }
+    },
+    "kafka": {
+      "status": "VERIFIED",
+      "evidence": {
+        "topic": "trip.events",
+        "partition": 1,
+        "produced_offset": 4672,
+        "consumed_offset": 4672,
+        "authentic_trip_id": 1108463825441794175
+      }
+    },
+    "feast_valkey": {
+      "status": "VERIFIED",
+      "evidence": {
+        "zone_id": 7,
+        "observed_pickups_last_hour": 1,
+        "online_matches_postgres": true,
+        "observation_end": "2023-01-31T23:00:00+00:00",
+        "online_retention": {
+          "renewed_entity_keys": 1319,
+          "retention_seconds": 86400,
+          "previous_min_ttl_seconds": 86121,
+          "feature_values_and_timestamps_unchanged": true
+        },
+        "feature_materialized_at": "2026-10-19T14:57:43.850685+00:00"
+      }
+    },
+    "mlflow": {
+      "status": "VERIFIED",
+      "evidence": {
+        "run_id": "ff024e6c5fc14c3b9fea6b9614a1dda4",
+        "metric_readback": 1.0,
+        "artifact_sha256": "a2a2ce9ed325f1421e2e80ab0a28c49b4ccb8b84f2c48f327111b5c81c3f5c03",
+        "registry_list_access": true
+      }
+    },
+    "pipeline_output": {
+      "status": "VERIFIED",
+      "evidence": {
+        "completed_run_id": "fe7ec7f2-79cc-4da4-b9e3-dab08fab3ad4",
+        "records_processed": 0,
+        "scheduler_trigger": "Inspect corresponding GitHub Actions run; DB record alone does not prove cron execution"
+      }
+    },
+    "fastapi_real_model": {
+      "status": "VERIFIED",
+      "evidence": {
+        "public_url": "https://logistics-forecasting-platform.onrender.com",
+        "zone_id": 7,
+        "predicted_pickups": 0.71,
+        "model_version": "1",
+        "eta_seconds": 715.8,
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "persisted_prediction_delta": 2,
+        "durable_forecast_rows_matched": 2
+      }
+    },
+    "streamlit_http": {
+      "status": "VERIFIED",
+      "evidence": {
+        "http_status": 200,
+        "scope": "HTTP shell only; visual prediction rendering still requires browser verification"
+      }
+    },
+    "llm_agent": {
+      "status": "VERIFIED",
+      "evidence": {
+        "provider": "groq",
+        "model_name": "openai/gpt-oss-20b",
+        "tools_used": [
+          "query_pipeline_status"
+        ],
+        "sources": [
+          "warehouse.pipeline_runs"
+        ]
+      }
+    },
+    "monitoring": {
+      "status": "VERIFIED",
+      "evidence": {
+        "report_id": "8cd77425-d9b7-4c19-a388-db2fcc7ce98e",
+        "report_type": "performance_decay",
+        "html_characters": 3701744,
+        "evaluation_mode": "historical_sample_backtest"
+      }
+    },
+    "streamlit_visual_predictions": {
+      "status": "NOT VERIFIED",
+      "reason": "Requires a browser session displaying actual API predictions"
+    },
+    "cold_start_restart": {
+      "status": "NOT VERIFIED",
+      "reason": "Requires real service restart/sleep and repeat predictions"
+    },
+    "cron_trigger": {
+      "status": "NOT VERIFIED",
+      "reason": "Requires successful GitHub scheduled event evidence"
+    }
+  },
+  "verification_scope": "full",
+  "selected_checks_complete": true,
+  "automated_checks_complete": true,
+  "manual_acceptance_complete": false,
+  "verification_run": {
+    "conclusion": "success",
+    "head_sha": "92bddd72ecf668107fb4e411901a7d7cae6df7f6",
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39272455345",
+    "run_id": 39272455345
+  }
+}

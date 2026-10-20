@@ -1,0 +1,126 @@
+{
+  "scope": "Real provider and managed tools on GitHub runner; not public Render agent acceptance",
+  "failed_diagnostic": {
+    "run_id": 39248151952,
+    "result": {
+      "generated_at": "2026-10-19T11:55:53.035529+00:00",
+      "status": "FAILED",
+      "error_type": "ProviderError",
+      "cause_type": "HTTPError",
+      "provider_http_status": 400,
+      "provider_error_type": "invalid_request_error",
+      "provider_error_code": null,
+      "provider_message": "invalid JSON schema for tool query_pipeline_status, tools[2].function.parameters: 'required' present but 'properties' is missing",
+      "online_feature_readback": [
+        {
+          "zone_id": 7,
+          "missing_fields": [
+            "pickup_count_last_15m",
+            "pickup_count_last_1h",
+            "pickup_count_last_24h",
+            "pickup_count_same_hour_last_week",
+            "hour_of_day",
+            "day_of_week",
+            "is_weekend",
+            "is_holiday"
+          ],
+          "observed_at": "None"
+        },
+        {
+          "zone_id": 74,
+          "missing_fields": [
+            "pickup_count_last_15m",
+            "pickup_count_last_1h",
+            "pickup_count_last_24h",
+            "pickup_count_same_hour_last_week",
+            "hour_of_day",
+            "day_of_week",
+            "is_weekend",
+            "is_holiday"
+          ],
+          "observed_at": "None"
+        },
+        {
+          "zone_id": 75,
+          "missing_fields": [
+            "pickup_count_last_15m",
+            "pickup_count_last_1h",
+            "pickup_count_last_24h",
+            "pickup_count_same_hour_last_week",
+            "hour_of_day",
+            "day_of_week",
+            "is_weekend",
+            "is_holiday"
+          ],
+          "observed_at": "None"
+        },
+        {
+          "zone_id": 166,
+          "missing_fields": [
+            "pickup_count_last_15m",
+            "pickup_count_last_1h",
+            "pickup_count_last_24h",
+            "pickup_count_same_hour_last_week",
+            "hour_of_day",
+            "day_of_week",
+            "is_weekend",
+            "is_holiday"
+          ],
+          "observed_at": "None"
+        }
+      ]
+    }
+  },
+  "corrected_diagnostic": {
+    "run_id": 39268227159,
+    "result": {
+      "generated_at": "2026-10-19T14:26:45.634082+00:00",
+      "provider": "groq",
+      "model_name": "openai/gpt-oss-20b",
+      "calls": [
+        {
+          "tool": "query_pipeline_status",
+          "argument_keys": []
+        }
+      ],
+      "tools_used": [
+        "query_pipeline_status"
+      ],
+      "sources": [
+        "warehouse.pipeline_runs"
+      ],
+      "tool_statuses": [
+        {
+          "tool": "query_pipeline_status",
+          "execution_status": "completed",
+          "dependency_status": "success",
+          "pipeline_run_count": 9
+        }
+      ],
+      "status": "VERIFIED",
+      "online_feature_readback": [
+        {
+          "zone_id": 7,
+          "missing_fields": [],
+          "observed_at": "2023-01-31 23:00:00+00:00"
+        },
+        {
+          "zone_id": 74,
+          "missing_fields": [],
+          "observed_at": "2023-01-31 23:00:00+00:00"
+        },
+        {
+          "zone_id": 75,
+          "missing_fields": [],
+          "observed_at": "2023-01-31 23:00:00+00:00"
+        },
+        {
+          "zone_id": 166,
+          "missing_fields": [],
+          "observed_at": "2023-01-31 23:00:00+00:00"
+        }
+      ]
+    }
+  },
+  "public_agent_status": "NOT VERIFIED after latest correction"
+}

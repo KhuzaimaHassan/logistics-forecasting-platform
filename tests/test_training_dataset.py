@@ -1,6 +1,7 @@
 """Unit tests for training dataset extraction, target computation, and time-based splitting (M3-2)."""
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -10,6 +11,7 @@ from sqlalchemy import create_engine, text
 from src.features.entities import corridor_entity, zone_entity
 from src.features.views import create_file_backed_feature_views
 from src.training.dataset import (
+    _fetch_historical_features_in_batches,
     build_demand_entity_grid,
     compute_corridor_targets_from_trips,
     compute_demand_targets_from_trips,
@@ -18,6 +20,39 @@ from src.training.dataset import (
     train_val_split_by_time,
     validate_dataset_integrity,
 )
+
+
+def test_cloud_corridor_batches_preserve_every_entity_label_and_timestamp(monkeypatch):
+    monkeypatch.setenv("DEPLOYMENT_MODE", "cloud")
+    entity_df = pd.DataFrame(
+        {
+            "corridor_id": [f"{index % 17 + 1}_74" for index in range(621)],
+            "event_timestamp": pd.date_range(
+                "2023-01-01", periods=621, freq="h", tz="UTC"
+            ),
+            "target_avg_duration_next_1h": [float(index + 60) for index in range(621)],
+        }
+    )
+    calls = []
+
+    def retrieve(entity_df, features):
+        calls.append(entity_df.copy())
+        return SimpleNamespace(to_df=lambda: entity_df.copy())
+
+    store = SimpleNamespace(get_historical_features=retrieve)
+    result = _fetch_historical_features_in_batches(
+        store, entity_df, ["duration:avg"], batch_size=10000
+    )
+    assert [len(batch) for batch in calls] == [250, 250, 121]
+    expected = entity_df.sort_values(
+        ["corridor_id", "event_timestamp"], kind="stable"
+    ).reset_index(drop=True)
+    pd.testing.assert_frame_equal(result, expected)
+    monkeypatch.setenv("DEPLOYMENT_MODE", "local")
+    calls.clear()
+    local = _fetch_historical_features_in_batches(store, entity_df, ["duration:avg"])
+    assert len(calls) == 1
+    pd.testing.assert_frame_equal(local, entity_df)
 
 
 @pytest.fixture
@@ -307,6 +342,13 @@ def test_generate_corridor_training_dataset_pit_join(tmp_path, sqlite_trips_engi
     assert row["target_avg_duration_next_1h"].iloc[0] == pytest.approx(1050.0)
     assert row["avg_duration_last_1h"].iloc[0] == pytest.approx(900.0)
     assert row["distance_km"].iloc[0] == pytest.approx(4.5)
+    # The other corridor has a valid future label but no observed feature.
+    # Filling that null with its label would leak the answer into both training
+    # and baseline evaluation and make a sparse deployment appear perfect.
+    unseen = dataset[dataset["corridor_id"] != "161_236"]
+    assert not unseen.empty
+    assert unseen["avg_duration_last_1h"].isna().all()
+    assert unseen["target_avg_duration_next_1h"].notna().all()
 
 
 def test_train_val_split_by_time():

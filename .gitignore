@@ -1,5 +1,14 @@
 # Env / secrets
 .env
+.env.*
+!.env.example
+!.env.ci
+.certs/
+.tmp/
+.deployment-*.log
+.uv-sync.log
+.deployment-*.txt
+.streamlit/secrets.toml
 *.pem
 
 # Python

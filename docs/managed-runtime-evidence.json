@@ -1,0 +1,173 @@
+{
+  "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39230564684",
+  "code_commit": "6ea2fc6",
+  "container_limits": {
+    "memory_mib": 512,
+    "cpus": 0.1
+  },
+  "attempts": [
+    {
+      "scope": "Real DagsHub Production models + Aiven features/storage in disposable Linux API container; not a hosted Render endpoint",
+      "status": "VERIFIED",
+      "phase": "completed",
+      "health": {
+        "status": "ok",
+        "dependencies": {
+          "database": "connected",
+          "redis": "connected",
+          "mlflow": "reachable"
+        },
+        "models": {
+          "demand": {
+            "name": "demand_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+            "loaded_at": "2026-10-19T09:32:59.921271+00:00"
+          },
+          "demand_lightgbm_model": {
+            "name": "demand_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+            "loaded_at": "2026-10-19T09:32:59.921271+00:00"
+          },
+          "duration": {
+            "name": "corridor_duration_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+            "loaded_at": "2026-10-19T09:33:03.645418+00:00"
+          },
+          "corridor_duration_lightgbm_model": {
+            "name": "corridor_duration_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+            "loaded_at": "2026-10-19T09:33:03.645418+00:00"
+          }
+        },
+        "timestamp": "2026-10-19T09:33:05.619836+00:00"
+      },
+      "demand": {
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "zone_id": 7,
+        "horizon_minutes": 60,
+        "predicted_pickups": 0.71,
+        "status": "ok",
+        "cache_hit": true,
+        "model_version": "1",
+        "as_of": "2026-10-19T09:33:18.502769+00:00",
+        "warning": null
+      },
+      "eta": {
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "origin_zone_id": 75,
+        "dest_zone_id": 237,
+        "corridor_id": "75_237",
+        "predicted_duration_seconds": 715.8,
+        "predicted_duration_minutes": 11.93,
+        "status": "ok",
+        "cache_hit": true,
+        "model_version": "1",
+        "as_of": "2026-10-19T09:33:42.649077+00:00",
+        "warning": null
+      },
+      "concurrent_requests": 4,
+      "zones_per_batch": 145,
+      "persisted_prediction_delta": 582,
+      "peak_rss_mib": 386.6,
+      "cgroup_peak_mib": 373.6
+    },
+    {
+      "scope": "Real DagsHub Production models + Aiven features/storage in disposable Linux API container; not a hosted Render endpoint",
+      "status": "VERIFIED",
+      "phase": "completed",
+      "health": {
+        "status": "ok",
+        "dependencies": {
+          "database": "connected",
+          "redis": "connected",
+          "mlflow": "reachable"
+        },
+        "models": {
+          "demand": {
+            "name": "demand_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+            "loaded_at": "2026-10-19T09:35:54.313100+00:00"
+          },
+          "demand_lightgbm_model": {
+            "name": "demand_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+            "loaded_at": "2026-10-19T09:35:54.313100+00:00"
+          },
+          "duration": {
+            "name": "corridor_duration_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+            "loaded_at": "2026-10-19T09:35:58.606859+00:00"
+          },
+          "corridor_duration_lightgbm_model": {
+            "name": "corridor_duration_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+            "loaded_at": "2026-10-19T09:35:58.606859+00:00"
+          }
+        },
+        "timestamp": "2026-10-19T09:36:03.011102+00:00"
+      },
+      "demand": {
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "zone_id": 7,
+        "horizon_minutes": 60,
+        "predicted_pickups": 0.71,
+        "status": "ok",
+        "cache_hit": true,
+        "model_version": "1",
+        "as_of": "2026-10-19T09:36:15.764862+00:00",
+        "warning": null
+      },
+      "eta": {
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "origin_zone_id": 75,
+        "dest_zone_id": 237,
+        "corridor_id": "75_237",
+        "predicted_duration_seconds": 715.8,
+        "predicted_duration_minutes": 11.93,
+        "status": "ok",
+        "cache_hit": true,
+        "model_version": "1",
+        "as_of": "2026-10-19T09:36:39.816251+00:00",
+        "warning": null
+      },
+      "concurrent_requests": 4,
+      "zones_per_batch": 145,
+      "persisted_prediction_delta": 582,
+      "peak_rss_mib": 386.7,
+      "cgroup_peak_mib": 368.6
+    }
+  ],
+  "scope": "Two fresh disposable Linux API containers using genuine managed services/models; public hosting and hosted sleep/cold starts remain NOT VERIFIED"
+}

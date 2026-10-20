@@ -8,6 +8,9 @@ on:
 
 jobs:
   deploy-to-prod-vm:
+    # Legacy self-hosted deployment is retained, but must be explicitly enabled.
+    # The sustainable free profile uses Render's checksPass deployment trigger.
+    if: vars.ENABLE_LEGACY_VM_DEPLOY == 'true'
     name: Deploy to Production ARM64 VM
     runs-on: ubuntu-latest
 

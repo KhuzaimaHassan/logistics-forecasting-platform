@@ -23,8 +23,8 @@ import requests
 logger = logging.getLogger(__name__)
 
 # Verified current model identifiers
-DEFAULT_GROQ_PRIMARY_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_GROQ_FALLBACK_MODEL = "llama-3.1-8b-instant"
+DEFAULT_GROQ_PRIMARY_MODEL = "openai/gpt-oss-20b"
+DEFAULT_GROQ_FALLBACK_MODEL = "openai/gpt-oss-120b"
 DEFAULT_GEMINI_PRIMARY_MODEL = "gemini-2.0-flash"
 DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-1.5-flash"
 

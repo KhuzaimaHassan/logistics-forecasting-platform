@@ -1,0 +1,58 @@
+{
+  "datasets": {
+    "corridor_train_rows": 4586,
+    "corridor_val_rows": 2061,
+    "demand_train_rows": 99414,
+    "demand_val_rows": 43921
+  },
+  "demand": {
+    "baseline_mae": 0.054,
+    "lift_pct": 8.7,
+    "model_mae": 0.0493,
+    "promotion": {
+      "actual_improvement_pct": null,
+      "baseline_mae": 0.054,
+      "candidate_mae": 0.0493,
+      "hurdle_mae": null,
+      "min_improvement_pct": 0.02,
+      "model_name": "demand_lightgbm_model",
+      "production_mae": null,
+      "production_version": null,
+      "promoted": true,
+      "reason": "Inaugural promotion (cold start): Candidate MAE (0.0493) beat baseline (0.0540)",
+      "stage": "Production",
+      "version": "1"
+    },
+    "run_id": "ac72055c6c6c431fb13c94fb85b5e39d"
+  },
+  "duration": {
+    "baseline_mae": 666.4875,
+    "lift_pct": 35.44,
+    "model_mae": 430.3019,
+    "promotion": {
+      "actual_improvement_pct": null,
+      "baseline_mae": 666.4875,
+      "candidate_mae": 430.3019,
+      "hurdle_mae": null,
+      "min_improvement_pct": 0.02,
+      "model_name": "corridor_duration_lightgbm_model",
+      "production_mae": null,
+      "production_version": null,
+      "promoted": true,
+      "reason": "Inaugural promotion (cold start): Candidate MAE (430.3019) beat baseline (666.4875)",
+      "stage": "Production",
+      "version": "1"
+    },
+    "run_id": "071d2e6c03d34d4583fdac9a3781f01a"
+  },
+  "elapsed_seconds": 635.5470275829999,
+  "evaluation_mode": "historical_sample_holdout",
+  "r2_backup": {
+    "reason": "backup_disabled",
+    "status": "skipped"
+  },
+  "status": "success",
+  "evidence_run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228745442",
+  "code_commit": "373c53b",
+  "scope": "Managed PostgreSQL Feast PIT training, DagsHub metrics/artifacts/Production v1 promotion and native reload; historical sample holdout, not live forecasting quality"
+}
