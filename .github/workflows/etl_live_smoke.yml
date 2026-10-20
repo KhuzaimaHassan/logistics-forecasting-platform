@@ -2,12 +2,87 @@ name: ETL Live Smoke Test
 
 on:
   workflow_dispatch:
+    inputs:
+      cloud_job:
+        description: Explicit managed-cloud operation; none preserves existing ETL jobs
+        type: choice
+        options: [none, diagnose-db, verify-api, verify-agent, verify-mlflow, train, monitor, runtime, verify]
+        default: none
+      initialize_aiven:
+        description: Create only the authorized logistics database and two topics on existing services, then verify
+        type: boolean
+        default: false
+      verify_aiven:
+        description: Verify existing managed Aiven services using free-cloud environment secrets
+        type: boolean
+        default: false
+      aiven_operation:
+        description: Managed operation when verify_aiven=true (bootstrap runs real bounded ingestion and Feast)
+        type: choice
+        options: [verify-aiven, bootstrap-aiven]
+        default: verify-aiven
+      free_profile:
+        description: Verify bounded free profile with authentic data on disposable CI infrastructure
+        type: boolean
+        default: false
   schedule:
     # Run weekly on Sunday at 02:00 UTC
     - cron: '0 2 * * 0'
 
 jobs:
+  cloud-operation:
+    if: github.event_name == 'workflow_dispatch' && inputs.cloud_job && inputs.cloud_job != 'none' && inputs.cloud_job != 'diagnose-db'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/free-cloud.yml
+    secrets: inherit
+    with:
+      job: ${{ inputs.cloud_job }}
+  database-diagnostics:
+    if: github.event_name == 'workflow_dispatch' && inputs.cloud_job == 'diagnose-db'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: free-cloud
+    env:
+      DATABASE_URL: ${{ secrets.CLOUD_DATABASE_URL }}
+      POSTGRES_CA_PEM: ${{ secrets.CLOUD_POSTGRES_CA_PEM }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v2
+        with:
+          version: '0.9.4'
+      - run: uv sync --frozen --extra core
+      - name: Read database timings and wait states without SQL text
+        run: uv run python scripts/diagnose_cloud_database.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: database-diagnostics-${{ github.run_id }}
+          path: artifacts/database-diagnostics.json
+          if-no-files-found: warn
+  aiven-initialization:
+    if: github.event_name == 'workflow_dispatch' && inputs.initialize_aiven && (!inputs.cloud_job || inputs.cloud_job == 'none')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/free-cloud.yml
+    secrets: inherit
+    with:
+      job: initialize-aiven
+  aiven-verification:
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_aiven && !inputs.initialize_aiven && (!inputs.cloud_job || inputs.cloud_job == 'none')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/free-cloud.yml
+    secrets: inherit
+    with:
+      job: ${{ inputs.aiven_operation || 'verify-aiven' }}
   live-etl-smoke-test:
+    if: github.event_name != 'workflow_dispatch' || (!inputs.free_profile && !inputs.verify_aiven && !inputs.initialize_aiven && (!inputs.cloud_job || inputs.cloud_job == 'none'))
     name: Live TLC CloudFront Extraction & PostgreSQL Bulk Load Smoke Test
     runs-on: ubuntu-latest
     steps:
@@ -72,3 +147,46 @@ jobs:
         if: always()
         run: |
           docker compose --env-file .env.ci down -v
+
+  free-profile-e2e:
+    if: github.event_name == 'workflow_dispatch' && inputs.free_profile && !inputs.verify_aiven && !inputs.initialize_aiven && (!inputs.cloud_job || inputs.cloud_job == 'none')
+    name: Authentic bounded profile on CI infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOYMENT_MODE: cloud
+      DATABASE_URL: postgresql+psycopg2://postgres:ci_test_password_do_not_use_in_prod@localhost:5432/logistics
+      REDIS_URL: redis://localhost:6379/0
+      REDPANDA_BROKER: localhost:9092
+      MLFLOW_TRACKING_URI: http://localhost:5000
+      MLFLOW_MODEL_LOAD_MODE: native
+      PREFECT_SERVER_ANALYTICS_ENABLED: 'false'
+      EVIDENTLY_DO_NOT_TRACK: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen --all-extras
+      - name: Start disposable real PostgreSQL Redis Redpanda and MLflow
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci up -d postgres redis redpanda mlflow
+          sleep 20
+      - name: Run authentic source through the complete bounded profile
+        run: uv run python -u scripts/verify_free_profile_e2e.py
+      - name: Preserve sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authentic-free-profile-${{ github.run_id }}
+          path: artifacts/free-profile-e2e.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Remove only this job's disposable CI containers and volumes
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci down -v

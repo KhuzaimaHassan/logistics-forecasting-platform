@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
+from src.agents.tools import TOOL_ALLOWLIST
 from src.serving.app import app
 from src.serving.schemas import AgentChatResponse
 from ui.app import check_backend_health, get_pipeline_status, send_chat_query
@@ -63,7 +64,17 @@ class TestAgentChatEndpoint:
         payload = {
             "query": "Did the retraining pipeline run this week?",
         }
-        resp = client.post("/agent/chat", json=payload)
+        with patch.object(
+            TOOL_ALLOWLIST["query_pipeline_status"],
+            "func",
+            return_value={
+                "status": "success",
+                "overall_health": "healthy",
+                "latest_runs": [],
+            },
+        ) as execute:
+            resp = client.post("/agent/chat", json=payload)
+        execute.assert_called_once_with()
         assert resp.status_code == 200
         data = resp.json()
         assert "query_pipeline_status" in data["tools_used"]

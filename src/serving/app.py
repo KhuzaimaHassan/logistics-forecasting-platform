@@ -12,7 +12,12 @@ Exposes low-latency online inference and inspection endpoints per docs/API.md an
 
 import json
 import logging
+import os
+import secrets
+import threading
+import time
 import uuid
+from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -23,17 +28,19 @@ import numpy as np
 import redis
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from src.common.config import get_settings
 from src.common.db import check_database_connection, get_db_session
-from src.common.models import MonitoringReport, PipelineRun, Prediction
+from src.common.models import MonitoringReport, PipelineRun, Prediction, TaxiZone
 from src.features.client import (
     CorridorDurationOnlineFeatures,
     FeastOnlineClient,
     ZoneDemandOnlineFeatures,
 )
 from src.serving.cache import PredictionCache
+from src.serving.cloud_policy import is_cloud_deployment, missing_feature_fields
 from src.serving.feature_extractor import (
     build_corridor_feature_df,
     build_demand_feature_df,
@@ -88,12 +95,10 @@ async def lifespan(app: FastAPI):
             logger.info("ModelLoaderService eagerly initialized at startup.")
         except Exception as exc:
             logger.warning(
-                "ModelLoaderService live initialization failed (%s); falling back to offline baseline loader.",
-                exc,
+                "ModelLoaderService initialization failed (%s); predictions unavailable.",
+                type(exc).__name__,
             )
-            fallback_loader = ModelLoaderService(tracking_uri="sqlite:///fallback.db")
-            fallback_loader.load_all()
-            app.state.model_loader = fallback_loader
+            app.state.model_loader = None
 
     # Initialize FeastOnlineClient if not already provided
     if not hasattr(app.state, "feast_client") or app.state.feast_client is None:
@@ -131,6 +136,58 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+_cors_origins = [
+    s.strip() for s in os.getenv("CORS_ORIGINS", "").split(",") if s.strip()
+]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "X-Agent-Key"],
+    )
+
+_agent_calls: deque[float] = deque()
+_agent_lock = threading.Lock()
+
+
+@app.middleware("http")
+async def cloud_agent_access(request: Request, call_next):
+    """Keep public visitors from consuming an unbounded shared LLM allowance."""
+    if is_cloud_deployment() and request.url.path == "/agent/chat":
+        expected = os.getenv("AGENT_API_KEY", "")
+        if not expected:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "agent_disabled",
+                    "detail": "The LLM agent is not configured.",
+                },
+            )
+        if not secrets.compare_digest(request.headers.get("X-Agent-Key", ""), expected):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": "unauthorized",
+                    "detail": "An agent access key is required.",
+                },
+            )
+        now = time.monotonic()
+        with _agent_lock:
+            while _agent_calls and _agent_calls[0] <= now - 60:
+                _agent_calls.popleft()
+            if len(_agent_calls) >= int(os.getenv("AGENT_REQUESTS_PER_MINUTE", "3")):
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": "rate_limited",
+                        "detail": "Agent request budget reached. Retry in one minute.",
+                    },
+                )
+            _agent_calls.append(now)
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -177,9 +234,22 @@ def get_model_loader(request: Request) -> ModelLoaderService:
     """Retrieve ModelLoaderService singleton from app.state."""
     loader = getattr(request.app.state, "model_loader", None)
     if loader is None:
-        loader = ModelLoaderService()
-        loader.load_all()
-        request.app.state.model_loader = loader
+        try:
+            loader = ModelLoaderService()
+            loader.load_all()
+            request.app.state.model_loader = loader
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Production models are unavailable. Check model promotion and artifact access.",
+            ) from exc
+    if is_cloud_deployment():
+        meta = loader.get_health_metadata()
+        if not meta.get("all_models_loaded") or meta.get("has_fallback_models"):
+            raise HTTPException(
+                status_code=503,
+                detail="Genuine trained production models are required.",
+            )
     return loader
 
 
@@ -187,9 +257,31 @@ def get_feast_client(request: Request) -> FeastOnlineClient:
     """Retrieve FeastOnlineClient singleton from app.state."""
     client = getattr(request.app.state, "feast_client", None)
     if client is None:
-        client = FeastOnlineClient()
-        request.app.state.feast_client = client
+        try:
+            client = FeastOnlineClient()
+            request.app.state.feast_client = client
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503, detail="Feast online feature store is unavailable."
+            ) from exc
     return client
+
+
+def require_real_features(features) -> None:
+    if is_cloud_deployment() and (
+        not features or any(missing_feature_fields(f) for f in features)
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="Required observed features are missing. Run materialization; no imputed prediction was produced.",
+        )
+
+
+def _schedule_prediction_log(background_tasks, callback, *args) -> None:
+    if is_cloud_deployment():
+        callback(*args)
+    else:
+        background_tasks.add_task(callback, *args)
 
 
 def get_prediction_cache(request: Optional[Request] = None) -> PredictionCache:
@@ -220,8 +312,23 @@ def log_prediction_background(
             predicted_at=now_utc,
         )
         with get_db_session() as session:
+            if is_cloud_deployment():
+                from sqlalchemy import text
+
+                if (
+                    session.execute(
+                        text("SELECT pg_database_size(current_database())")
+                    ).scalar_one()
+                    >= 700 * 1024 * 1024
+                ):
+                    raise RuntimeError("Database safety capacity reached")
             session.add(pred_record)
     except Exception as exc:
+        if is_cloud_deployment():
+            raise HTTPException(
+                status_code=503,
+                detail="Prediction persistence failed; database unavailable.",
+            ) from exc
         logger.warning(
             "Failed to log background prediction for %s %s: %s",
             entity_type,
@@ -251,8 +358,23 @@ def log_predictions_batch_background(
                 )
             )
         with get_db_session() as session:
+            if is_cloud_deployment():
+                from sqlalchemy import text
+
+                if (
+                    session.execute(
+                        text("SELECT pg_database_size(current_database())")
+                    ).scalar_one()
+                    >= 700 * 1024 * 1024
+                ):
+                    raise RuntimeError("Database safety capacity reached")
             session.add_all(db_records)
     except Exception as exc:
+        if is_cloud_deployment():
+            raise HTTPException(
+                status_code=503,
+                detail="Prediction persistence failed; database unavailable.",
+            ) from exc
         logger.warning(
             "Failed to log batch background predictions (%d items): %s",
             len(records),
@@ -298,9 +420,19 @@ def health_check(request: Request) -> HealthCheckResponse:
         redis_status = "unreachable"
 
     # 3. Model Loader & MLflow Check
-    loader = get_model_loader(request)
-    meta = loader.get_health_metadata()
-    mlflow_status = "reachable" if not meta.get("has_fallback_models") else "degraded"
+    loader = getattr(request.app.state, "model_loader", None)
+    meta = (
+        loader.get_health_metadata()
+        if loader
+        else {"models": {}, "has_fallback_models": True, "all_models_loaded": False}
+    )
+    mlflow_status = "unreachable"
+    if loader is not None:
+        try:
+            loader.client.search_experiments(max_results=1)
+            mlflow_status = "reachable"
+        except Exception as exc:
+            logger.debug("MLflow health probe failed (%s)", type(exc).__name__)
 
     models_map: Dict[str, ModelHealthInfo] = {}
     for key, info in meta.get("models", {}).items():
@@ -322,10 +454,14 @@ def health_check(request: Request) -> HealthCheckResponse:
 
     overall = (
         "ok"
-        if (db_status == "connected" and redis_status == "connected")
+        if (
+            db_status == "connected"
+            and redis_status == "connected"
+            and meta.get("all_models_loaded")
+            and not meta.get("has_fallback_models")
+        )
         else "degraded"
     )
-
     return HealthCheckResponse(
         status=overall,
         dependencies=HealthDependencyStatus(
@@ -336,6 +472,120 @@ def health_check(request: Request) -> HealthCheckResponse:
         models=models_map,
         timestamp=now_iso,
     )
+
+
+@app.get("/health/live")
+def liveness() -> dict:
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", response_model=HealthCheckResponse)
+def readiness(request: Request, response: Response) -> HealthCheckResponse:
+    result = health_check(request)
+    if result.status != "ok":
+        response.status_code = 503
+    return result
+
+
+@app.get("/zones")
+def list_zones() -> dict:
+    """Map only authoritative reference centroids already loaded into PostgreSQL."""
+    try:
+        with get_db_session() as session:
+            if is_cloud_deployment():
+                from sqlalchemy import text
+
+                metadata = session.execute(
+                    text(
+                        "SELECT metadata_json FROM warehouse.pipeline_cursors WHERE cursor_key='free-green-2023-01-sample-v1'"
+                    )
+                ).scalar()
+                if (
+                    not metadata
+                    or json.loads(metadata).get("zone_reference")
+                    != "official_tlc_polygon_centroids_v1"
+                ):
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Bootstrap authoritative TLC polygon centroids before mapping.",
+                    )
+                observed_zone_ids = set(
+                    session.execute(
+                        text(
+                            "SELECT zone_id FROM warehouse.zone_demand_features_hourly WHERE pickup_datetime=(SELECT max(pickup_datetime) FROM warehouse.zone_demand_features_hourly)"
+                        )
+                    ).scalars()
+                )
+            else:
+                observed_zone_ids = None
+            zones = (
+                session.query(TaxiZone)
+                .filter(TaxiZone.zone_id.between(1, 263))
+                .order_by(TaxiZone.zone_id)
+                .all()
+            )
+            return {
+                "zones": [
+                    {
+                        "zone_id": z.zone_id,
+                        "zone_name": z.zone_name,
+                        "has_observed_features": observed_zone_ids is None
+                        or z.zone_id in observed_zone_ids,
+                        "borough": z.borough,
+                        "lat": float(z.centroid_lat),
+                        "lon": float(z.centroid_lon),
+                    }
+                    for z in zones
+                ]
+            }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail="Zone reference data is unavailable."
+        ) from exc
+
+
+@app.get("/deployment/status")
+def deployment_status() -> dict:
+    from sqlalchemy import text
+
+    metadata = {}
+    if is_cloud_deployment():
+        try:
+            with get_db_session() as session:
+                row = session.execute(
+                    text(
+                        "SELECT metadata_json, updated_at FROM warehouse.pipeline_cursors WHERE cursor_key='free-green-2023-01-sample-v1'"
+                    )
+                ).first()
+                if row:
+                    metadata = json.loads(row[0])
+                    metadata["checkpoint_updated_at"] = row[1].isoformat()
+                    metadata["refreshed_at"] = metadata.get("feature_materialized_at")
+                metadata["available_corridors"] = list(
+                    session.execute(
+                        text(
+                            "SELECT corridor_id FROM warehouse.corridor_duration_features_hourly WHERE dropoff_datetime >= (SELECT max(dropoff_datetime) - interval '13 days' FROM warehouse.corridor_duration_features_hourly) GROUP BY corridor_id ORDER BY max(dropoff_datetime) DESC LIMIT 100"
+                        )
+                    ).scalars()
+                )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503, detail="Scheduled data metadata is unavailable."
+            ) from exc
+    return {
+        "mode": "scheduled" if is_cloud_deployment() else "local",
+        "revision": os.getenv("RENDER_GIT_COMMIT") or os.getenv("GITHUB_SHA"),
+        "data_source": os.getenv("DATA_SOURCE_LABEL", "NYC TLC recorded trips"),
+        "update_description": os.getenv(
+            "DATA_UPDATE_DESCRIPTION",
+            "Scheduled processing of recorded trips; not continuous real-time taxi telemetry.",
+        ),
+        "agent_enabled": (
+            bool(os.getenv("AGENT_API_KEY")) if is_cloud_deployment() else True
+        ),
+        "prediction_timestamp_meaning": "Time of model evaluation, not freshness of source observations. See pipeline run history for update times.",
+        "observations": metadata,
+    }
 
 
 @app.get("/predict/demand/{zone_id}", response_model=DemandPredictionResponse)
@@ -351,6 +601,11 @@ def predict_demand(
     Validates zone ID in [1, 263]. If outside [1, 263] (including 264 'NV' and 265 'NA'), returns 404.
     If online features are cold/unmaterialized in Redis, imputes defaults and returns 200 with degraded_fallback.
     """
+    if is_cloud_deployment() and horizon_minutes != 60:
+        raise HTTPException(
+            status_code=422,
+            detail="The trained demand target is the next 60 minutes; set horizon_minutes=60.",
+        )
     if zone_id < 1 or zone_id > 263:
         raise HTTPException(
             status_code=404,
@@ -370,7 +625,8 @@ def predict_demand(
         cached.setdefault("as_of", now_utc.isoformat())
         cached_resp = DemandPredictionResponse(**cached)
         if background_tasks is not None and _is_prediction_logging_enabled(request):
-            background_tasks.add_task(
+            _schedule_prediction_log(
+                background_tasks,
                 log_prediction_background,
                 "zone",
                 str(zone_id),
@@ -411,6 +667,7 @@ def predict_demand(
     )
 
     result = DemandPredictionResponse(
+        data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
         zone_id=zone_id,
         horizon_minutes=horizon_minutes,
         predicted_pickups=round(predicted_val, 2),
@@ -425,7 +682,8 @@ def predict_demand(
     cache.set_demand(zone_id, horizon_minutes, result.model_dump(), status=status)
 
     if background_tasks is not None and _is_prediction_logging_enabled(request):
-        background_tasks.add_task(
+        _schedule_prediction_log(
+            background_tasks,
             log_prediction_background,
             "zone",
             str(zone_id),
@@ -483,6 +741,11 @@ def predict_demand_batch(
     If zone_ids is empty or omitted, defaults to all 263 active TLC zones (1 to 263).
     If any zone_id is outside [1, 263], returns HTTP 400 (malformed batch payload).
     """
+    if is_cloud_deployment() and payload.horizon_minutes != 60:
+        raise HTTPException(
+            status_code=422,
+            detail="The trained demand target is the next 60 minutes; set horizon_minutes=60.",
+        )
     zone_ids = (
         payload.zone_ids
         if (payload.zone_ids is not None and len(payload.zone_ids) > 0)
@@ -531,6 +794,7 @@ def predict_demand_batch(
                 else "Online features unmaterialized in Redis; evaluated using imputed defaults and calendar harmonics."
             )
             item = DemandBatchPredictionItem(
+                data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
                 zone_id=feat.zone_id,
                 horizon_minutes=payload.horizon_minutes,
                 predicted_pickups=round(float(pred_val), 2),
@@ -554,6 +818,7 @@ def predict_demand_batch(
             c_data = cached_map[zid]
             items.append(
                 DemandBatchPredictionItem(
+                    data_as_of=c_data.get("data_as_of"),
                     zone_id=c_data["zone_id"],
                     horizon_minutes=c_data["horizon_minutes"],
                     predicted_pickups=c_data["predicted_pickups"],
@@ -576,7 +841,9 @@ def predict_demand_batch(
             }
             for item in items
         ]
-        background_tasks.add_task(log_predictions_batch_background, batch_log_items)
+        _schedule_prediction_log(
+            background_tasks, log_predictions_batch_background, batch_log_items
+        )
 
     return DemandBatchPredictionResponse(
         predictions=items,
@@ -623,7 +890,8 @@ def predict_eta(
         cached.setdefault("as_of", now_utc.isoformat())
         cached_resp = ETAPredictionResponse(**cached)
         if background_tasks is not None and _is_prediction_logging_enabled(request):
-            background_tasks.add_task(
+            _schedule_prediction_log(
+                background_tasks,
                 log_prediction_background,
                 "corridor",
                 cached_resp.corridor_id,
@@ -665,6 +933,7 @@ def predict_eta(
     )
 
     result = ETAPredictionResponse(
+        data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
         origin_zone_id=origin,
         dest_zone_id=dest,
         corridor_id=corridor_id,
@@ -681,7 +950,8 @@ def predict_eta(
     cache.set_eta(origin, dest, result.model_dump(), status=status)
 
     if background_tasks is not None and _is_prediction_logging_enabled(request):
-        background_tasks.add_task(
+        _schedule_prediction_log(
+            background_tasks,
             log_prediction_background,
             "corridor",
             result.corridor_id,
@@ -741,6 +1011,7 @@ def predict_eta_batch(
                 else "Corridor features unmaterialized in Redis; evaluated using imputed distance and calendar harmonics."
             )
             item = ETABatchPredictionItem(
+                data_as_of=feat.observed_at.isoformat() if feat.observed_at else None,
                 origin_zone_id=orig,
                 dest_zone_id=dest,
                 corridor_id=cid,
@@ -765,6 +1036,7 @@ def predict_eta_batch(
             c_data = cached_map[pair]
             items.append(
                 ETABatchPredictionItem(
+                    data_as_of=c_data.get("data_as_of"),
                     origin_zone_id=c_data["origin_zone_id"],
                     dest_zone_id=c_data["dest_zone_id"],
                     corridor_id=c_data["corridor_id"],
@@ -789,7 +1061,9 @@ def predict_eta_batch(
             }
             for item in items
         ]
-        background_tasks.add_task(log_predictions_batch_background, batch_log_items)
+        _schedule_prediction_log(
+            background_tasks, log_predictions_batch_background, batch_log_items
+        )
 
     return ETABatchPredictionResponse(
         predictions=items,
@@ -952,6 +1226,14 @@ def agent_chat_endpoint(payload: AgentChatRequest) -> AgentChatResponse:
             conversation_id=conv_id,
             history=payload.history,
         )
+        if is_cloud_deployment() and (
+            copilot_res.get("provider") == "mock"
+            or copilot_res.get("status") == "error"
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="Live LLM provider unavailable; no offline response was substituted.",
+            )
         return AgentChatResponse(
             response=copilot_res["response"],
             conversation_id=conv_id,
@@ -964,6 +1246,8 @@ def agent_chat_endpoint(payload: AgentChatRequest) -> AgentChatResponse:
             error=copilot_res.get("error"),
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Unexpected error executing Ops Copilot turn: %s", exc)
         return AgentChatResponse(
@@ -1094,6 +1378,21 @@ def get_monitoring_report_html_endpoint(report_id: str) -> HTMLResponse:
                 raise HTTPException(
                     status_code=404,
                     detail=f"No HTML file path associated with report '{report_id}'.",
+                )
+
+            if is_cloud_deployment():
+                from sqlalchemy import text
+
+                content = session.execute(
+                    text(
+                        "SELECT html_content FROM warehouse.monitoring_html WHERE report_id = :id"
+                    ),
+                    {"id": report_id},
+                ).scalar()
+                if content:
+                    return HTMLResponse(content=content, status_code=200)
+                raise HTTPException(
+                    status_code=404, detail="No persisted HTML for this report."
                 )
 
             html_path = Path(record.file_path)

@@ -7,13 +7,14 @@ from the MLflow Model Registry at startup, with graceful fallback to local basel
 from __future__ import annotations
 
 import logging
+import os
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
-import mlflow
-import mlflow.pyfunc
+import mlflow  # noqa: F401 - compatibility for callers patching the legacy loader
 import numpy as np
 import pandas as pd
 from mlflow.entities.model_registry import ModelVersion
@@ -26,12 +27,44 @@ from src.common.mlflow_utils import (
     get_tracking_uri,
     setup_mlflow,
 )
+from src.serving.cloud_policy import is_cloud_deployment
 from src.training.baseline import (
     CorridorDurationBaseline,
     DemandSeasonalNaiveBaseline,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class ModelUnavailableError(RuntimeError):
+    """A genuine production model cannot be loaded."""
+
+
+def load_model_artifact(model_uri: str):
+    """Cloud mode loads only a native LightGBM Booster, never pickle/pyfunc code."""
+    if os.getenv("MLFLOW_MODEL_LOAD_MODE", "pyfunc") != "native":
+        import mlflow.pyfunc
+
+        return mlflow.pyfunc.load_model(model_uri)
+
+    import lightgbm
+    import yaml
+    from mlflow.artifacts import download_artifacts
+
+    artifact_dir = Path(download_artifacts(artifact_uri=model_uri)).resolve()
+    config = yaml.safe_load((artifact_dir / "MLmodel").read_text(encoding="utf-8"))
+    flavor = config.get("flavors", {}).get("lightgbm", {})
+    if flavor.get("model_class") not in (None, "lightgbm.basic.Booster"):
+        raise ModelUnavailableError(
+            "Cloud inference requires a native LightGBM Booster artifact"
+        )
+    relative_model = flavor.get("data")
+    if not isinstance(relative_model, str):
+        raise ModelUnavailableError("MLflow artifact has no native LightGBM model file")
+    model_path = (artifact_dir / relative_model).resolve()
+    if not model_path.is_relative_to(artifact_dir):
+        raise ModelUnavailableError("MLflow artifact model path escapes its directory")
+    return lightgbm.Booster(model_file=str(model_path))
 
 
 @runtime_checkable
@@ -60,7 +93,10 @@ class LoadedModelInfo:
     def predict(self, df: pd.DataFrame) -> np.ndarray:
         """Execute model prediction and return 1D numpy array."""
         if hasattr(self.model, "predict"):
-            preds = self.model.predict(df)
+            if os.getenv("MLFLOW_MODEL_LOAD_MODE") == "native" and not self.is_fallback:
+                preds = self.model.predict(df, num_threads=1)
+            else:
+                preds = self.model.predict(df)
             if isinstance(preds, (pd.Series, pd.DataFrame)):
                 return preds.to_numpy().flatten()
             return np.asarray(preds).flatten()
@@ -120,10 +156,9 @@ class ModelLoaderService:
             return sorted_versions[0]
         except Exception as exc:
             logger.warning(
-                "Failed to query MLflow Model Registry for '%s' (URI: %s): %s",
+                "Failed to query MLflow Model Registry for '%s' (%s)",
                 model_name,
-                self.tracking_uri,
-                exc,
+                type(exc).__name__,
             )
             return None
 
@@ -145,7 +180,7 @@ class ModelLoaderService:
                     warnings.filterwarnings(
                         "ignore", category=FutureWarning, module="mlflow.*"
                     )
-                    model = mlflow.pyfunc.load_model(model_uri)
+                    model = load_model_artifact(model_uri)
 
                 info = LoadedModelInfo(
                     model_name=self.demand_model_name,
@@ -162,10 +197,13 @@ class ModelLoaderService:
                 return info
             except Exception as load_err:
                 logger.error(
-                    "Error loading model artifact from %s; falling back to baseline: %s",
+                    "Error loading model artifact from %s (%s)",
                     model_uri,
-                    load_err,
+                    type(load_err).__name__,
                 )
+
+        if is_cloud_deployment():
+            raise ModelUnavailableError("Production demand model is unavailable")
 
         logger.warning(
             "Using fallback baseline estimator for demand: DemandSeasonalNaiveBaseline"
@@ -203,7 +241,7 @@ class ModelLoaderService:
                     warnings.filterwarnings(
                         "ignore", category=FutureWarning, module="mlflow.*"
                     )
-                    model = mlflow.pyfunc.load_model(model_uri)
+                    model = load_model_artifact(model_uri)
 
                 info = LoadedModelInfo(
                     model_name=self.duration_model_name,
@@ -220,10 +258,13 @@ class ModelLoaderService:
                 return info
             except Exception as load_err:
                 logger.error(
-                    "Error loading model artifact from %s; falling back to baseline: %s",
+                    "Error loading model artifact from %s (%s)",
                     model_uri,
-                    load_err,
+                    type(load_err).__name__,
                 )
+
+        if is_cloud_deployment():
+            raise ModelUnavailableError("Production duration model is unavailable")
 
         logger.warning(
             "Using fallback baseline estimator for duration: CorridorDurationBaseline"
@@ -274,11 +315,15 @@ class ModelLoaderService:
                     }
                 ]
             )
-            dummy_demand_df["zone_id"] = dummy_demand_df["zone_id"].astype("category")
+            dummy_demand_df["zone_id"] = pd.Categorical(
+                dummy_demand_df["zone_id"], categories=list(range(1, 264))
+            )
             try:
                 demand_info.predict(dummy_demand_df)
                 logger.info("Demand model warmup evaluation passed successfully.")
             except Exception as exc:
+                if is_cloud_deployment():
+                    raise ModelUnavailableError("Demand model warmup failed") from exc
                 logger.warning("Demand model warmup failed: %s", exc)
 
         # Warmup duration model
@@ -304,16 +349,16 @@ class ModelLoaderService:
                     }
                 ]
             )
-            dummy_duration_df["pickup_zone_id"] = dummy_duration_df[
-                "pickup_zone_id"
-            ].astype("category")
-            dummy_duration_df["dropoff_zone_id"] = dummy_duration_df[
-                "dropoff_zone_id"
-            ].astype("category")
+            for column in ("pickup_zone_id", "dropoff_zone_id"):
+                dummy_duration_df[column] = pd.Categorical(
+                    dummy_duration_df[column], categories=list(range(1, 264))
+                )
             try:
                 duration_info.predict(dummy_duration_df)
                 logger.info("Duration model warmup evaluation passed successfully.")
             except Exception as exc:
+                if is_cloud_deployment():
+                    raise ModelUnavailableError("Duration model warmup failed") from exc
                 logger.warning("Duration model warmup failed: %s", exc)
 
     def get_model(self, model_name: str) -> LoadedModelInfo:

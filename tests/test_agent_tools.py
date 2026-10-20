@@ -582,7 +582,8 @@ def test_query_drift_reports_empty_database():
         assert res["source"] == "warehouse.monitoring_reports"
 
 
-def test_query_drift_reports_seeded_records():
+@pytest.mark.parametrize("version,trusted", [(2, True), (None, False)])
+def test_query_drift_reports_seeded_records(version, trusted):
     """Verify query_drift_reports parses and structures active drift alerts."""
     now_utc = datetime.now(timezone.utc)
     mock_rep = MagicMock(spec=MonitoringReport)
@@ -591,6 +592,7 @@ def test_query_drift_reports_seeded_records():
     mock_rep.generated_at = now_utc
     mock_rep.file_path = "artifacts/monitoring_reports/test-drift-rep-001.html"
     mock_rep.summary_json = {
+        "score_semantics_version": version,
         "report_id": "test-drift-rep-001",
         "report_type": "data_drift",
         "drift_detected": True,
@@ -622,8 +624,9 @@ def test_query_drift_reports_seeded_records():
         res = query_drift_reports(report_type=None, limit=5)
         assert res["status"] == "success"
         assert res["reports_count"] == 1
-        assert res["has_active_alerts"] is True
+        assert res["has_active_alerts"] is trusted
         report = res["reports"][0]
+        assert report["interpretation_trusted"] is trusted
         assert report["report_id"] == "test-drift-rep-001"
         assert report["drift_detected"] is True
         assert report["retrain_recommended"] is True
@@ -687,16 +690,16 @@ def test_query_drift_reports_sql_injection_safety():
 
 
 def test_query_drift_reports_database_exception_handling():
-    """Verify unexpected database error returns clean status='empty' with error details."""
+    """A database failure must not masquerade as an empty, healthy result."""
     with patch("src.agents.tools.get_db_session") as mock_get_session:
         mock_get_session.side_effect = ConnectionRefusedError(
             "Database connection failed"
         )
 
         res = query_drift_reports(limit=5)
-        assert res["status"] == "empty"
+        assert res["status"] == "error"
         assert res["reports_count"] == 0
-        assert "Database connection failed" in res["error"]
+        assert res["error"] == "ConnectionRefusedError"
 
 
 # ===========================================================================

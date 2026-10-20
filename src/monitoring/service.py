@@ -9,6 +9,7 @@ ADR-026:
 
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -346,6 +347,10 @@ def fetch_monitoring_datasets(
                     ref_df = pd.DataFrame()
 
                 if ref_df.empty:
+                    if os.getenv("DEPLOYMENT_MODE") == "cloud":
+                        raise RuntimeError(
+                            "No observed monitoring reference; synthetic baselines are disabled in cloud mode"
+                        )
                     logger.warning(
                         "No offline features in zone_demand_features_hourly. Creating synthetic cold-start reference baseline."
                     )
@@ -441,6 +446,13 @@ def save_monitoring_report_db(
                 "file_path": file_path,
             },
         )
+        if os.getenv("DEPLOYMENT_MODE") == "cloud" and summary.html_content:
+            conn.execute(
+                text(
+                    "INSERT INTO warehouse.monitoring_html(report_id, html_content) VALUES (:id, :html) ON CONFLICT (report_id) DO UPDATE SET html_content=EXCLUDED.html_content"
+                ),
+                {"id": record["report_id"], "html": summary.html_content},
+            )
 
     logger.info(
         "Persisted %s report '%s' to %smonitoring_reports (HTML: '%s')",

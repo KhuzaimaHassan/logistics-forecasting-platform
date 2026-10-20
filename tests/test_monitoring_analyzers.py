@@ -282,3 +282,61 @@ def test_to_db_record(synthetic_data):
     assert "file_path" in db_record
     assert db_record["report_type"] == "data_drift"
     assert isinstance(db_record["summary_json"], dict)
+
+
+def test_large_sample_distance_decisions_match_evidently_counts():
+    """Identical categorical/numeric distributions cannot become drift at score zero."""
+    reference = pd.DataFrame(
+        {"pickup_count_last_1h": np.linspace(0, 10, 1200), "category": ["same"] * 1200}
+    )
+    analyzer = DataDriftAnalyzer()
+    identical = analyzer.analyze(
+        reference.copy(),
+        reference,
+        numerical_columns=["pickup_count_last_1h"],
+        categorical_columns=["category"],
+    )
+    assert identical.number_of_drifted_columns == 0
+    assert not any(metric.drift_detected for metric in identical.metrics)
+    assert all(
+        metric.p_value is None and metric.score_type == "distance"
+        for metric in identical.metrics
+    )
+    assert all(metric.drift_score == pytest.approx(0) for metric in identical.metrics)
+    shifted = reference.assign(
+        pickup_count_last_1h=reference.pickup_count_last_1h + 100, category="different"
+    )
+    drift = analyzer.analyze(
+        shifted,
+        reference,
+        numerical_columns=["pickup_count_last_1h"],
+        categorical_columns=["category"],
+    )
+    assert (
+        drift.number_of_drifted_columns
+        == sum(metric.drift_detected for metric in drift.metrics)
+        == 2
+    )
+    assert drift.drift_share == 1.0
+    assert drift.retrain_recommended
+    assert all(metric.drift_score >= metric.threshold for metric in drift.metrics)
+
+
+@pytest.mark.parametrize("rows,score_type", [(150, "p_value"), (1200, "distance")])
+def test_prediction_drift_uses_evidently_decision_for_both_score_directions(
+    rows, score_type
+):
+    reference = pd.DataFrame({"predicted_value": np.linspace(0, 10, rows)})
+    analyzer = PredictionDriftAnalyzer()
+    identical = analyzer.analyze(reference.copy(), reference)
+    shifted = analyzer.analyze(reference + 100, reference)
+    assert not identical.drift_detected
+    assert shifted.drift_detected
+    assert identical.metrics[0].score_type == score_type
+    assert shifted.metrics[0].score_type == score_type
+    if score_type == "distance":
+        assert identical.metrics[0].p_value is None
+        assert identical.metrics[0].drift_score == 0
+        assert shifted.metrics[0].drift_score >= shifted.metrics[0].threshold
+    else:
+        assert shifted.metrics[0].p_value <= shifted.metrics[0].threshold

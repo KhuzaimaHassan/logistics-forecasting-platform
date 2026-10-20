@@ -1,5 +1,13 @@
 # Architecture
 
+The full single-host reference below remains the Compose design. The free-cloud
+portfolio profile in ADR-028 uses managed Aiven stores, DagsHub MLflow, Render,
+Community Cloud and bounded scheduled Prefect jobs on GitHub Actions. Its source
+is explicitly labelled historical sampled data, not continuous live taxi data.
+See [FREE_CLOUD_SETUP.md](FREE_CLOUD_SETUP.md) and the verification matrix in
+[DEPLOYMENT_REPORT.md](DEPLOYMENT_REPORT.md). No cloud deployment is inferred from
+the reference diagram or prior CI runs.
+
 ## 1. What this system does
 
 A live pipeline that predicts, for NYC taxi zones: (1) **demand** — expected pickup volume in the next time window, and (2) **ETA/duration** — expected trip duration given current conditions. Demand and duration are trained as independent models, connected through a shared raw feature (recent pickup counts) rather than model-output chaining (higher recent demand in a zone correlates with longer pickup/dispatch delay). An LLM agent sits on top and answers natural-language questions about both, using live pipeline state as its source of truth.

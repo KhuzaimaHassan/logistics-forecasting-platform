@@ -15,6 +15,7 @@ from src.features.client import (
     CorridorDurationOnlineFeatures,
     ZoneDemandOnlineFeatures,
 )
+from src.serving.cloud_policy import is_cloud_deployment, missing_feature_fields
 
 # Canonical active TLC zone categorical index (zones 1 through 263)
 ACTIVE_ZONE_CATEGORIES: List[int] = list(range(1, 264))
@@ -97,6 +98,15 @@ def build_demand_feature_df(
     Returns:
         Pandas DataFrame conforming exactly to DEMAND_FEATURE_COLS with categorical zone_id.
     """
+    if is_cloud_deployment() and (
+        not features or any(missing_feature_fields(f) for f in features)
+    ):
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=503,
+            detail="Required observed zone features are unavailable; materialize Feast first.",
+        )
     ref_time = now or datetime.now(timezone.utc)
     (
         calc_hour,
@@ -132,10 +142,10 @@ def build_demand_feature_df(
                 "day_of_week": d_val,
                 "is_weekend": w_val,
                 "is_holiday": hol_val,
-                "sin_hour": calc_sin_hour,
-                "cos_hour": calc_cos_hour,
-                "sin_day_of_week": calc_sin_day,
-                "cos_day_of_week": calc_cos_day,
+                "sin_hour": np.sin(2 * np.pi * h_val / 24),
+                "cos_hour": np.cos(2 * np.pi * h_val / 24),
+                "sin_day_of_week": np.sin(2 * np.pi * d_val / 7),
+                "cos_day_of_week": np.cos(2 * np.pi * d_val / 7),
             }
         )
 
@@ -163,6 +173,15 @@ def build_corridor_feature_df(
     Returns:
         Pandas DataFrame conforming exactly to DURATION_FEATURE_COLS with categorical zone IDs.
     """
+    if is_cloud_deployment() and (
+        not features or any(missing_feature_fields(f) for f in features)
+    ):
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=503,
+            detail="Required observed corridor features are unavailable; materialize Feast first.",
+        )
     ref_time = now or datetime.now(timezone.utc)
     (
         calc_hour,
@@ -176,6 +195,16 @@ def build_corridor_feature_df(
 
     rows = []
     for idx, feat in enumerate(features):
+        if is_cloud_deployment():
+            (
+                calc_hour,
+                calc_day,
+                calc_weekend,
+                calc_sin_hour,
+                calc_cos_hour,
+                calc_sin_day,
+                calc_cos_day,
+            ) = _compute_calendar_harmonics(feat.observed_at)
         if origin_dest_pairs is not None and idx < len(origin_dest_pairs):
             orig_id, dest_id = origin_dest_pairs[idx]
         else:

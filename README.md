@@ -1,5 +1,28 @@
 # Logistics Demand & ETA Forecasting Platform
 
+> **Cloud deployment status (2026-10-19): public dashboard and real-model API verified; acceptance remains partial.**
+> Open the [dashboard](https://logistics-forecasting-platform.streamlit.app/) or
+> [FastAPI documentation](https://logistics-forecasting-platform.onrender.com/docs).
+> The Free profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow, Render,
+> Streamlit Community Cloud, and GitHub Actions executing Prefect OSS flows.
+> Real Kafka events, durable PostgreSQL rows, Feast retrieval, experiment artifacts,
+> trained Production models and monitoring HTML have been exercised on managed services.
+> Forecasts describe a bounded January 2023 TLC sample, not current NYC totals.
+> Public dashboard demand/ETA/map rendering is verified. Acceptance exposed
+> monitoring score interpretation, forecast rerun and misleading-label defects;
+> corrected monitoring and public UI rerun behavior are verified. Real Groq plus
+> Aiven PostgreSQL/Feast tool execution passed through the public Copilot. All nine
+> managed checks passed. Cron and controlled idle cold starts are not verified;
+> actual hosted redeploy and later idle-interval forecast recovery passed.
+> Owner confirms the Render card was removed; no-card quota exhaustion can suspend
+> service/builds rather than purchase overages. Billing-page access was not inspected.
+> Real-model containers passed 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB).
+> See the [deployment report](docs/DEPLOYMENT_REPORT.md),
+> [setup and secrets](docs/FREE_CLOUD_SETUP.md), and
+> [official provider research](docs/FREE_TIER_RESEARCH.md).
+> Prior full-population ETA benchmark figures below require recertification after
+> the cloud audit removed future-target leakage from missing corridor history.
+
 [![CI/CD Pipeline](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -21,7 +44,11 @@ A live, production-grade MLOps platform forecasting New York City taxi zone pick
 
 ## Architecture Overview
 
-The platform runs as a unified, multi-container Docker Compose topology deployable locally or on an Oracle Cloud Ampere A1 (ARM64) Always Free instance. External ingress is strictly managed via Caddy with automated TLS reverse-proxying.
+The full local reference architecture runs as a multi-container Docker Compose
+topology with Caddy TLS ingress. The separate free-cloud portfolio architecture is
+documented in [the deployment runbook](docs/FREE_CLOUD_SETUP.md); it uses managed
+TLS services and scheduled workers rather than an unavailable free VM. The diagram
+and historical performance benchmarks below describe the full reference stack.
 
 ```mermaid
 flowchart TD

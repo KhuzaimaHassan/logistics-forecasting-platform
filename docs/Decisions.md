@@ -548,3 +548,141 @@ Maintain a single unified `uv.lock` at the root for deterministic resolution, an
 - Reliable drift detection with zero false alarms from weekday/weekend seasonality and graceful cold-start handling.
 - ADR-022 is closed out with built-in operational safety: scheduled cron retraining remains the reliable baseline, drift monitoring produces high-visibility alerts in the UI and Copilot, and automated retraining is available behind an explicit configuration toggle.
 
+---
+
+## ADR-027: Deployment Target Migration — Hetzner Cloud CAX21 (ARM64) over Oracle Cloud Always Free A1.Flex
+
+**Context:** ADR-002 initially selected Oracle Cloud Always Free Ampere A1 (2 OCPU / 12GB RAM) to minimize operational cost for an indefinite personal project. However, empirical attempts to launch a `VM.Standard.A1.Flex` instance in region `us-chicago-1` triggered persistent "Out of host capacity" (499/500) rejections across all three Availability Domains (`XXhT:US-CHICAGO-1-AD-1`, `AD-2`, `AD-3`) over 70+ automated retry cycles.
+
+Direct inspection via the OCI Limits and Resource-Availability APIs confirmed that the account's service quotas were correctly allocated (`standard-a1-core-count: 2`, `standard-a1-memory-count: 12`, `used: 0`). The root bottleneck is architectural to OCI's scheduling policy: in saturated regions, host capacity is reserved for enterprise and Pay-As-You-Go accounts, while Free-Trial accounts are placed in the lowest priority queue and throttled during high datacenter utilization.
+
+Upgrading the OCI tenancy to Pay-As-You-Go would elevate scheduling priority and resolve provisioning at $0/month (Always Free allowances persist under PAYG), but was declined. The project required a deterministic, production-grade cloud deployment target rather than remaining indefinitely blocked by an external scheduling queue.
+
+**Decision:** Migrate the primary deployment target from Oracle Always Free A1.Flex to Hetzner Cloud **CAX21** (ARM64 Ampere, 4 vCPU / 8GB RAM / 80GB NVMe SSD / 20TB traffic, ~€5.99/month, billed hourly at ~€0.009/hr).
+
+This decision plainly trades Oracle's theoretical free-forever ceiling for actual, immediate availability — a small, real operational cost in exchange for avoiding an indefinite capacity queue outside our control.
+
+**Alternatives considered:**
+- Indefinite OCI retry loop — rejected. Over 70 launch cycles across 3 ADs and multiple fault domains yielded zero capacity. An un-guaranteed queue without SLA creates unbounded delay.
+- Upgrading OCI to Pay-As-You-Go — declined by operator. While maintaining $0/mo cost within free limits, it requires credit card identity verification and temporary hold.
+- OCI `VM.Standard.E2.1.Micro` (AMD x86, 1GB RAM) — rejected. 1GB RAM cannot co-host the 7-container Docker stack (Redpanda alone requires 1GB, plus Postgres, MLflow, FastAPI, Redis, Streamlit).
+- Alternative US cloud providers (AWS EC2 / GCP) — rejected. Significantly higher cost per GB of memory without multi-year commitments.
+
+**Consequences:**
+- **Deterministic Provisioning:** Hetzner instances provision within 30–60 seconds with dedicated resource allocations and fixed public IPv4.
+- **Architecture Continuity:** Hetzner CAX21 runs native ARM64 (Ampere architecture), preserving full multi-arch container compatibility (`linux/arm64`) verified in Phase 6/9 and ADR-002 without requiring image rebuilds or x86 cross-compilation.
+- **Resource Budget Tuning:** The RAM budget shifts from 12GB to 8GB. The Docker Compose stack is co-located with a 2GB–4GB host swapfile on NVMe to provide memory headroom during batch training and peak load.
+- **Topology Invariance:** All container definitions, Caddy automated TLS reverse proxy configuration (ports 80/443), Postgres/Redis data volumes, and health probes remain 100% cloud-agnostic.
+- **Provisioning Script Precedence:** The duplicate `infra/oracle-vm/provision.sh` was deleted; `infra/provision.sh` is confirmed as the sole canonical provisioning script going forward, while `infra/oracle-vm/launch_ampere_retry.py` is retained under `infra/oracle-vm/` purely as a historical record of the abandoned OCI capacity attempt.
+
+
+
+---
+
+## ADR-028: Sustainable free managed portfolio deployment with explicit historical sampling
+
+**Date:** 2026-10-17. **Status:** implementation candidate; managed deployment unverified.
+
+**Context:** Oracle A1 capacity, Hetzner account rejection and DigitalOcean cost prevent the prior single-host deployment. The complete local stack needs substantially more memory than free web compute; the full warehouse exceeds a 1 GB managed database. Current Prefect Hobby supports Serverless rather than the existing BYO process worker.
+
+**Decision:** Preserve Compose/full-capacity code and add an isolated free profile using Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow, Render Free API, Streamlit Community Cloud, and existing Prefect OSS flows on standard public-repository GitHub Actions runners. The profile processes a deterministic bounded sample of authentic recorded TLC trips with original observation times normalized to UTC, explicit scheduled-data labels and durable PostgreSQL checkpoints. It never claims continuous real-time streaming or full-city sample counts.
+
+Managed clients use authenticated, verified TLS. Free Aiven endpoints are public because VPCs are unavailable; this is an explicit exception to the single-host internal-bridge topology, with managed ingress replacing Caddy for cloud API/UI. MLflow storage/registry lives on DagsHub rather than the local PostgreSQL mlflow schema. Local schema/topology conventions remain intact.
+
+Cloud inference requires genuine promoted native LightGBM models and complete observed core features. SQLite application fallback, untrained baselines, synthetic feed fallback and mock LLM success are prohibited in this profile. Missing dependencies return unavailable responses. Demand horizon is restricted to the trained next-hour target. The UI requests forecasts and uses centroids computed from official TLC polygons.
+
+Kafka commits advance only handled offsets after persistence or acknowledged DLQ delivery; transient infrastructure failures remain retryable. Bounded runner jobs disable in-memory stream aggregation and reconcile features from the durable warehouse. Monitoring historical backtests are explicitly labelled, with HTML persisted in PostgreSQL. Identical scheduled evaluation inputs are skipped. Storage capacity stops jobs; no automatic record deletion, upgrade, paid resource or temporary credits are allowed.
+
+**Alternatives:** The failed VM routes are rejected. Render's expiring database is rejected. Current Hugging Face Docker Spaces require a subscription for creation and restrict outbound ports, so they are not a new zero-cost alternative. Aiven Free PostgreSQL is preferred over Neon to reduce providers and avoid a monthly database compute allowance; Neon remains a researched alternative.
+
+**Consequences:** The portfolio retains real Kafka, PostgreSQL, Feast, MLflow, model inference, LangGraph and Evidently functionality at a conditional $0/month, accepting sleep, cold starts, finite quotas, scheduling delays and no SLA. Account access, regional eligibility, managed integrations, real trained artifacts, public URLs and Render 512 MB peak-memory fit remain acceptance gates. See FREE_TIER_RESEARCH.md, FREE_CLOUD_SETUP.md and DEPLOYMENT_REPORT.md. This ADR supersedes ADR-027 as the portfolio target without erasing historical decisions or local capabilities.
+
+**Resource addendum:** Free-profile zone snapshots are complete at hourly boundaries, so that profile registers a one-hour zone FeatureView PIT TTL instead of the local 14-day TTL. Seven-day rolling/lag values remain precomputed inputs; this TTL is a join-age bound, not the feature lookback period. Corridor TTL and local definitions remain unchanged. Feature upserts use real multi-row PostgreSQL inserts to avoid one network roundtrip per feature row. Ingestion advances durable progress in confirmed 100-event batches, and training refuses a checkpoint ahead of completed materialization. Historical predictions expose actual Feast observation timestamps. Removed future-target imputation from missing corridor history; prior benchmark numbers require recertification rather than being inherited by this profile.
+
+
+ADR-028 connection handoff clarification (2026-10-18): existing owner-provisioned
+Aiven Free services are reused. Aiven Valkey's public-CA TLS uses system trust by
+default, with optional explicit CA for a genuinely custom chain; hostname and
+certificate verification remain required. Kafka/PostgreSQL retain explicit project
+CAs. A manual Aiven-only integration gate precedes MLflow/bootstrap and does not
+enable scheduled mutation or create infrastructure.
+
+ADR-028 managed PostgreSQL clarification (2026-10-18): the owner provisioned Free
+PostgreSQL 18.6 as the service default. Preserve it and validate actual schema,
+Feast registry/offline queries and application behavior there; do not recreate or
+downgrade a working Free service solely to match local PostgreSQL 16. Local
+Compose remains on 16. The managed major version is recorded separately in live
+evidence and is not certified by the local 16 integration suite.
+
+ADR-028 scheduled transport optimization (2026-10-18): the bounded trip-only
+consumer uses at most 100 validated records in one idempotent PostgreSQL insert
+transaction and commits only processed partition offsets after database commit
+and acknowledged DLQ deliveries. Database/DLQ/offset failures rewind to durable
+commits. This reduces WAN round trips without changing continuous consumption,
+validation, deduplication, storage or at-least-once guarantees.
+
+ADR-028 managed PIT batch sizing (2026-10-19): cloud corridor joins use at most
+250 entity rows per Feast request, sorted by corridor and observation timestamp.
+This bounds each sparse-history join on the existing 1-GB Free database after
+a 25-minute training timeout. Entity membership, labels, timestamps, feature TTL,
+training parameters and promotion gates are unchanged; local batching is retained.
+Actual timing and model success require a new managed run.
+
+
+## ADR-029: Preserve Evidently score semantics in public monitoring
+
+**Date:** 2026-10-19. **Status:** Accepted.
+
+Public application acceptance found that per-column summaries treated every
+Evidently ValueDrift score as a p-value. For the deployed 2,000-row windows,
+Evidently selects Wasserstein/Jensen-Shannon distances: small scores indicate
+similarity. This reversed custom alerts while the preset's aggregate count
+remained correct. Existing small-sample tests did not expose the branch.
+
+Use Evidently Core's own per-column test decisions (`include_tests=True`) and
+serialize a generic drift_score plus score_type. Populate p_value only for true
+p-value tests. Keep the preset's automatic methods/thresholds, dataset drift share
+policy and the stricter critical-feature p-value rule. For distance tests, critical
+feature recommendations use that method's drift decision, never a p-value cutoff.
+Unknown/inconclusive score semantics fail explicitly. Promotion gates and the
+Free profile's automatic-retraining-disabled policy do not change.
+
+Old reports remain intact for audit and are labelled legacy in the UI. Generate
+new real historical-backtest reports with score_semantics_version=2. Public UI
+labels must describe scheduled historical observations, not continuous taxi
+telemetry. Keep successful forecast results across unrelated Streamlit reruns,
+and record a feature_materialized_at timestamp only after genuine materialization
+succeeds; cursor modification time must not stand in for feature freshness.
+
+ADR-029 public Copilot acceptance (2026-10-19): a real Groq call emitted an
+unsupported empty-name argument for the zero-argument pipeline tool, while the
+synthesizer marked its execution error successful. Advertise closed argument
+schemas, strict empty-object decoding for zero-argument tools, validate against
+the existing typed argument models before invocation, and propagate execution
+errors to the existing cloud HTTP 503 path. Never discard unknown arguments or
+substitute fabricated tool results. Groq documents GPT-OSS strict function schemas:
+https://console.groq.com/docs/reasoning#quick-start-with-tool-use
+
+ADR-029 real provider/schema follow-up: Groq rejects required=[] after its empty
+properties normalization. Omit the unnecessary required clause for a strict closed
+zero-argument object. Keep unknown-argument validation and error propagation.
+
+ADR-028 online retention correction (2026-10-19): Feast 0.65 skips writes for
+identical event timestamps before renewing Redis key expiry. This caused the
+unchanged historical sample to disappear after its original 24-hour retention
+despite later successful materialization runs. After successful materialization,
+renew EXPIRE only on the exact bounded sample entity keys generated by the pinned
+Feast Redis codec (INT32 zone and STRING corridor). Do not rewrite feature values,
+change event timestamps, scan/delete unrelated keys or disable retention. Missing
+keys fail the job before its successful-refresh timestamp is recorded.
+
+ADR-029 dependency-status follow-up: an allowlisted function returning status=error
+is also a failed tool, even if Python did not raise. Cloud degraded_fallback results
+are unavailable, not live evidence. Propagate these states through the existing
+HTTP503 boundary; preserve hermetic local mock behavior.
+
+ADR-029 Copilot report integrity: preserve legacy drift records but mark their
+interpretation untrusted, omit their flags from actionable alert aggregation,
+and warn rather than presenting them as current evidence. A monitoring database
+exception is an error, not an empty/healthy report set. Performance metrics use
+case-insensitive names consistently with the dashboard.

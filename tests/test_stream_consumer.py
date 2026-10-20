@@ -32,6 +32,247 @@ from src.transform.schemas import (
 from src.transform.stream_consumer import StreamConsumerService
 
 
+@pytest.fixture(autouse=True)
+def fixed_validation_clock(monkeypatch):
+    """The recorded September weather fixtures must not expire as CI ages."""
+
+    class FixtureDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime(2026, 9, 6, tzinfo=timezone.utc)
+            return value if tz else value.replace(tzinfo=None)
+
+    monkeypatch.setattr("src.transform.schemas.datetime", FixtureDateTime)
+    monkeypatch.setattr(__name__ + ".datetime", FixtureDateTime)
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_bounded_poll_commits_only_the_processed_offset(mock_ensure, test_engine):
+    from kafka.structs import OffsetAndMetadata, TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    partition = TopicPartition(TOPIC_TRIP_EVENTS, 0)
+    first, second = MagicMock(), MagicMock()
+    for msg, offset in [(first, 10), (second, 11)]:
+        msg.topic, msg.partition, msg.offset, msg.value = (
+            TOPIC_TRIP_EVENTS,
+            0,
+            offset,
+            {},
+        )
+    consumer.poll.return_value = {partition: [first, second]}
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        enable_feature_push=False,
+    )
+    service.process_record = MagicMock(return_value=(None, {}))
+    result = service.consume_batch(max_messages=1)
+    assert result["processed"] == 1
+    consumer.commit.assert_called_once_with({partition: OffsetAndMetadata(11, "")})
+    assert service._buffered_messages == [second]
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_database_failure_is_retryable_not_deadlettered(mock_ensure, test_engine):
+    from kafka.structs import TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    partition = TopicPartition(TOPIC_TRIP_EVENTS, 0)
+    message = MagicMock(topic=TOPIC_TRIP_EVENTS, partition=0, offset=10, value={})
+    consumer.poll.return_value = {partition: [message]}
+    consumer.assignment.return_value = {partition}
+    consumer.committed.return_value = 10
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        enable_feature_push=False,
+    )
+    service.process_record = MagicMock(
+        side_effect=ConnectionError("temporary DB failure")
+    )
+    with pytest.raises(ConnectionError):
+        service.consume_batch(max_messages=1)
+    consumer.commit.assert_not_called()
+    producer.send.assert_not_called()
+    consumer.seek.assert_called_with(partition, 10)
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_failed_deadletter_delivery_does_not_commit(mock_ensure, test_engine):
+    consumer, producer = MagicMock(), MagicMock()
+    message = MagicMock(topic=TOPIC_TRIP_EVENTS, partition=0, offset=10, value={})
+    consumer.poll.return_value = {"partition": [message]}
+    producer.send.return_value.get.side_effect = TimeoutError("broker unavailable")
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        enable_feature_push=False,
+    )
+    service.process_record = MagicMock(side_effect=ValueError("invalid event"))
+    with pytest.raises(TimeoutError):
+        service.consume_batch(max_messages=1)
+    consumer.commit.assert_not_called()
+    producer.send.return_value.get.assert_called_once_with(timeout=30)
+
+
+def trip_batch_message(index, partition=0, offset=None):
+    return MagicMock(
+        topic=TOPIC_TRIP_EVENTS,
+        partition=partition,
+        offset=index if offset is None else offset,
+        value={
+            "cab_type": "green",
+            "pickup_zone_id": 100,
+            "dropoff_zone_id": 263,
+            "pickup_datetime": f"2023-01-01T12:0{index}:00Z",
+            "dropoff_datetime": "2023-01-01T12:15:00Z",
+            "trip_distance_miles": 3.5,
+            "source": "scheduled_sample",
+        },
+    )
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_trip_batch_durable_before_commit_buffered_offsets_and_idempotency(
+    mock_ensure, test_engine
+):
+    from kafka.structs import OffsetAndMetadata, TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        topics=[TOPIC_TRIP_EVENTS],
+        enable_feature_push=False,
+    )
+    messages = [
+        trip_batch_message(0, offset=10),
+        trip_batch_message(1, offset=11),
+        trip_batch_message(2, partition=1, offset=20),
+    ]
+    consumer.poll.return_value = {TopicPartition(TOPIC_TRIP_EVENTS, 0): messages}
+    persisted = []
+
+    def committed(_):
+        with Session(bind=test_engine) as session:
+            persisted.append(session.query(WarehouseTrip).count())
+
+    consumer.commit.side_effect = committed
+    assert service.consume_trip_batch(max_messages=2)["processed"] == 2
+    consumer.commit.assert_called_with(
+        {TopicPartition(TOPIC_TRIP_EVENTS, 0): OffsetAndMetadata(12, "")}
+    )
+    assert service._buffered_messages == messages[2:]
+    assert service.consume_trip_batch(max_messages=2)["processed"] == 1
+    consumer.commit.assert_called_with(
+        {TopicPartition(TOPIC_TRIP_EVENTS, 1): OffsetAndMetadata(21, "")}
+    )
+    assert persisted == [2, 3]
+    assert service.consume_trip_batch(max_messages=2)["processed"] == 2
+    assert persisted[-1] == 3  # Replayed IDs do not duplicate rows.
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_trip_batch_database_failure_rolls_back_and_rewinds_every_partition(
+    mock_ensure, test_engine
+):
+    from kafka.structs import TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    partitions = [
+        TopicPartition(TOPIC_TRIP_EVENTS, 0),
+        TopicPartition(TOPIC_TRIP_EVENTS, 1),
+    ]
+    consumer.assignment.return_value = partitions
+    consumer.committed.side_effect = lambda partition: (
+        10 if partition.partition == 0 else 20
+    )
+    consumer.poll.return_value = {
+        partitions[0]: [
+            trip_batch_message(0, offset=10),
+            trip_batch_message(1, partition=1, offset=20),
+        ]
+    }
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        topics=[TOPIC_TRIP_EVENTS],
+        enable_feature_push=False,
+    )
+    with patch.object(
+        Session, "commit", side_effect=ConnectionError("database unavailable")
+    ):
+        with pytest.raises(ConnectionError):
+            service.consume_trip_batch()
+    consumer.commit.assert_not_called()
+    producer.send.assert_not_called()
+    consumer.seek.assert_any_call(partitions[0], 10)
+    consumer.seek.assert_any_call(partitions[1], 20)
+    with Session(bind=test_engine) as session:
+        assert session.query(WarehouseTrip).count() == 0
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_trip_batch_dlq_failure_does_not_persist_or_commit_valid_messages(
+    mock_ensure, test_engine
+):
+    from kafka.structs import TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    first, bad = trip_batch_message(0), trip_batch_message(1)
+    bad.value = {}
+    consumer.poll.return_value = {TopicPartition(TOPIC_TRIP_EVENTS, 0): [first, bad]}
+    producer.send.return_value.get.side_effect = TimeoutError("DLQ unacknowledged")
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        topics=[TOPIC_TRIP_EVENTS],
+        enable_feature_push=False,
+    )
+    with pytest.raises(TimeoutError):
+        service.consume_trip_batch()
+    consumer.commit.assert_not_called()
+    with Session(bind=test_engine) as session:
+        assert session.query(WarehouseTrip).count() == 0
+
+
+@patch("src.transform.stream_consumer.ensure_topics_exist")
+def test_trip_batch_commit_failure_after_database_write_replays_without_duplicates(
+    mock_ensure, test_engine
+):
+    from kafka.structs import TopicPartition
+
+    consumer, producer = MagicMock(), MagicMock()
+    partition = TopicPartition(TOPIC_TRIP_EVENTS, 0)
+    consumer.poll.return_value = {partition: [trip_batch_message(0)]}
+    consumer.assignment.return_value = [partition]
+    consumer.committed.return_value = 0
+    service = StreamConsumerService(
+        consumer=consumer,
+        producer=producer,
+        engine=test_engine,
+        topics=[TOPIC_TRIP_EVENTS],
+        enable_feature_push=False,
+    )
+    consumer.commit.side_effect = ConnectionError("offset commit failed")
+    with pytest.raises(ConnectionError):
+        service.consume_trip_batch()
+    consumer.seek.assert_called_with(partition, 0)
+    with Session(bind=test_engine) as session:
+        assert session.query(WarehouseTrip).count() == 1
+    consumer.commit.side_effect = None
+    assert service.consume_trip_batch()["processed"] == 1
+    with Session(bind=test_engine) as session:
+        assert session.query(WarehouseTrip).count() == 1
+
+
 @pytest.fixture
 def test_engine():
     """In-memory SQLite database engine with all schema tables created."""

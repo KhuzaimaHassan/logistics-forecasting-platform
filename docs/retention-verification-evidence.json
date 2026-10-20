@@ -1,0 +1,77 @@
+{
+  "scope": "Managed Aiven checks; Feast/pipeline only verified when explicitly listed; no public deployment proof",
+  "checks": {
+    "postgresql": {
+      "status": "VERIFIED",
+      "evidence": {
+        "server_version": "18.6",
+        "database": "logistics",
+        "tls": true,
+        "write_read": true,
+        "scope": "session-local temporary table",
+        "initialization": null
+      }
+    },
+    "valkey": {
+      "status": "VERIFIED",
+      "evidence": {
+        "tls": true,
+        "write_read": true,
+        "probe_ttl_seconds": 120,
+        "feast_materialization": "NOT VERIFIED; requires bootstrap"
+      }
+    },
+    "kafka": {
+      "status": "VERIFIED",
+      "evidence": {
+        "topic": "trip.events",
+        "partition": 1,
+        "produced_offset": 4671,
+        "consumed_offset": 4671,
+        "source": "authentic TLC sample",
+        "mutual_tls": true,
+        "initialization": null
+      }
+    },
+    "pipeline": {
+      "status": "VERIFIED",
+      "evidence": {
+        "mode": "scheduled_historical_sample",
+        "source": "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2023-01.parquet",
+        "next_index": 9232,
+        "sample_size": 9232,
+        "source_sha256": "9f0e03dd7f8f94ecc15949cdbfd2a4e1fc9ebb41a11882215158c9fc95012e31",
+        "warehouse_rows": 9232,
+        "zone_reference": "official_tlc_polygon_centroids_v1",
+        "observation_end": "2023-01-31T23:00:00+00:00",
+        "published_events": 0,
+        "observation_start": "2023-01-01T05:00:00+00:00",
+        "zone_feature_rows": 107155,
+        "rejected_source_rows": 768,
+        "training_fingerprint": "d049a2b507a6e4f7bcb056a9301bcd542be2aa1fd6a53aa788a4a69111c2d3a8",
+        "corridor_feature_rows": 8760,
+        "monitoring_fingerprint": "3559f78b3ddc55fd8d8964b8776495b1363e2ac55e057900b2eb598f17c794a4",
+        "feature_materialized_at": "2026-10-19T14:53:04.765538+00:00",
+        "remaining_sample_events": 0,
+        "feature_checkpoint_index": 9232,
+        "online_retention": {
+          "renewed_entity_keys": 1319,
+          "retention_seconds": 86400,
+          "previous_min_ttl_seconds": 84727,
+          "feature_values_and_timestamps_unchanged": true
+        }
+      }
+    },
+    "feast": {
+      "status": "VERIFIED",
+      "evidence": {
+        "zone_id": 7,
+        "pickups_last_hour": 1,
+        "online_matches_postgres": true,
+        "observed_at": "2023-01-31T23:00:00+00:00",
+        "database_bytes": 64788159
+      }
+    }
+  },
+  "run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39271963729"
+}

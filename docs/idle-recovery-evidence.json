@@ -1,0 +1,316 @@
+{
+  "scope": "First forecast after no agent-originated API requests since prior acceptance; public traffic and provider sleep state not observable",
+  "started_at": "2026-10-19T15:50:00.174600+00:00",
+  "results": {
+    "first_demand": {
+      "path": "/predict/demand/7?horizon_minutes=60",
+      "status_code": 200,
+      "elapsed_seconds": 130.328,
+      "body": {
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "zone_id": 7,
+        "horizon_minutes": 60,
+        "predicted_pickups": 0.71,
+        "status": "ok",
+        "cache_hit": true,
+        "model_version": "1",
+        "as_of": "2026-10-19T15:51:52.991971+00:00",
+        "warning": null
+      }
+    },
+    "eta": {
+      "path": "/predict/eta/75_237",
+      "status_code": 404,
+      "elapsed_seconds": 0.25,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "ready": {
+      "path": "/health/ready",
+      "status_code": 200,
+      "elapsed_seconds": 2.109,
+      "body": {
+        "status": "ok",
+        "dependencies": {
+          "database": "connected",
+          "redis": "connected",
+          "mlflow": "reachable"
+        },
+        "models": {
+          "demand": {
+            "name": "demand_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+            "loaded_at": "2026-10-19T15:51:27.642359+00:00"
+          },
+          "demand_lightgbm_model": {
+            "name": "demand_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "ac72055c6c6c431fb13c94fb85b5e39d",
+            "loaded_at": "2026-10-19T15:51:27.642359+00:00"
+          },
+          "duration": {
+            "name": "corridor_duration_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+            "loaded_at": "2026-10-19T15:51:45.637905+00:00"
+          },
+          "corridor_duration_lightgbm_model": {
+            "name": "corridor_duration_lightgbm_model",
+            "version": "1",
+            "stage": "Production",
+            "status": "production",
+            "is_fallback": false,
+            "run_id": "071d2e6c03d34d4583fdac9a3781f01a",
+            "loaded_at": "2026-10-19T15:51:45.637905+00:00"
+          }
+        },
+        "timestamp": "2026-10-19T15:52:09.544934+00:00"
+      }
+    },
+    "deployment": {
+      "path": "/deployment",
+      "status_code": 404,
+      "elapsed_seconds": 0.219,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "eta_corrected": {
+      "path": "/predict/eta?origin=75&dest=237",
+      "status_code": 200,
+      "elapsed_seconds": 1.328,
+      "body": {
+        "data_as_of": "2023-01-31T23:00:00+00:00",
+        "origin_zone_id": 75,
+        "dest_zone_id": 237,
+        "corridor_id": "75_237",
+        "predicted_duration_seconds": 715.8,
+        "predicted_duration_minutes": 11.93,
+        "status": "ok",
+        "cache_hit": true,
+        "model_version": "1",
+        "as_of": "2026-10-19T15:52:26.170697+00:00",
+        "warning": null
+      }
+    },
+    "deployment_corrected": {
+      "path": "/deployment/status",
+      "status_code": 200,
+      "elapsed_seconds": 1.016,
+      "body": {
+        "mode": "scheduled",
+        "revision": "f9a56051a95a3dc1cade42d89ba992194a25cf0d",
+        "data_source": "NYC TLC recorded trips",
+        "update_description": "Scheduled processing of recorded trips; not continuous real-time taxi telemetry.",
+        "agent_enabled": true,
+        "prediction_timestamp_meaning": "Time of model evaluation, not freshness of source observations. See pipeline run history for update times.",
+        "observations": {
+          "mode": "scheduled_historical_sample",
+          "source": "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2023-01.parquet",
+          "next_index": 9232,
+          "sample_size": 9232,
+          "source_sha256": "9f0e03dd7f8f94ecc15949cdbfd2a4e1fc9ebb41a11882215158c9fc95012e31",
+          "warehouse_rows": 9232,
+          "zone_reference": "official_tlc_polygon_centroids_v1",
+          "observation_end": "2023-01-31T23:00:00+00:00",
+          "online_retention": {
+            "retention_seconds": 86400,
+            "renewed_entity_keys": 1319,
+            "previous_min_ttl_seconds": 84727,
+            "feature_values_and_timestamps_unchanged": true
+          },
+          "published_events": 0,
+          "observation_start": "2023-01-01T05:00:00+00:00",
+          "zone_feature_rows": 107155,
+          "rejected_source_rows": 768,
+          "training_fingerprint": "d049a2b507a6e4f7bcb056a9301bcd542be2aa1fd6a53aa788a4a69111c2d3a8",
+          "corridor_feature_rows": 8760,
+          "monitoring_fingerprint": "3559f78b3ddc55fd8d8964b8776495b1363e2ac55e057900b2eb598f17c794a4",
+          "feature_materialized_at": "2026-10-19T14:57:43.850685+00:00",
+          "remaining_sample_events": 0,
+          "feature_checkpoint_index": 9232,
+          "checkpoint_updated_at": "2026-10-19T14:53:06.122246+00:00",
+          "refreshed_at": "2026-10-19T14:57:43.850685+00:00",
+          "available_corridors": [
+            "75_237",
+            "75_166",
+            "97_97",
+            "75_74",
+            "74_142",
+            "75_262",
+            "65_39",
+            "75_141",
+            "188_145",
+            "223_7",
+            "75_224",
+            "244_243",
+            "74_244",
+            "244_262",
+            "7_160",
+            "74_263",
+            "97_225",
+            "134_135",
+            "41_43",
+            "97_72",
+            "166_152",
+            "41_42",
+            "82_129",
+            "74_41",
+            "41_152",
+            "95_28",
+            "75_151",
+            "74_43",
+            "130_215",
+            "7_7",
+            "41_230",
+            "74_166",
+            "41_132",
+            "7_14",
+            "166_239",
+            "65_181",
+            "74_19",
+            "75_238",
+            "244_238",
+            "244_236",
+            "166_41",
+            "260_7",
+            "7_95",
+            "75_236",
+            "42_41",
+            "95_121",
+            "130_180",
+            "166_141",
+            "42_42",
+            "166_166",
+            "65_133",
+            "52_25",
+            "129_7",
+            "43_43",
+            "7_179",
+            "244_208",
+            "74_74",
+            "244_42",
+            "244_217",
+            "82_83",
+            "33_106",
+            "179_179",
+            "42_238",
+            "75_25",
+            "41_41",
+            "65_130",
+            "65_89",
+            "166_237",
+            "181_181",
+            "166_244",
+            "7_102",
+            "134_134",
+            "181_61",
+            "75_263",
+            "33_25",
+            "41_262",
+            "244_20",
+            "97_186",
+            "74_152",
+            "212_213",
+            "33_236",
+            "75_116",
+            "166_232",
+            "94_137",
+            "74_126",
+            "74_236",
+            "74_75",
+            "166_74",
+            "43_151",
+            "95_252",
+            "95_95",
+            "74_239",
+            "82_138",
+            "75_75",
+            "41_75",
+            "226_129",
+            "116_42",
+            "41_169",
+            "116_247",
+            "41_138"
+          ]
+        }
+      }
+    }
+  },
+  "finished_at": "2026-10-19T15:52:29.548830+00:00",
+  "assessment": {
+    "real_demand_eta_readiness": "VERIFIED",
+    "warehouse_rows_preserved": 9232,
+    "public_revision_unchanged": "f9a56051a95a3dc1cade42d89ba992194a25cf0d",
+    "model_reload_observed": true,
+    "controlled_provider_sleep_wake": "NOT VERIFIED",
+    "reason": "New model loaded_at timestamps and 130.328-second first request observed; private provider sleep/start event logs and absence of other public traffic are not available.",
+    "probe_errors_retained": "Initial ETA/deployment URLs returned 404; corrected source-confirmed paths then returned 200. These are verifier path errors, not application forecasting failures.",
+    "dashboard_after_recovery": {
+      "status": "VERIFIED",
+      "demand_zones": [
+        74,
+        75,
+        166
+      ],
+      "predicted_pickups": [
+        3.69,
+        5.55,
+        2.26
+      ],
+      "demand_scored_at": "2026-10-19T15:55:17.742411+00:00",
+      "eta_scored_at": "2026-10-19T15:57:53.753730+00:00",
+      "eta_seconds": 715.8,
+      "demand_retained_after_eta": true,
+      "screenshot": "evidence/streamlit-after-idle-recovery.png"
+    }
+  },
+  "billing": {
+    "render_compute_plan": "Free (owner confirmation and Console screenshot)",
+    "render_payment_method_attached": false,
+    "source": "Owner explicitly confirms card removed on 2026-10-19; private Billing page not independently inspected",
+    "groq_payment_method_attached": false,
+    "hard_zero_charge_safety": "VERIFIED \u2014 OWNER CONFIRMED NO PAYMENT METHOD",
+    "known_risk": "Official Render no-payment-method behavior is suspension/disabled builds at quota exhaustion rather than automatic overage purchase. Prior attached-card exposure is retained in payment_method_history; no actual charge observed.",
+    "pipeline_spend_limit": "NOT VERIFIED",
+    "bandwidth_hard_cap": "NOT VERIFIED",
+    "official_free_limits": "https://render.com/docs/free",
+    "official_pipeline_limit": "https://render.com/docs/build-pipeline#setting-a-spend-limit",
+    "payment_method_history": [
+      {
+        "state": "attached",
+        "source": "Earlier owner confirmation on 2026-10-19"
+      },
+      {
+        "state": "removed",
+        "source": "Subsequent explicit owner confirmation on 2026-10-19"
+      }
+    ]
+  },
+  "integration": {
+    "status": "NOT VERIFIED",
+    "pr": 166,
+    "base": "dev",
+    "intended_protected_path": "feature -> dev -> main",
+    "normal_merge_attempt": "REFUSED by base branch policy; no administrator override used",
+    "required_checks_head": "7a389f75ffed725360d3d7cce23db00e9b7d339e",
+    "ci_run": 39278167895,
+    "ci_log_summary": "398 passed, 1 skipped, 45 warnings in 59.74s; required Lint & Test still reported in_progress at observation",
+    "compose_check": "success",
+    "memory_check": "success",
+    "retry_response": "Direct GitHub rerun API returned HTTP403: This workflow is already running",
+    "default_branch_workflow": "absent (404)",
+    "actual_schedule_run": "NOT VERIFIED"
+  }
+}

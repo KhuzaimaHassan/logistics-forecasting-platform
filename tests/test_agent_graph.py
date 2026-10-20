@@ -6,13 +6,115 @@ and ADR-024 (dual-provider fallback cascade and explicit mock labeling).
 
 from unittest.mock import patch
 
-from src.agents.graph import create_copilot_graph, run_copilot, tool_execution_node
+import pytest
+
+from src.agents.graph import (
+    _format_drift_reports_section,
+    _format_pipeline_section,
+    _serialize_tool_for_llm,
+    create_copilot_graph,
+    run_copilot,
+    synthesis_node,
+    tool_execution_node,
+)
 from src.agents.providers import MockLLMProvider, get_llm_provider
 from src.agents.state import CopilotState
+from src.agents.tools import TOOL_ALLOWLIST
 
 
 class TestAgentGraphWorkflow:
     """Tests covering graph compilation, routing, tool dispatch, and response formatting."""
+
+    def test_legacy_drift_is_not_presented_as_normal_or_actionable(self):
+        response = "\n".join(
+            _format_drift_reports_section(
+                {
+                    "reports": [
+                        {
+                            "report_type": "prediction_drift",
+                            "interpretation_trusted": False,
+                            "drift_detected": True,
+                            "alert_reasons": ["untrusted-alert"],
+                        }
+                    ]
+                }
+            )
+        )
+        assert "LEGACY REPORTS" in response
+        assert "rerun monitoring" in response
+        assert "ALL NORMAL" not in response
+        assert "untrusted-alert" not in response
+
+    @pytest.mark.parametrize(
+        "status,label",
+        [
+            ("running", "[RUNNING]"),
+            ("completed_with_alerts", "[ALERT]"),
+            ("failed", "[FAILED]"),
+        ],
+    )
+    def test_pipeline_status_labels_preserve_actual_state(self, status, label):
+        response = "\n".join(
+            _format_pipeline_section(
+                {"latest_runs": [{"job_name": "sample", "status": status}]}
+            )
+        )
+        assert label in response
+        if status != "failed":
+            assert "[FAILED]" not in response
+
+    @pytest.mark.parametrize("status", ["error", "degraded_fallback"])
+    def test_cloud_tool_dependency_failure_is_not_success(self, monkeypatch, status):
+        monkeypatch.setenv("DEPLOYMENT_MODE", "cloud")
+        tool = TOOL_ALLOWLIST["get_features"]
+        with patch.object(tool, "func", return_value={"status": status}):
+            result = tool_execution_node(
+                {
+                    "tool_calls": [
+                        {
+                            "name": "get_features",
+                            "args": {"entity_type": "zone", "entity_id": "74"},
+                        }
+                    ]
+                }
+            )
+        assert not result["tools_used"]
+        assert not result["sources"]
+        assert synthesis_node({**result, "provider": "groq"})["status"] == "error"
+
+    def test_zero_argument_tool_uses_strict_empty_object_schema(self):
+        definition = _serialize_tool_for_llm(TOOL_ALLOWLIST["query_pipeline_status"])
+        function = definition["function"]
+        assert function["strict"] is True
+        assert function["parameters"]["properties"] == {}
+        assert "required" not in function["parameters"]
+        assert function["parameters"]["additionalProperties"] is False
+
+    def test_invalid_tool_arguments_never_execute_or_report_success(self):
+        tool = TOOL_ALLOWLIST["query_pipeline_status"]
+        with patch.object(tool, "func") as execute:
+            result = tool_execution_node(
+                {"tool_calls": [{"name": "query_pipeline_status", "args": {"": ""}}]}
+            )
+        execute.assert_not_called()
+        assert result["tools_used"] == []
+        assert result["tool_results"][0]["status"] == "error"
+        response = synthesis_node({**result, "provider": "groq"})
+        assert response["status"] == "error"
+        assert response["error"]
+
+    def test_valid_zero_argument_tool_executes_and_cites_database(self):
+        tool = TOOL_ALLOWLIST["query_pipeline_status"]
+        with patch.object(
+            tool, "func", return_value={"overall_health": "healthy"}
+        ) as execute:
+            result = tool_execution_node(
+                {"tool_calls": [{"name": "query_pipeline_status", "args": {}}]}
+            )
+        execute.assert_called_once_with()
+        assert result["tools_used"] == ["query_pipeline_status"]
+        assert result["sources"] == ["warehouse.pipeline_runs"]
+        assert synthesis_node({**result, "provider": "groq"})["status"] == "success"
 
     def test_graph_compiles_successfully(self):
         """Verify the StateGraph compiles cleanly."""
@@ -62,9 +164,19 @@ class TestAgentGraphWorkflow:
 
     def test_run_copilot_recent_predictions_query(self):
         """Prediction history queries trigger query_recent_predictions."""
-        result = run_copilot(
-            "Show recent predictions for zone 161", force_provider="mock"
-        )
+        with patch.object(
+            TOOL_ALLOWLIST["query_recent_predictions"],
+            "func",
+            return_value={
+                "status": "success",
+                "prediction_count": 0,
+                "predictions": [],
+            },
+        ) as execute:
+            result = run_copilot(
+                "Show recent predictions for zone 161", force_provider="mock"
+            )
+        execute.assert_called_once()
 
         assert result["status"] == "success"
         assert result["provider"] == "mock"
@@ -74,9 +186,19 @@ class TestAgentGraphWorkflow:
 
     def test_run_copilot_pipeline_status_query(self):
         """Pipeline queries trigger query_pipeline_status."""
-        result = run_copilot(
-            "Did the retraining pipeline run this week?", force_provider="mock"
-        )
+        with patch.object(
+            TOOL_ALLOWLIST["query_pipeline_status"],
+            "func",
+            return_value={
+                "status": "success",
+                "overall_health": "healthy",
+                "latest_runs": [],
+            },
+        ) as execute:
+            result = run_copilot(
+                "Did the retraining pipeline run this week?", force_provider="mock"
+            )
+        execute.assert_called_once_with()
 
         assert result["status"] == "success"
         assert result["provider"] == "mock"
@@ -98,10 +220,15 @@ class TestAgentGraphWorkflow:
 
     def test_run_copilot_drift_reports_query(self):
         """Drift and monitoring queries trigger query_drift_reports."""
-        result = run_copilot(
-            "Has feature or prediction drift been detected this week?",
-            force_provider="mock",
-        )
+        with patch.object(
+            TOOL_ALLOWLIST["query_drift_reports"],
+            "func",
+            return_value={"status": "empty", "reports": []},
+        ):
+            result = run_copilot(
+                "Has feature or prediction drift been detected this week?",
+                force_provider="mock",
+            )
 
         assert result["status"] == "success"
         assert result["provider"] == "mock"
@@ -182,7 +309,12 @@ class TestAgentGraphWorkflow:
             "tool_results": [],
         }
 
-        updated_state = tool_execution_node(poisoned_state)
+        with patch.object(
+            TOOL_ALLOWLIST["query_drift_reports"],
+            "func",
+            return_value={"status": "empty", "reports": []},
+        ):
+            updated_state = tool_execution_node(poisoned_state)
 
         assert "query_drift_reports" in updated_state["tools_used"]
         assert "drop_monitoring_reports" not in updated_state["tools_used"]

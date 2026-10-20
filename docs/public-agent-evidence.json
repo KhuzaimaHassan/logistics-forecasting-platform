@@ -1,0 +1,64 @@
+{
+  "status": "VERIFIED",
+  "scope": "Actual public Render agent with real Groq and Aiven PostgreSQL, plus browser rendering",
+  "public_api": "https://logistics-forecasting-platform.onrender.com",
+  "dashboard": "https://logistics-forecasting-platform.streamlit.app/",
+  "source_revision": "92bddd72ecf668107fb4e411901a7d7cae6df7f6",
+  "managed_check": {
+    "status": "VERIFIED",
+    "evidence": {
+      "provider": "groq",
+      "model_name": "openai/gpt-oss-20b",
+      "tools_used": [
+        "query_pipeline_status"
+      ],
+      "sources": [
+        "warehouse.pipeline_runs"
+      ]
+    }
+  },
+  "verification_run": {
+    "conclusion": "success",
+    "head_sha": "92bddd72ecf668107fb4e411901a7d7cae6df7f6",
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39272455345",
+    "run_id": 39272455345
+  },
+  "browser_pipeline_run_count": 10,
+  "browser_provider_latency_ms": 1107.3,
+  "browser_feast_tool": {
+    "status": "VERIFIED",
+    "query": "Retrieve the actual online Feast feature state for zone 74 using get_features.",
+    "provider": "groq",
+    "model_name": "openai/gpt-oss-20b",
+    "source": "feast_redis:zone_features",
+    "zone_id": 74,
+    "pickup_count_last_15m": 3,
+    "pickup_count_last_1h": 3,
+    "pickup_count_last_24h": 66,
+    "pickup_count_same_hour_last_week": 1,
+    "observed_at": "2023-01-31T23:00:00+00:00",
+    "observed_latency_ms": 12412.9,
+    "screenshot": "evidence/streamlit-feast-copilot.png"
+  },
+  "final_public_revision": "f9a56051a95a3dc1cade42d89ba992194a25cf0d",
+  "browser_monitoring_tool": {
+    "status": "VERIFIED",
+    "provider": "groq",
+    "model_name": "openai/gpt-oss-20b",
+    "source": "warehouse.monitoring_reports",
+    "reports_retrieved": 5,
+    "latest_prediction_drift": "normal",
+    "actual_mae_decay_percent": 29.9,
+    "legacy_prediction_report_explicitly_warned": true,
+    "observed_latency_ms": 1229.9
+  },
+  "final_browser_pipeline_tool": {
+    "status": "VERIFIED",
+    "source": "warehouse.pipeline_runs",
+    "records_retrieved": 10,
+    "observed_latency_ms": 1606.4,
+    "completed_with_alerts_label": "ALERT",
+    "screenshot": "evidence/streamlit-live-copilot.png",
+    "public_revision": "f9a56051a95a3dc1cade42d89ba992194a25cf0d"
+  }
+}

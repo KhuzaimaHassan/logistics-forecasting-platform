@@ -11,6 +11,7 @@ mock response labeling ([MOCK / OFFLINE MODE] and provider: 'mock').
 """
 
 import logging
+import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 def _serialize_tool_for_llm(tool_obj: Any) -> Dict[str, Any]:
     """Serialize LangChain tool to OpenAI function definition format."""
-    return {
+    definition = {
         "type": "function",
         "function": {
             "name": tool_obj.name,
@@ -52,6 +53,17 @@ def _serialize_tool_for_llm(tool_obj: Any) -> Dict[str, Any]:
             ),
         },
     }
+    parameters = definition["function"]["parameters"]
+    parameters["additionalProperties"] = False
+    # GPT-OSS otherwise sometimes emits {"": ""} for a zero-argument tool.
+    # Strict decoding is safe here: there are no optional/default fields to alter.
+    if not parameters.get("properties"):
+        parameters["properties"] = {}
+        # Groq rejects required=[] after normalizing an empty properties map.
+        # No required clause is needed for a closed, zero-property object.
+        parameters.pop("required", None)
+        definition["function"]["strict"] = True
+    return definition
 
 
 def input_guardrail_node(state: CopilotState) -> Dict[str, Any]:
@@ -166,9 +178,22 @@ def tool_execution_node(state: CopilotState) -> Dict[str, Any]:
 
         tool_obj = TOOL_ALLOWLIST[tool_name]
         try:
+            if not isinstance(tool_args, dict):
+                raise ValueError("Tool arguments must be an object")
+            schema = getattr(tool_obj, "args_schema", None)
+            if schema is not None:
+                fields = schema.model_fields
+                if set(tool_args) - set(fields):
+                    raise ValueError("Tool arguments contain unsupported fields")
+                tool_args = schema.model_validate(tool_args).model_dump()
             # Invoke the tool
             func = getattr(tool_obj, "func", tool_obj)
             res = func(**tool_args)
+            if res.get("status") == "error" or (
+                os.getenv("DEPLOYMENT_MODE") == "cloud"
+                and res.get("status") == "degraded_fallback"
+            ):
+                raise RuntimeError("Requested tool dependency is unavailable")
 
             tools_used.append(tool_name)
             tool_results.append({"tool": tool_name, "args": tool_args, "result": res})
@@ -259,7 +284,15 @@ def _format_pipeline_section(res: Dict[str, Any]) -> List[str]:
     lines = [f"### Pipeline Execution Health: `{overall}` ({total_runs} recent runs)"]
     for r in runs[:5]:
         status = str(r.get("status", ""))
-        status_icon = "[OK]" if status in ("success", "completed") else "[FAILED]"
+        status_icon = {
+            "success": "[OK]",
+            "completed": "[OK]",
+            "running": "[RUNNING]",
+            "in_progress": "[RUNNING]",
+            "completed_with_alerts": "[ALERT]",
+            "failed": "[FAILED]",
+            "error": "[FAILED]",
+        }.get(status, "[UNKNOWN]")
         name = r.get("job_name") or r.get("pipeline_name", "pipeline")
         duration = r.get("duration_seconds")
         dur_str = f"{float(duration):.1f}s" if duration is not None else "N/A"
@@ -292,9 +325,11 @@ def _format_drift_reports_section(res: Dict[str, Any]) -> List[str]:
     count = len(reports)
     has_alerts = res.get("has_active_alerts", False)
     overall_badge = "🔴 DRIFT / DECAY DETECTED" if has_alerts else "🟢 ALL NORMAL"
+    if reports and all(r.get("interpretation_trusted") is False for r in reports):
+        overall_badge = "⚠️ LEGACY REPORTS — rerun monitoring"
 
     lines = [
-        f"### Model Drift & Performance Monitoring: {overall_badge} ({count} reports evaluated)"
+        f"### Model Drift & Performance Monitoring: {overall_badge} ({count} reports retrieved)"
     ]
     if not reports:
         lines.append(
@@ -304,6 +339,11 @@ def _format_drift_reports_section(res: Dict[str, Any]) -> List[str]:
         return lines
 
     for r in reports[:5]:
+        if r.get("interpretation_trusted") is False:
+            lines.append(
+                f"- Legacy {r.get('report_type')} report (`{r.get('generated_at')}`): score interpretation predates the correction; rerun monitoring before acting on its flags."
+            )
+            continue
         rtype = r.get("report_type", "unknown").replace("_", " ").title()
         drift_flag = r.get("drift_detected", False)
         retrain_flag = r.get("retrain_recommended", False)
@@ -336,7 +376,7 @@ def _format_drift_reports_section(res: Dict[str, Any]) -> List[str]:
 
         # Highlight performance metrics if performance decay report
         for m in r.get("metrics", []):
-            if m.get("metric_name") in ("MAE", "RMSE", "mean_error"):
+            if str(m.get("metric_name")).lower() in ("mae", "rmse", "mean_error"):
                 c_val = m.get("current_value")
                 r_val = m.get("reference_value")
                 decay = m.get("decay_ratio")
@@ -402,9 +442,11 @@ def synthesis_node(state: CopilotState) -> Dict[str, Any]:
         sections.append(f"\n---\n**Data Sources Cited**: {citations}")
 
     final_content = "\n".join(sections).strip()
+    failed_tools = [item for item in tool_results if item.get("error")]
     return {
         "response": sanitize_output(final_content),
-        "status": "success",
+        "status": "error" if failed_tools else "success",
+        "error": "One or more requested tools failed." if failed_tools else None,
     }
 
 

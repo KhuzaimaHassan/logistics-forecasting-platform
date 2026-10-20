@@ -1,10 +1,13 @@
 """Application configuration and environment settings."""
 
+import os
 from functools import lru_cache
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL, make_url
 
 
 class Settings(BaseSettings):
@@ -23,6 +26,8 @@ class Settings(BaseSettings):
     postgres_port: int = Field(default=5432, alias="POSTGRES_PORT")
     postgres_db: str = Field(default="logistics", alias="POSTGRES_DB")
     database_url_override: Optional[str] = Field(default=None, alias="DATABASE_URL")
+    db_pool_size: int = Field(default=2, ge=1, alias="DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=0, ge=0, alias="DB_MAX_OVERFLOW")
 
     # Redis
     redis_host: str = Field(default="localhost", alias="REDIS_HOST")
@@ -31,6 +36,24 @@ class Settings(BaseSettings):
 
     # Redpanda
     redpanda_broker: str = Field(default="localhost:9092", alias="REDPANDA_BROKER")
+    kafka_security_protocol: str = Field(
+        default="PLAINTEXT", alias="KAFKA_SECURITY_PROTOCOL"
+    )
+    kafka_ssl_cafile: Optional[str] = Field(default=None, alias="KAFKA_SSL_CAFILE")
+    kafka_ssl_certfile: Optional[str] = Field(default=None, alias="KAFKA_SSL_CERTFILE")
+    kafka_ssl_keyfile: Optional[str] = Field(default=None, alias="KAFKA_SSL_KEYFILE")
+    kafka_sasl_mechanism: str = Field(
+        default="SCRAM-SHA-256", alias="KAFKA_SASL_MECHANISM"
+    )
+    kafka_sasl_username: Optional[str] = Field(
+        default=None, alias="KAFKA_SASL_USERNAME"
+    )
+    kafka_sasl_password: Optional[str] = Field(
+        default=None, alias="KAFKA_SASL_PASSWORD"
+    )
+    kafka_topic_partitions: int = Field(
+        default=2, ge=1, le=2, alias="KAFKA_TOPIC_PARTITIONS"
+    )
 
     # Prefect Cloud
     prefect_api_key: Optional[str] = Field(default=None, alias="PREFECT_API_KEY")
@@ -70,16 +93,37 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         """Construct the PostgreSQL SQLAlchemy connection URL."""
         if self.database_url_override:
-            return self.database_url_override
-        return (
-            f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
+            value = self.database_url_override.replace(
+                "postgres://", "postgresql://", 1
+            )
+            url = make_url(value)
+            if os.getenv("POSTGRES_SSLROOTCERT"):
+                url = url.update_query_dict(
+                    {"sslrootcert": os.environ["POSTGRES_SSLROOTCERT"]}
+                )
+            return url.render_as_string(hide_password=False)
+        return URL.create(
+            "postgresql+psycopg2",
+            username=self.postgres_user,
+            password=self.postgres_password,
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=self.postgres_db,
+        ).render_as_string(hide_password=False)
 
     @property
     def redis_url(self) -> str:
         """Construct the Redis connection URL."""
         if self.redis_url_override:
+            if os.getenv("REDIS_SSL_CA"):
+                parts = urlsplit(self.redis_url_override)
+                query = dict(parse_qsl(parts.query))
+                query.update(
+                    ssl_ca_certs=os.environ["REDIS_SSL_CA"],
+                    ssl_cert_reqs="required",
+                    ssl_check_hostname="true",
+                )
+                return urlunsplit(parts._replace(query=urlencode(query)))
             return self.redis_url_override
         return f"redis://{self.redis_host}:{self.redis_port}/0"
 

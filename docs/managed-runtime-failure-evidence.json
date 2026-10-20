@@ -1,0 +1,8 @@
+{
+  "scope": "Real DagsHub Production models + Aiven features/storage in disposable Linux API container; not a hosted Render endpoint",
+  "status": "FAILED",
+  "phase": "readiness",
+  "error_type": "TimeoutError",
+  "github_run": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39139567159",
+  "interpretation": "Production models were unavailable after managed training timed out. No memory-fit or public-hosting success is established."
+}

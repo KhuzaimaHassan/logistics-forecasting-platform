@@ -453,6 +453,47 @@ def load_offline_features_to_db(
     """
     is_postgres = engine.dialect.name == "postgresql"
 
+    if is_postgres:
+        # SQL text + DBAPI executemany makes a roundtrip per row. That can take
+        # hours across a managed WAN connection. Compile real multi-row INSERTs
+        # in bounded chunks, keeping all idempotent conflict-update semantics.
+        from sqlalchemy.dialects.postgresql import insert
+
+        from src.common.models import (
+            CorridorDurationFeaturesHourly,
+            ZoneDemandFeaturesHourly,
+        )
+
+        with engine.begin() as conn:
+            for frame, model, keys in (
+                (
+                    df_zone_demand,
+                    ZoneDemandFeaturesHourly,
+                    ["zone_id", "pickup_datetime"],
+                ),
+                (
+                    df_corridor_duration,
+                    CorridorDurationFeaturesHourly,
+                    ["corridor_id", "dropoff_datetime"],
+                ),
+            ):
+                for offset in range(0, len(frame), min(chunk_size, 1000)):
+                    rows = frame.iloc[offset : offset + min(chunk_size, 1000)].to_dict(
+                        orient="records"
+                    )
+                    statement = insert(model).values(rows)
+                    conn.execute(
+                        statement.on_conflict_do_update(
+                            index_elements=keys,
+                            set_={
+                                column: statement.excluded[column]
+                                for column in frame.columns
+                                if column not in keys
+                            },
+                        )
+                    )
+        return len(df_zone_demand), len(df_corridor_duration)
+
     # 1. Insert Zone Demand Features
     zone_count = len(df_zone_demand)
     if not df_zone_demand.empty:

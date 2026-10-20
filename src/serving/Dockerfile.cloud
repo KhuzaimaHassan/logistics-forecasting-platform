@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:0.9.4 /uv /bin/uv
+ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONPATH=/app \
+    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING=false
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project --extra core --extra cloud-serving
+COPY src/ src/
+COPY docs/ docs/
+RUN useradd --create-home --uid 10001 app && chown -R app:app /app
+USER app
+EXPOSE 10000
+CMD ["sh", "-c", "exec uvicorn src.serving.app:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1 --limit-concurrency 8"]
