@@ -1,0 +1,108 @@
+{
+  "observed_at": "2026-10-20T09:38:57.043578+00:00",
+  "feature_integration": {
+    "number": 166,
+    "url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/pull/166",
+    "state": "closed",
+    "merged": true,
+    "merged_at": "2026-10-20T09:22:48Z",
+    "merge_commit_sha": "b2e56d4b56539f40f366836738b8f4afde10dd49",
+    "head_sha": "aefb096a259abb9a58cbf93a16f61f088f183742",
+    "base": "dev"
+  },
+  "default_branch_integration": {
+    "number": 167,
+    "url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/pull/167",
+    "state": "closed",
+    "merged": true,
+    "merged_at": "2026-10-20T09:31:12Z",
+    "merge_commit_sha": "4450d959f102dedd85c5586f14305f31118faec1",
+    "head_sha": "b2e56d4b56539f40f366836738b8f4afde10dd49",
+    "base": "main"
+  },
+  "main_merge_method": "squash required by protected-main linear history; no administrator bypass; dev and hosting feature branches retained",
+  "release_ci": {
+    "id": 39400299729,
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39400299729",
+    "head_sha": "b2e56d4b56539f40f366836738b8f4afde10dd49",
+    "event": "pull_request",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-10-20T09:23:19Z",
+    "updated_at": "2026-10-20T09:30:21Z"
+  },
+  "release_arm64": {
+    "id": 39400243947,
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39400243947",
+    "head_sha": "b2e56d4b56539f40f366836738b8f4afde10dd49",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-10-20T09:22:52Z",
+    "updated_at": "2026-10-20T09:28:49Z"
+  },
+  "post_merge_ci": {
+    "id": 39401266610,
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39401266610",
+    "head_sha": "4450d959f102dedd85c5586f14305f31118faec1",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-10-20T09:31:15Z",
+    "updated_at": "2026-10-20T09:37:35Z"
+  },
+  "manual_pipeline": {
+    "id": 39401271976,
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39401271976",
+    "head_sha": "4450d959f102dedd85c5586f14305f31118faec1",
+    "event": "workflow_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-10-20T09:31:17Z",
+    "updated_at": "2026-10-20T09:36:33Z",
+    "pipeline_summary": {
+      "source": "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2023-01.parquet",
+      "source_sha256": "9f0e03dd7f8f94ecc15949cdbfd2a4e1fc9ebb41a11882215158c9fc95012e31",
+      "sample_size": 9232,
+      "rejected_source_rows": 768,
+      "next_index": 9232,
+      "published_events": 0,
+      "remaining_sample_events": 0,
+      "feature_checkpoint_index": 9232,
+      "warehouse_rows": 9232,
+      "zone_feature_rows": 107155,
+      "corridor_feature_rows": 8760,
+      "feature_materialized_at": "2026-10-20T09:36:24.899356+00:00",
+      "online_retention": {
+        "feature_values_and_timestamps_unchanged": true,
+        "previous_min_ttl_seconds": 19279,
+        "renewed_entity_keys": 1319,
+        "retention_seconds": 86400
+      },
+      "mode": "scheduled_historical_sample"
+    }
+  },
+  "legacy_vm_deployment": {
+    "id": 39401266605,
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39401266605",
+    "head_sha": "4450d959f102dedd85c5586f14305f31118faec1",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "skipped",
+    "created_at": "2026-10-20T09:31:15Z",
+    "updated_at": "2026-10-20T09:31:16Z"
+  },
+  "registered_workflow": {
+    "id": 390363624,
+    "path": ".github/workflows/free-cloud.yml",
+    "state": "active"
+  },
+  "schedule": {
+    "status": "NOT VERIFIED",
+    "runs_observed": 0,
+    "next_intended_pipeline_slot_pakistan": "2026-10-20 20:17 Asia/Karachi",
+    "note": "Actual cron event evidence required; manual dispatch is separate. GitHub can delay or drop schedule events. Owner declined a Codex follow-up and will return after the scheduled run."
+  },
+  "release_tree": "4df858d04818005925c9797f466fbe73dfd698dd",
+  "public_aefb096_tree_matches_main_4450d95": true
+}

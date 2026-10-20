@@ -569,11 +569,33 @@ variable is enabled, the configured schedule is:
 These are intended schedules, not verified execution times. GitHub scheduling can
 be delayed/dropped; a manual dispatch does not prove a scheduled-event run.
 
-Current acceptance (2026-10-19): all nine managed/public checks passed in run
-39272455345, and source f9a5605 passed full CI 39274527934 (398 tests plus
-Compose/memory) and ARM64 39274521143. Repository CLOUD_DEPLOYMENT_ENABLED was
-set to true only after this evidence. Default main still has no free-cloud.yml;
-cron remains NOT VERIFIED until protected integration and a scheduled-event run.
+Current acceptance (2026-10-20): all nine managed/public checks passed in run
+39272455345. PR #166 is merged to dev; fully green PR #167 is squash-merged into
+protected main 4450d95. Release CI run 39400299729 passed 398 tests plus Compose/memory;
+ARM64 run 39400243947 and post-main CI run 39401266610 passed. The cloud workflow is active
+on main and CLOUD_DEPLOYMENT_ENABLED=true. Manual pipeline 39401271976 renewed
+1,319 exact online keys to 24 hours while preserving 9,232 trips and publishing no
+new sample duplicates. Actual schedule execution remains NOT VERIFIED until the
+next genuine cron event (first post-merge pipeline slot 20:17 PKT today).
+
+Recovery after 973.664 seconds of agent inactivity passed: fresh demand/ETA,
+new actual model-load timestamps on the unchanged revision, readiness 200,
+warehouse persistence and browser retry. The first request took 140.968 seconds;
+this can exceed the UI 90 second timeout, so retry after temporary unavailability.
+Main API check 39402814242 matched two newly persisted PostgreSQL forecast rows.
+Private provider sleep/start logs were not available. See the deployment report
+and controlled-idle-recovery-evidence.json for exact scope.
+
+Default-branch commands now work directly:
+
+```powershell
+gh workflow run free-cloud.yml --ref main -f job=pipeline
+gh workflow run free-cloud.yml --ref main -f job=verify-api
+gh run list --workflow free-cloud.yml --event schedule
+```
+
+The first two are manual operations; only the third can find actual cron events.
+Do not claim schedule acceptance from workflow_dispatch.
 Keep using the existing Free services; do not recreate them or deploy duplicate
 Blueprint resources.
 
