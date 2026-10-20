@@ -460,3 +460,37 @@ Implementation results and actual check output are appended as work completes.
 the known attached-card overage exposure on owner attestation, without independent
 Billing-page inspection. Official no-card quota exhaustion suspends service/builds.
 Free plans preserved; no payment-method change was performed by the agent.
+
+### D6/D7 acceptance continuation — 2026-10-20
+
+- Feature aefb096 full CI39282433306 and ARM6439282424920 passed; unit log398
+  passed, one skipped,45warnings76.39s. PR166 merged normally into dev b2e56d4.
+- PR167 dev->main passed CI39400299729:398passed, one skipped,45warnings66.56s,
+  Compose and memory passed; ARM6439400243947 all passed. Normal merge commit was
+  rejected by main linear-history rule; used permitted squash to4450d95 at
+  09:31:12UTC (14:31:12PKT). No admin bypass, force push or branch deletion.
+- free-cloud.yml now registered active on default main; opt-in true. Legacy VM
+  deploy39401266605 skipped. Manually dispatched pipeline39401271976 on main to
+  renew online retention before expiry; this is explicitly workflow_dispatch.
+- Next genuine pipeline slot20:17PKT today. Owner declined a Codex follow-up and
+  will return after that run; no scheduling workaround or fake cron evidence.
+- Baseline actual public demand0.71/ETA715.8/ready200 on aefb096; warehouse9232,
+  both genuine Productionv1 native models. Quiet interval started09:24:27UTC;
+  no agent requests or app pushes during the following planned16minutes.
+
+- Main manual pipeline39401271976 SUCCEEDED: real source checkpoint9,232,
+  warehouse9,232, zone features107,155, corridor features8,760, published0;
+  materialization09:36:24.899356UTC renewed1,319 keys to86,400s from minimum19,279s.
+  Feature values/event timestamps unchanged. Actual summary extracted from log;
+  manual event is workflow_dispatch, not schedule. Post-main CI39401266610 passed.
+
+- Controlled agent quiet interval973.664s completed. First demand HTTP200 after
+  140.968s with X-Cache MISS; ETA MISS200, readiness200, same aefb096 revision.
+  Real Productionv1 models reloaded09:42:29/09:42:35UTC, unchanged artifact run IDs;
+  warehouse9,232 preserved. No forced restart or synthetic fallback. Provider
+  internal sleep events/other public traffic unobserved; scope recorded explicitly.
+- Browser retained an earlier90s timeout before retry (cause/time not inferred).
+  Actual retry showed Serving Online (OK), fresh demand3.69/5.55/2.26 at09:44:46UTC,
+  map and ETA715.8s at09:45:27UTC; demand retained across ETA rerun. Error and
+  recovery screenshots saved. Narrow API check39402814242 on main SUCCEEDED,
+  matching two newly persisted PostgreSQL prediction rows. Cron remains unverified.

@@ -1,6 +1,6 @@
 # Logistics Demand & ETA Forecasting Platform
 
-> **Cloud deployment status (2026-10-19): public dashboard and real-model API verified; acceptance remains partial.**
+> **Cloud deployment status (2026-10-20): public dashboard and real-model API verified; acceptance remains partial.**
 > Open the [dashboard](https://logistics-forecasting-platform.streamlit.app/) or
 > [FastAPI documentation](https://logistics-forecasting-platform.onrender.com/docs).
 > The Free profile uses Aiven Kafka/PostgreSQL/Valkey, DagsHub MLflow, Render,
@@ -12,8 +12,9 @@
 > monitoring score interpretation, forecast rerun and misleading-label defects;
 > corrected monitoring and public UI rerun behavior are verified. Real Groq plus
 > Aiven PostgreSQL/Feast tool execution passed through the public Copilot. All nine
-> managed checks passed. Cron and controlled idle cold starts are not verified;
-> actual hosted redeploy and later idle-interval forecast recovery passed.
+> managed checks passed. Protected integration to main and recovery after a measured
+> 16-minute quiet interval passed; first forecast took 141 seconds. The first actual
+> scheduled-event run remains unverified. Dashboard retry and persistent predictions passed.
 > Owner confirms the Render card was removed; no-card quota exhaustion can suspend
 > service/builds rather than purchase overages. Billing-page access was not inspected.
 > Real-model containers passed 512 MiB/0.1 CPU limits (peak process RSS 386.7 MiB).
