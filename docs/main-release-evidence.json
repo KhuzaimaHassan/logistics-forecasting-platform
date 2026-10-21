@@ -98,11 +98,62 @@
     "state": "active"
   },
   "schedule": {
-    "status": "NOT VERIFIED",
-    "runs_observed": 0,
-    "next_intended_pipeline_slot_pakistan": "2026-10-20 20:17 Asia/Karachi",
-    "note": "Actual cron event evidence required; manual dispatch is separate. GitHub can delay or drop schedule events. Owner declined a Codex follow-up and will return after the scheduled run."
+    "status": "VERIFIED",
+    "runs_observed": 1,
+    "run_id": 39482347476,
+    "run_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39482347476",
+    "event": "schedule",
+    "conclusion": "success",
+    "first_intended_pipeline_slot_pakistan": "2026-10-20 20:17 Asia/Karachi",
+    "actual_creation_pakistan": "2026-10-21T00:18:36+05:00",
+    "observed_delay_seconds": 14496.0,
+    "pipeline_materialized_at": "2026-10-20T19:22:43.403031+00:00",
+    "evidence": "scheduled-pipeline-evidence.json",
+    "note": "A genuine pipeline schedule ran successfully. This does not certify punctuality or separate train/monitor cron execution; earlier absent-run observations are preserved."
   },
   "release_tree": "4df858d04818005925c9797f466fbe73dfd698dd",
-  "public_aefb096_tree_matches_main_4450d95": true
+  "public_aefb096_tree_matches_main_4450d95": true,
+  "schedule_followup_checks": [
+    {
+      "observed_at_utc": "2026-10-20T17:34:04.813984+00:00",
+      "observed_at_pakistan": "2026-10-20T22:34:04.813984+05:00",
+      "expected_first_pipeline_slot_pakistan": "2026-10-20 20:17 Asia/Karachi",
+      "minutes_after_expected_slot": 137.08,
+      "schedule_runs_observed": 0,
+      "status": "NOT VERIFIED",
+      "workflow_state": "active",
+      "default_branch": "main",
+      "repository_archived": false,
+      "repository_disabled": false,
+      "actions_enabled": true,
+      "published_workflow_blob": "6166094af4afe9d6d0cc0292a5c342c42f453db3",
+      "published_cron": [
+        "17 3,15 * * *",
+        "43 4 * * 0",
+        "47 5 * * *"
+      ],
+      "opt_in": "CLOUD_DEPLOYMENT_ENABLED=true confirmed via API",
+      "root_cause": "NOT ESTABLISHED. No configuration blocker found. Official delay/drop caveat is a possibility, not proof. GitHub status reports Actions operational.",
+      "next_configured_pipeline_slot_pakistan": "2026-10-21 08:17 Asia/Karachi",
+      "official_schedule_documentation": "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule",
+      "manual_run_not_counted_as_cron": true,
+      "cloud_or_workflow_changes_performed": false
+    }
+  ],
+  "acceptance": {
+    "status": "VERIFIED",
+    "scope": "Required bounded historical free-cloud profile checks across their recorded verification dates, not a concurrent health snapshot or uptime SLA",
+    "managed_integrations_evidence": "cloud-verification.json",
+    "browser_agent_evidence": "public-agent-evidence.json",
+    "idle_recovery_evidence": "controlled-idle-recovery-evidence.json",
+    "schedule_evidence": "scheduled-pipeline-evidence.json",
+    "billing_condition": "Owner confirms Render card removed and Groq has no payment method; private billing pages not independently inspected",
+    "optional_paths_not_verified": [
+      "Gemini fallback",
+      "deployed FAISS freshness",
+      "separate training/monitoring cron executions",
+      "provider-internal sleep event telemetry"
+    ],
+    "assessed_at": "2026-10-21T08:41:44.753770+00:00"
+  }
 }

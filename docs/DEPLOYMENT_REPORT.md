@@ -1,10 +1,12 @@
-# Deployment report — 2026-10-20
+# Deployment report — 2026-10-21
 
 ## Outcome
 
-**The public dashboard, real-model API and Groq Copilot are verified, along with
-all nine managed integration checks. Scheduled-trigger acceptance remains
-incomplete until an actual scheduled-event run. Protected integration is complete.** These are actual deployed URLs:
+**The bounded free-cloud profile has completed its required acceptance checks:**
+public dashboard, real-model API, Groq tools, nine managed checks, application
+recovery after a measured idle interval, and a genuine scheduled pipeline.
+Evidence spans the recorded verification dates; this is not a concurrent health
+snapshot or an uptime guarantee. These are actual deployed URLs:
 
 - [Streamlit dashboard](https://logistics-forecasting-platform.streamlit.app/)
 - [FastAPI documentation](https://logistics-forecasting-platform.onrender.com/docs)
@@ -89,7 +91,7 @@ and mocked unit tests do not certify Aiven, DagsHub or public applications.
 | Valkey TLS + Feast materialization/retrieval | **VERIFIED** | Same aggregate rematerialized real features; zone 7 pickups=1 matched PostgreSQL with historical event timestamp |
 | MLflow metrics/artifacts/registry | **VERIFIED** | Same aggregate read metric 1.0, verified downloaded artifact SHA-256 and registry listing; real training/promotion evidence below |
 | Real pipeline output | **VERIFIED** | Initial managed pipeline processed 8,632 remaining events after checkpoint 600, ending at 9,232 unique rows; latest main run 39401271976 succeeded with 9,232 retained trips, zero new sample publications and 1,319 exact keys renewed to 86,400s from minimum 19,279s. Manual workflow_dispatch is not cron evidence |
-| Actual scheduled trigger | **NOT VERIFIED** | Workflow is now active on default main with opt-in true after protected PR 167; first subsequent pipeline slot is 2026-10-20 20:17 Pakistan time. No schedule-event run observed yet; manual dispatch remains separate |
+| Actual scheduled trigger | **VERIFIED** | [39482347476](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39482347476), event=schedule, main 8a9b4d0, success. Started 2026-10-21 00:18:36 Pakistan, 4h1m36s after intended 20:17 slot; actual pipeline step retained 9,232 trips and renewed 1,319 keys. [Evidence](scheduled-pipeline-evidence.json). Punctuality and separate train/monitor cron executions are not certified |
 | Protected default-branch release | **VERIFIED** | PR 166 merged to dev; fully green PR 167 squash-merged to main as required by linear history, release 4450d95; no administrator bypass, branch/data deletion or history rewrite. [Evidence](main-release-evidence.json) |
 | Real training/promotion | **VERIFIED** | [39228745442](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39228745442): 635.55s managed run, both genuine LightGBM Production v1 models reloaded natively; [evidence](managed-training-evidence.json) |
 | Public FastAPI genuine demand/ETA | **VERIFIED** | Aggregate produced demand 0.71 and ETA 715.8s, matched two newly persisted Aiven prediction records; no fallback |
@@ -221,14 +223,55 @@ Community Cloud after inactivity, Kafka has finite retention/throughput, and the
 GitHub scheduler is best effort. Continuous real-time trip processing is not
 claimed. GitHub public standard runners replace paid always-on workers.
 
-## Outstanding acceptance work
+## Scheduled pipeline acceptance — 2026-10-21
 
-1. Capture an actual successful scheduled-event run. Protected integration is
-   complete: PR 166 -> dev, PR 167 -> main. CLOUD_DEPLOYMENT_ENABLED=true and
-   free-cloud.yml is registered active on main. First subsequent pipeline slot:
-   2026-10-20 20:17 Pakistan time. Manual main-branch refresh 39401271976 is
-   explicitly not schedule evidence. Owner will return after the cron run;
-   no Codex follow-up automation was created.
+Actual run 39482347476 has event=schedule, conclusion=success, and main 8a9b4d0.
+Its logged CRON value is `17 3,15 * * *`. It was created at 2026-10-21 00:18:36
+Pakistan and completed around 00:22:50, after the intended 2026-10-20 20:17 slot.
+The observed creation delay was 14,496 seconds (4h1m36s); its internal cause is not
+established. The earlier 22:34 no-run observation was correct at that time and
+is retained rather than rewritten.
+
+The actual pipeline step succeeded: warehouse 9,232 trips, zone features 107,155,
+corridor features 8,760, source cursor 9,232, zero new sample publications. Actual
+materialization at 2026-10-20T19:22:43.403031UTC renewed 1,319 known online keys to
+86,400 seconds from a prior minimum 51,222 seconds, without changing values/event
+timestamps. Zero publications reflect the already-completed authentic sample;
+this run does not claim new Kafka events. Genuine broker roundtrip and ingestion
+are certified by their separate managed checks above.
+
+[Sanitized scheduled-run evidence](scheduled-pipeline-evidence.json) contains
+GitHub run/job/step metadata and the actual result extracted from its log.
+[Acceptance rollup](main-release-evidence.json) combines this with earlier
+managed, browser, recovery and owner billing evidence. Original automated
+artifacts retain their original scope and manual_acceptance=false fields;
+they were not rewritten to fabricate later proof.
+
+## Scheduled-event follow-up — 2026-10-20 evening
+
+At 22:34 Pakistan time, workflow-specific and repository-wide GitHub APIs
+showed zero schedule-event runs for free-cloud.yml after its intended 20:17 slot.
+Workflow is active on default main, Actions is enabled, opt-in is true, and the
+published cron/blob matches the verified configuration. Repository is neither
+archived nor disabled. No configuration blocker was identified.
+
+At that observation, **cron acceptance was NOT VERIFIED**. No execution record existed to classify
+as a pipeline success or failure. [GitHub documents possible delays/dropped events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule),
+but the cause here is not established. GitHub status reports Actions operational.
+The next intended slot recorded then was 2026-10-21 08:17 Pakistan. The earlier
+event subsequently arrived late and is verified above. No cron edits, workflow toggles, manual substitution or
+Codex automation were used. [Exact observation](main-release-evidence.json).
+
+## Optional verification and ongoing constraints
+
+The core acceptance checklist is complete. A real scheduled pipeline now has
+execution and managed-output evidence; no manual dispatch is substituted.
+
+1. GitHub cron is best effort. The first verified run arrived 4h1m36s late;
+   subsequent timings, training/monitoring cron executions and future uptime
+   are not certified by this observation. Feature refresh must stay within its
+   24-hour retention. Existing manual commands remain recovery options, not proof
+   that automatic scheduling occurred.
 2. Optional Gemini fallback and deployed FAISS index freshness are not verified.
    The exercised Copilot uses Groq with actual PostgreSQL and Feast tools; this
    does not certify every optional provider/retrieval path.
@@ -282,17 +325,18 @@ The required branch path feature -> dev -> main is now integrated. No actual
 schedule-triggered execution is claimed before the first post-merge cron slot.
 
 New public recovery evidence and the owner's card attachment/removal confirmations are in
-[idle-recovery-evidence.json](idle-recovery-evidence.json). Final acceptance remains
-incomplete for actual cron execution. Recovery after a measured quiet interval
-is now verified separately; provider-internal sleep event logs remain unavailable. Owner confirms card removal; the current public service remains on Free.
+[idle-recovery-evidence.json](idle-recovery-evidence.json). Core acceptance is now complete with the genuine scheduled run above. Recovery
+after a measured quiet interval is verified separately; provider-internal sleep
+event logs remain unavailable. Owner confirms card removal; the current public service remains on Free.
 
 ## Complete change inventory
 
-Relative to the pre-deployment dev baseline dca 4b 70 (pinned because dev now
-contains the deployment). Owner-provided dev container is identified separately.
-The unrelated local Oracle retry script edit remains untouched and excluded.
+Relative to pre-deployment dev dca4b70. Owner-provided dev container identified
+separately. Current unrelated local .env.example and Oracle retry edits are
+excluded from this final commit; the .env.example inventory entry describes only
+the previously committed deployment configuration.
 
-102 changed/new files:
+103 changed/new deployment files:
 
 - `.devcontainer/devcontainer.json` (owner-provided)
 - `.dockerignore`
@@ -340,6 +384,7 @@ The unrelated local Oracle retry script edit remains untouched and excluded.
 - `docs/public-redeploy-evidence.json`
 - `docs/public-render-evidence.json`
 - `docs/retention-verification-evidence.json`
+- `docs/scheduled-pipeline-evidence.json`
 - `docs/streamlit-acceptance-evidence.json`
 - `pyproject.toml`
 - `render.yaml`
