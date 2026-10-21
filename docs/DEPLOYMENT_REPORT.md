@@ -2,6 +2,15 @@
 
 ## Outcome
 
+**Open operational issue, 2026-10-21:** the owner supplied an Aiven PostgreSQL
+out-of-memory interruption warning and a RAM graph rising to about95% before
+dropping near03:00UTC. Cause and sustained recovery are **NOT VERIFIED**.
+Historical acceptance below does not certify current memory stability. New
+read-only managed diagnostics succeeded: database64,829,119 bytes (61.83MiB),
+work_mem2MiB, no other sessions at collection. No data deletion or upgrade.
+See the [memory investigation](POSTGRES_MEMORY_RUNBOOK.md) and
+[sanitized live result](postgres-memory-diagnostics-evidence.json).
+
 **The bounded free-cloud profile has completed its required acceptance checks:**
 public dashboard, real-model API, Groq tools, nine managed checks, application
 recovery after a measured idle interval, and a genuine scheduled pipeline.
@@ -86,6 +95,7 @@ and mocked unit tests do not certify Aiven, DagsHub or public applications.
 
 | Service/capability | Status | Actual evidence / remaining condition |
 |---|---|---|
+| PostgreSQL OOM cause / sustained recovery | **NOT VERIFIED** | Owner warning and RAM graph establish an incident; read-only run39578655289 succeeded but does not identify the killed process. Provider logs around03:00–03:15UTC required |
 | Managed Kafka produce/consume | **VERIFIED** | [Aggregate 39272455345](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39272455345): partition 1 produced/consumed offset 4672; authentic TLC trip, mutual TLS |
 | Managed PostgreSQL write/read | **VERIFIED** | Same aggregate wrote/read a retained verification record; prior bootstrap persisted 9,232 authentic warehouse trips; actual PostgreSQL 18.6 |
 | Valkey TLS + Feast materialization/retrieval | **VERIFIED** | Same aggregate rematerialized real features; zone 7 pickups=1 matched PostgreSQL with historical event timestamp |

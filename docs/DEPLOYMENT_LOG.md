@@ -1,5 +1,19 @@
 # Free cloud deployment log
 
+### PostgreSQL memory incident — 2026-10-21
+
+- Owner supplied Aiven OOM warning and graph of RAM gradually rising near95%,
+  dropping around03:00UTC. No data deletion or paid plan authorized/performed.
+- Baseline read-only run39578320625 and expanded run39578655289 succeeded.
+  Database61.83MiB, work_mem2MiB, no other sessions at collection. Cumulative
+  temp writes1.49TB are historical I/O, not current disk occupation.
+- Added bounded, sanitized catalog diagnostics; focused unit test passed1/1,
+  Ruff/Black passed. Raw live evidence and memory runbook recorded. No heavy
+  reproduction, database-wide tuning, restart or speculative fix applied.
+- Only evening cloud job in queried18:00–04:00UTC history ended19:22UTC, not
+  overlapping apparent03:00UTC drop. Exact victim/cause needs provider logs;
+  root cause and sustained recovery NOT VERIFIED. Prior acceptance is historical.
+
 Dates use Asia/Karachi. No cloud deployment is claimed without service evidence.
 
 ## 2026-10-17 — D0 audit and implementation plan
