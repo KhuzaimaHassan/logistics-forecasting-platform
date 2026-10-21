@@ -494,3 +494,28 @@ Free plans preserved; no payment-method change was performed by the agent.
   map and ETA715.8s at09:45:27UTC; demand retained across ETA rerun. Error and
   recovery screenshots saved. Narrow API check39402814242 on main SUCCEEDED,
   matching two newly persisted PostgreSQL prediction rows. Cron remains unverified.
+
+### D6 cron observation — 2026-10-20 22:34 Pakistan
+
+- Workflow-specific and repository-wide queries show zero free-cloud schedule
+  runs after intended 20:17 slot. Active workflow, enabled Actions, default main,
+  opt-in true and published cron/blob verified. No archived/disabled repository.
+- Cron NOT VERIFIED: no execution record, root cause not established. Official
+  delay/drop caveat does not prove the cause. GitHub status reports operational.
+- Next configured pipeline slot: 2026-10-21 08:17 Pakistan; earlier event may
+  arrive late. No cron edits/toggles, substituted manual job or automation.
+
+### D6/D7 final core acceptance — 2026-10-21
+
+- Genuine schedule run39482347476 SUCCEEDED on main8a9b4d0. Log CRON17 3,15 * * *;
+  created2026-10-20 19:18:36UTC /2026-10-21 00:18:36PKT; completed19:22:50UTC.
+  Actual creation delay14,496s (4h1m36s). Cause not established; earlier no-run
+  observation retained with its timestamp. No manual trigger counted as cron.
+- Actual pipeline step passed: warehouse9,232, zone features107,155, corridors8,760,
+  next source index9,232, published0. Feature materialization19:22:43.403031UTC
+  renewed1,319 exact keys to86,400s from prior minimum51,222s, values/timestamps
+  unchanged. Sanitized metadata and log result saved in scheduled-pipeline-evidence.
+- Required bounded-profile acceptance checks now have genuine evidence. No uptime
+  or punctuality guarantee; optional Gemini/FAISS and separate train/monitor cron
+  events remain uncertified. Historical automated artifacts retain original scopes.
+- Unrelated current local .env.example and Oracle retry edits remain excluded.

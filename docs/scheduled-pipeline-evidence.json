@@ -1,0 +1,62 @@
+{
+  "status": "VERIFIED",
+  "observed_at": "2026-10-21T08:37:29.362428+00:00",
+  "scope": "Actual GitHub schedule event on main executed the managed bounded Kafka pipeline and Feast retention refresh",
+  "run": {
+    "id": 39482347476,
+    "html_url": "https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39482347476",
+    "event": "schedule",
+    "status": "completed",
+    "conclusion": "success",
+    "head_sha": "8a9b4d0204564d30b47c27a689d27319709faae0",
+    "created_at": "2026-10-20T19:18:36Z",
+    "run_started_at": "2026-10-20T19:18:36Z",
+    "updated_at": "2026-10-20T19:22:50Z",
+    "path": ".github/workflows/free-cloud.yml"
+  },
+  "job": {
+    "id": 118833850842,
+    "name": "operate",
+    "conclusion": "success"
+  },
+  "pipeline_step": {
+    "name": "Process bounded Kafka batch and refresh features",
+    "conclusion": "success",
+    "started_at": "2026-10-20T19:18:54Z",
+    "completed_at": "2026-10-20T19:22:47Z"
+  },
+  "recorded_cron_values": [
+    "17 3,15 * * *"
+  ],
+  "expected_slot_utc": "2026-10-20T15:17:00+00:00",
+  "expected_slot_pakistan": "2026-10-20 20:17 Asia/Karachi",
+  "actual_creation_pakistan": "2026-10-21T00:18:36+05:00",
+  "observed_delay_seconds": 14496.0,
+  "delay_cause": "NOT ESTABLISHED; no internal scheduler telemetry",
+  "pipeline_summary": {
+    "source": "https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_2023-01.parquet",
+    "source_sha256": "9f0e03dd7f8f94ecc15949cdbfd2a4e1fc9ebb41a11882215158c9fc95012e31",
+    "sample_size": 9232,
+    "rejected_source_rows": 768,
+    "next_index": 9232,
+    "published_events": 0,
+    "remaining_sample_events": 0,
+    "feature_checkpoint_index": 9232,
+    "warehouse_rows": 9232,
+    "zone_feature_rows": 107155,
+    "corridor_feature_rows": 8760,
+    "feature_materialized_at": "2026-10-20T19:22:43.403031+00:00",
+    "online_retention": {
+      "feature_values_and_timestamps_unchanged": true,
+      "previous_min_ttl_seconds": 51222,
+      "renewed_entity_keys": 1319,
+      "retention_seconds": 86400
+    },
+    "mode": "scheduled_historical_sample"
+  },
+  "notes": [
+    "Zero new sample publications means the authentic sample was already fully ingested; existing genuine Kafka producer/consumer paths remain intact.",
+    "At least one actual pipeline schedule is verified; this does not certify punctual delivery or separate train/monitor cron execution.",
+    "Earlier no-run observations remain valid at their recorded timestamps."
+  ]
+}
