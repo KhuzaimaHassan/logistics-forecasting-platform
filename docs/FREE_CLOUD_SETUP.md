@@ -615,3 +615,15 @@ billable resources automatically. Usage alerts alone do not establish a hard cap
 Update: owner subsequently confirmed the card was removed. The attached-card
 blocker is resolved on owner confirmation; private Billing was not independently
 inspected. Preserve no-payment-method status and Free compute.
+
+### Genuine scheduled acceptance — 2026-10-21
+
+Run39482347476 on main8a9b4d0 was genuinely triggered by schedule and succeeded.
+It started00:18:36 Pakistan on October21, about4hours after the intended20:17
+October20 slot. Actual managed output retained9,232 trips and renewed1,319 online
+keys to86,400seconds; no new sample publications were needed. The core bounded
+profile acceptance checklist is now evidenced. Prior NOT VERIFIED observations
+were correct at their recorded times and remain in the log. See the final report
+and scheduled-pipeline-evidence.json. This does not promise punctual cron delivery
+or certify separate train/monitor schedule execution. Do not treat manual dispatch
+or continuous polling as scheduled-event proof.
