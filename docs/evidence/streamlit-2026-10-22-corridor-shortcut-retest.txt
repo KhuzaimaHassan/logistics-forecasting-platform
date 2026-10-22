@@ -1,0 +1,183 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+0 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	1 container
+		2 container streamlitApp
+			3 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				4 container
+					5 container
+						6 container
+							7 heading 🚖 Logistics Platform, Value: 1
+								8 text 🚖 Logistics Platform
+							9 text NYC TLC Demand & ETA Forecasting
+							10 heading 🔌 Backend Service, Value: 3
+								11 text 🔌 Backend Service
+							12 container
+								13 button Help for FastAPI Service URL
+								14 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :r3:
+							15 text ● Serving Online (OK)
+							16 button (collapsed) keyboard_arrow_right Model Registry Status, Secondary Actions: Expand
+								17 text keyboard_arrow_right
+								18 text Model Registry Status
+							19 heading 🛡️ Agent Architecture, Value: 3
+								20 text 🛡️ Agent Architecture
+							21 content list
+								22 container
+									23 AXListMarker • 
+									24 text Framework : LangGraph stategraph
+								25 container
+									26 AXListMarker • 
+									27 text Supported providers : API-configured Groq or Gemini
+								28 container
+									29 AXListMarker • 
+									30 text Security Boundary : Read-only tool allowlist (ADR-023)
+							31 text Cloud responses require a live provider; mock responses are disabled.
+							32 button (collapsed) keyboard_arrow_right Allowlisted Tools, Secondary Actions: Expand
+								33 text keyboard_arrow_right
+								34 text Allowlisted Tools
+							35 button 🗑️ Clear Chat History
+								36 text 🗑️ Clear Chat History
+						37 container
+							38 button keyboard_double_arrow_right
+							39 button Fork
+							40 button
+							41 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						42 container
+							43 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								44 text NYC Logistics Forecasting Platform
+								45 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							46 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							47 tab group react-aria2482297811-:re:
+								48 tab (selected, settable, boolean) 🤖 Ops Copilot, ID: react-aria2482297811-:re:-tab-0, Value: 1
+🤖 Ops Copilot
+								49 tab (selectable, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria2482297811-:re:-tab-1, Value: 0
+🗺️ Forecasts & Map
+								50 tab (selectable, settable, boolean) 📈 Pipeline Observability, ID: react-aria2482297811-:re:-tab-2, Value: 0
+📈 Pipeline Observability
+								51 tab (selectable, settable, boolean) 📉 Model Monitoring, ID: react-aria2482297811-:re:-tab-3, Value: 0
+📉 Model Monitoring
+							52 container Description: 🤖 Ops Copilot, ID: react-aria2482297811-:re:-tabpanel-0
+								53 heading Ops Copilot — Conversational Platform Observability, Value: 3, ID: ops-copilot-conversational-platform-observability
+									54 text Ops Copilot — Conversational Platform Observability
+									55 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#ops-copilot-conversational-platform-observability
+								56 text Ask operational questions regarding zone demand, corridor ETAs, model promotion safety gates, or pipeline execution health.
+								57 text Quick Operational Queries:
+								58 button 🚕 Zone 74 Features
+									59 text 🚕 Zone 74 Features
+								60 button ⏱️ Corridor 75 → 237
+									61 text ⏱️ Corridor 75 → 237
+								62 button 🔄 Retraining Status
+									63 text 🔄 Retraining Status
+								64 button 📉 Drift Alerts
+									65 text 📉 Drift Alerts
+								66 button 📋 Promotion Hurdle (ADR-021)
+									67 text 📋 Promotion Hurdle (ADR-021)
+								77 text face
+								78 container Chat message from user
+									79 text What is the observed feature state for zone 74?
+								80 text smart_toy
+								76 container Chat message from assistant
+									81 container
+										82 text Ops Copilot Analysis
+										83 heading Feature State: Zone 74 ([Live Redis Hit]), Value: 3, ID: feature-state-zone-74-live-redis-hit
+											84 container :r2i:
+												85 text Feature State: Zone 
+												86 text 74
+												87 text  ([Live Redis Hit])
+											88 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#feature-state-zone-74-live-redis-hit
+										89 content list
+											90 container
+												91 AXListMarker • 
+												92 text avg_temp_last_1h :  None
+											93 container
+												94 AXListMarker • 
+												95 text day_of_week :  1
+											96 container
+												97 AXListMarker • 
+												98 text hour_of_day :  23
+											99 container
+												100 AXListMarker • 
+												101 text is_holiday :  False
+											102 container
+												103 AXListMarker • 
+												104 text is_precipitating :  False
+											105 container
+												106 AXListMarker • 
+												107 text is_weekend :  False
+											108 container
+												109 AXListMarker • 
+												110 text observed_at :  2023-01-31 23:00:00+00:00
+											111 container
+												112 AXListMarker • 
+												113 text pickup_count_last_15m :  3
+											114 container
+												115 AXListMarker • 
+												116 text pickup_count_last_1h :  3
+											117 container
+												118 AXListMarker • 
+												119 text pickup_count_last_24h :  66
+											120 container
+												121 AXListMarker • 
+												122 text pickup_count_same_hour_last_week :  1
+										123 text Data Sources Cited
+										124 text : 
+										125 text feast_redis:zone_features
+									126 container
+										127 text 🧠  Provider :  groq  ( openai/gpt-oss-20b )
+									128 container
+										129 text ⚡  Latency :  14487.0ms
+									130 container
+										131 text Status:  🟢 OK
+									132 button (collapsed) keyboard_arrow_right 🔍 Inspect Tools (1) & Citations (1), Secondary Actions: Expand
+										133 text keyboard_arrow_right
+										134 text 🔍 Inspect Tools (1) & Citations (1)
+								142 text face
+								143 container Chat message from user
+									144 text What is the observed feature state for corridor 75_237? Use the Forecasts & Map tab for the trained model ETA.
+								145 text smart_toy
+								141 container Chat message from assistant
+									146 container
+										147 text Ops Copilot Analysis
+										148 heading Feature State: Corridor 75_237 ([Live Redis Hit]), Value: 3, ID: feature-state-corridor-75-237-live-redis-hit
+											149 container :r2j:
+												150 text Feature State: Corridor 
+												151 text 75_237
+												152 text  ([Live Redis Hit])
+											153 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#feature-state-corridor-75-237-live-redis-hit
+										154 content list
+											155 container
+												156 AXListMarker • 
+												157 text avg_duration_last_15m :  1003.0
+											158 container
+												159 AXListMarker • 
+												160 text avg_duration_last_1h :  1003.0
+											161 container
+												162 AXListMarker • 
+												163 text avg_traffic_speed_current :  None
+											164 container
+												165 AXListMarker • 
+												166 text distance_km :  3.140000104904175
+											167 container
+												168 AXListMarker • 
+												169 text observed_at :  2023-01-31 23:00:00+00:00
+											170 container
+												171 AXListMarker • 
+												172 text origin_zone_demand_pressure :  9
+										173 text Data Sources Cited
+										174 text : 
+										175 text feast_redis:corridor_features
+									176 container
+										177 text 🧠  Provider :  groq  ( openai/gpt-oss-20b )
+									178 container
+										179 text ⚡  Latency :  14697.2ms
+									180 container
+										181 text Status:  🟢 OK
+									182 button (collapsed) keyboard_arrow_right 🔍 Inspect Tools (1) & Citations (1), Secondary Actions: Expand
+										183 text keyboard_arrow_right
+										184 text 🔍 Inspect Tools (1) & Citations (1)
+								185 container
+									186 text entry area (settable) Ask Ops Copilot about observed features, recent predictions, pipelines or drift...
+									187 button (disabled) Send message
+		71 link streamlit.io/cloud
+		72 link (collapsed) Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan, Secondary Actions: Expand
+
+The focused UI element is 60 button ⏱️ Corridor 75 → 237

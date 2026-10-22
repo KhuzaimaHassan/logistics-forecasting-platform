@@ -2,6 +2,16 @@
 
 ## Outcome
 
+**Latest browser review2026-10-22: core UI paths passed after owner reboot.**
+Demand/map/ETA, registry, pipeline history, actual drift HTML and
+Groq queries against PostgreSQL/Feast worked. An original shortcut requested
+unobserved zone161 and returned503; corrected zone74/corridor75_237 buttons are
+now publicly visible and passed real Groq/Feast retests. First-load90s timeout
+recovered on rerun. RAM stability and file-download completion remain unverified;
+documentation answer relevance is limited. The model's29.9%
+historical MAE decay alert remains genuine. See the
+[full browser verification matrix and evidence](STREAMLIT_ACCEPTANCE_2026-10-22.md).
+
 **Open operational issue, 2026-10-21:** the owner supplied an Aiven PostgreSQL
 out-of-memory interruption warning and a RAM graph rising to about95% before
 dropping near03:00UTC. Cause and sustained recovery are **NOT VERIFIED**.

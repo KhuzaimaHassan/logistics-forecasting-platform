@@ -1,0 +1,320 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+0 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	1 container
+		7 container streamlitApp
+			8 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				9 container
+					10 container
+						11 container
+							12 heading 🚖 Logistics Platform, Value: 1
+								13 text 🚖 Logistics Platform
+							14 text NYC TLC Demand & ETA Forecasting
+							15 heading 🔌 Backend Service, Value: 3
+								16 text 🔌 Backend Service
+							17 container
+								18 button Help for FastAPI Service URL
+								19 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :r3:
+							20 text ● Serving Online (OK)
+							21 button (collapsed) keyboard_arrow_right Model Registry Status, Secondary Actions: Expand
+								22 text keyboard_arrow_right
+								23 text Model Registry Status
+							24 heading 🛡️ Agent Architecture, Value: 3
+								25 text 🛡️ Agent Architecture
+							26 content list
+								27 container
+									28 AXListMarker • 
+									29 text Framework : LangGraph stategraph
+								30 container
+									31 AXListMarker • 
+									32 text Supported providers : API-configured Groq or Gemini
+								33 container
+									34 AXListMarker • 
+									35 text Security Boundary : Read-only tool allowlist (ADR-023)
+							36 text Cloud responses require a live provider; mock responses are disabled.
+							37 button (collapsed) keyboard_arrow_right Allowlisted Tools, Secondary Actions: Expand
+								38 text keyboard_arrow_right
+								39 text Allowlisted Tools
+							40 button 🗑️ Clear Chat History
+								41 text 🗑️ Clear Chat History
+						42 container
+							43 button keyboard_double_arrow_right
+							46 button Fork
+							47 button
+							48 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						49 container
+							50 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								51 text NYC Logistics Forecasting Platform
+								52 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							53 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							54 tab group react-aria9639360214-:re:
+								55 tab (selectable, settable, boolean) 🤖 Ops Copilot, ID: react-aria9639360214-:re:-tab-0, Value: 0
+🤖 Ops Copilot
+								56 tab (selectable, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria9639360214-:re:-tab-1, Value: 0
+🗺️ Forecasts & Map
+								57 tab (selectable, settable, boolean) 📈 Pipeline Observability, ID: react-aria9639360214-:re:-tab-2, Value: 0
+📈 Pipeline Observability
+								58 tab (selected, settable, boolean) 📉 Model Monitoring, ID: react-aria9639360214-:re:-tab-3, Value: 1
+📉 Model Monitoring
+							59 container Description: 📉 Model Monitoring, ID: react-aria9639360214-:re:-tabpanel-3
+								60 heading Evidently AI Model & Data Drift Observability, Value: 3, ID: evidently-ai-model-and-data-drift-observability
+									61 text Evidently AI Model & Data Drift Observability
+									62 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#evidently-ai-model-and-data-drift-observability
+								63 text Scheduled evaluation of observed historical sample features, predictions, and model performance (ADR-026).
+								64 heading High-Level Drift & Performance Scorecards, Value: 3, ID: high-level-drift-and-performance-scorecards
+									65 text High-Level Drift & Performance Scorecards
+									66 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#high-level-drift-and-performance-scorecards
+								67 container
+									68 text Feature Data Drift
+									69 text 🟢 Normal 12.5% share (1/8 cols)
+								70 container
+									71 text Prediction Drift
+									72 text 🟢 Normal Drift score: 0.0232
+								73 container
+									74 text Model MAE Decay
+									75 text 🔴 Performance Decay MAE 0.06 vs Base 0.05 (+29.9%)
+								76 container
+									77 text Action Required: Model Retraining Recommended!
+									78 text 3 recent monitoring reports triggered automated retraining alerts. Review the historical backtest reports before triggering retraining.
+								79 heading Historical Drift & Performance Trends, Value: 3, ID: historical-drift-and-performance-trends
+									80 text Historical Drift & Performance Trends
+									81 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#historical-drift-and-performance-trends
+								82 text 📈 Feature Drift Share Trend (%)
+								83 container
+									84 button Show data
+									85 button Fullscreen
+									86 container Vega visualization
+										87 image
+											88 container X-axis for a discrete scale with 3 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33 Y-axis for a linear scale with values from 0 to 13 Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5 Timestamp: 2026-10-19 11:13:36; Drift Share (%): 12.5 Timestamp: 2026-10-21 10:42:33; Drift Share (%): 12.5
+												89 axis X-axis for a discrete scale with 3 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33
+												90 axis Y-axis for a linear scale with values from 0 to 13
+												91 container Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5
+													92 line mark Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5
+												93 container Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5 Timestamp: 2026-10-19 11:13:36; Drift Share (%): 12.5 Timestamp: 2026-10-21 10:42:33; Drift Share (%): 12.5
+													94 point Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5
+													95 point Timestamp: 2026-10-19 11:13:36; Drift Share (%): 12.5
+													96 point Timestamp: 2026-10-21 10:42:33; Drift Share (%): 12.5
+												97 symbol mark container
+									98 container Click to view actions
+										99 button (collapsed) Secondary Actions: Expand
+											100 image
+								101 text 📊 Drifted Columns Count
+								102 container
+									103 button Show data
+									104 button Fullscreen
+									105 container Vega visualization
+										106 image
+											107 container X-axis for a discrete scale with 3 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33 Y-axis for a linear scale with values from 0.0 to 1.0 Timestamp: 2026-10-19 09:41:41; Drifted Columns: 1 Timestamp: 2026-10-19 11:13:36; Drifted Columns: 1 Timestamp: 2026-10-21 10:42:33; Drifted Columns: 1
+												108 axis X-axis for a discrete scale with 3 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33
+												109 axis Y-axis for a linear scale with values from 0.0 to 1.0
+												110 container Timestamp: 2026-10-19 09:41:41; Drifted Columns: 1 Timestamp: 2026-10-19 11:13:36; Drifted Columns: 1 Timestamp: 2026-10-21 10:42:33; Drifted Columns: 1
+													111 bar Timestamp: 2026-10-19 09:41:41; Drifted Columns: 1
+													112 bar Timestamp: 2026-10-19 11:13:36; Drifted Columns: 1
+													113 bar Timestamp: 2026-10-21 10:42:33; Drifted Columns: 1
+									114 container Click to view actions
+										115 button (collapsed) Secondary Actions: Expand
+											116 image
+								117 heading Interactive Evidently AI HTML Report Viewer, Value: 3, ID: interactive-evidently-ai-html-report-viewer
+									118 text Interactive Evidently AI HTML Report Viewer
+									119 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#interactive-evidently-ai-html-report-viewer
+								120 container
+									121 combo box (collapsed, settable) Description: Select a monitoring report to inspect:, Value: DATA_DRIFT | 2026-10-21 10:42:33 | 🟢 NORMAL (ID: 65f75419), ID: react-aria9639360214-:r22:, Secondary Actions: Expand
+									122 pop up button (collapsed) Description: Open, ID: react-aria9639360214-:r1u:, Secondary Actions: Expand
+								123 container
+									124 text Report Type :  data_drift
+								125 container
+									126 text Severity :  WARNING
+								127 container
+									128 text Retrain Recommended :  False
+								129 container
+									130 text Model version :  1
+								131 container
+									132 button (expanded) keyboard_arrow_down 🚨 View Alert Reasons, Secondary Actions: Collapse
+										133 text keyboard_arrow_down
+										134 text 🚨 View Alert Reasons
+									135 content list
+										136 container
+											137 AXListMarker • 
+											138 text Feature 'hour_of_day' drifted (distance=4.5394e-01, threshold=0.1)
+								142 button 📥 Download HTML Report
+									143 text 📥 Download HTML Report
+								141 container st.iframe
+									144 AXWebArea about:srcdoc
+										145 container root_metric_0d393ee792ce43c89862e28622e97ede
+											146 button
+											147 tab group secondary tabs example
+												148 tab (selected, settable, boolean) Metrics, Value: 1
+												149 tab (selectable, settable, boolean) Tests, Value: 0
+											150 container
+												151 text Dataset Drift
+												152 heading Dataset Drift is NOT detected. Dataset drift detection threshold is 0.4, Value: 5
+													153 text Dataset Drift is NOT detected. Dataset drift detection threshold is 0.4
+												154 text 8
+												155 heading Columns, Value: 5
+													156 text Columns
+												157 text 1
+												158 heading Drifted Columns, Value: 5
+													159 text Drifted Columns
+												160 text 0.125
+												161 heading Share of Drifted Columns, Value: 5
+													162 text Share of Drifted Columns
+												163 heading Data Drift Summary, Value: 5
+													164 text Data Drift Summary
+												165 heading Drift is detected for 12.5% of columns (1 out of 8)., Value: 5
+													166 text Drift is detected for 12.5% of columns (1 out of 8).
+												167 container
+													168 text field (settable) Description: Search, ID: :r3:
+													169 button (disabled) Clear Search
+												170 table
+													171 row
+														172 cell
+															173 button Column
+																174 cell
+																	175 text Column
+														176 cell
+															177 button Type
+																178 cell
+																	179 text Type
+														180 cell
+															181 button Reference Distribution
+																182 cell
+																	183 text Reference Distribution
+														184 cell
+															185 button Current Distribution
+																186 cell
+																	187 text Current Distribution
+														188 cell
+															189 button Data Drift
+																190 cell
+																	191 text Data Drift
+														192 cell
+															193 button Stat Test
+																194 cell
+																	195 text Stat Test
+														196 cell
+															197 button Drift Score
+																198 cell
+																	199 text Drift Score
+													200 row
+														201 cell
+															202 button Detail panel visibility toggle
+														203 cell
+															204 text hour_of_day
+														205 cell
+															206 text num
+														207 cell
+															208 text Detected
+														209 cell
+															210 text Wasserstein distance (normed)
+														211 cell
+															212 text 0.453942
+													213 row
+														214 cell
+															215 button Detail panel visibility toggle
+														216 cell
+															217 text pickup_count_last_1h
+														218 cell
+															219 text num
+														220 cell
+															221 text Not Detected
+														222 cell
+															223 text Wasserstein distance (normed)
+														224 cell
+															225 text 0.023921
+													226 row
+														227 cell
+															228 button Detail panel visibility toggle
+														229 cell
+															230 text pickup_count_last_24h
+														231 cell
+															232 text num
+														233 cell
+															234 text Not Detected
+														235 cell
+															236 text Wasserstein distance (normed)
+														237 cell
+															238 text 0.023451
+													239 row
+														240 cell
+															241 button Detail panel visibility toggle
+														242 cell
+															243 text pickup_count_last_15m
+														244 cell
+															245 text num
+														246 cell
+															247 text Not Detected
+														248 cell
+															249 text Jensen-Shannon distance
+														250 cell
+															251 text 0.021612
+													252 row
+														253 cell
+															254 button Detail panel visibility toggle
+														255 cell
+															256 text pickup_count_same_hour_last_week
+														257 cell
+															258 text num
+														259 cell
+															260 text Not Detected
+														261 cell
+															262 text Wasserstein distance (normed)
+														263 cell
+															264 text 0.018192
+													265 row
+														266 cell
+															267 button Detail panel visibility toggle
+														268 cell
+															269 text day_of_week
+														270 cell
+															271 text num
+														272 cell
+															273 text Not Detected
+														274 cell
+															275 text Jensen-Shannon distance
+														276 cell
+															277 text 0
+													278 row
+														279 cell
+															280 button Detail panel visibility toggle
+														281 cell
+															282 text is_weekend
+														283 cell
+															284 text cat
+														285 cell
+															286 text Not Detected
+														287 cell
+															288 text Jensen-Shannon distance
+														289 cell
+															290 text 0
+													291 row
+														292 cell
+															293 button Detail panel visibility toggle
+														294 cell
+															295 text is_holiday
+														296 cell
+															297 text cat
+														298 cell
+															299 text Not Detected
+														300 cell
+															301 text Jensen-Shannon distance
+														302 cell
+															303 text 0
+												304 table
+													305 row
+														306 cell
+															307 container
+																308 text Rows per page:
+																309 combo box (collapsed) Rows per page: 8 rows, Value: 8 rows, ID: :rm:, Secondary Actions: Expand
+																	310 text 8 rows
+																311 container First Page
+																	312 button (disabled) First Page
+																313 container Previous Page
+																	314 button (disabled) Previous Page
+																315 text 1-8 of 8
+																316 container Next Page
+																	317 button (disabled) Next Page
+																318 container Last Page
+																	319 button (disabled) Last Page
+		3 link streamlit.io/cloud
+		6 link (collapsed) Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan, Secondary Actions: Expand
+
+The focused UI element is 121 combo box (collapsed, settable) Description: Select a monitoring report to inspect:, Value: DATA_DRIFT | 2026-10-21 10:42:33 | 🟢 NORMAL (ID: 65f75419), ID: react-aria9639360214-:r22:, Secondary Actions: Expand
