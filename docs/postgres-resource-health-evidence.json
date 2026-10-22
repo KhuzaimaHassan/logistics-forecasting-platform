@@ -1,0 +1,236 @@
+{
+  "status": "VERIFIED",
+  "scope": "Read-only database diagnostics; no model or deployment acceptance",
+  "sessions": [
+    {
+      "pid": 1699281,
+      "state": "idle",
+      "wait_event_type": "Client",
+      "wait_event": "ClientRead",
+      "elapsed_seconds": 300,
+      "operation": "other"
+    }
+  ],
+  "settings": [
+    {
+      "name": "autovacuum_work_mem",
+      "setting": "-1",
+      "unit": "kB",
+      "source": "default"
+    },
+    {
+      "name": "hash_mem_multiplier",
+      "setting": "2",
+      "unit": null,
+      "source": "default"
+    },
+    {
+      "name": "idle_in_transaction_session_timeout",
+      "setting": "86400000",
+      "unit": "ms",
+      "source": "configuration file"
+    },
+    {
+      "name": "jit",
+      "setting": "on",
+      "unit": null,
+      "source": "configuration file"
+    },
+    {
+      "name": "maintenance_work_mem",
+      "setting": "91136",
+      "unit": "kB",
+      "source": "configuration file"
+    },
+    {
+      "name": "max_connections",
+      "setting": "20",
+      "unit": null,
+      "source": "configuration file"
+    },
+    {
+      "name": "max_parallel_maintenance_workers",
+      "setting": "2",
+      "unit": null,
+      "source": "default"
+    },
+    {
+      "name": "max_parallel_workers_per_gather",
+      "setting": "2",
+      "unit": null,
+      "source": "default"
+    },
+    {
+      "name": "shared_buffers",
+      "setting": "24192",
+      "unit": "8kB",
+      "source": "configuration file"
+    },
+    {
+      "name": "statement_timeout",
+      "setting": "10000",
+      "unit": "ms",
+      "source": "session"
+    },
+    {
+      "name": "temp_file_limit",
+      "setting": "-1",
+      "unit": "kB",
+      "source": "default"
+    },
+    {
+      "name": "work_mem",
+      "setting": "2048",
+      "unit": "kB",
+      "source": "configuration file"
+    }
+  ],
+  "statistics": {
+    "numbackends": 2,
+    "temp_files": 206584,
+    "temp_bytes": 1485810565890,
+    "deadlocks": 0,
+    "stats_reset": null,
+    "postmaster_started_at": "2026-10-18 10:22:40.35162+00"
+  },
+  "largest_relations": [
+    {
+      "schemaname": "warehouse",
+      "relname": "zone_demand_features_hourly",
+      "total_bytes": 36945920,
+      "n_live_tup": 107155,
+      "n_dead_tup": 0,
+      "last_autovacuum": "2026-10-22 08:43:04.911876+00",
+      "last_autoanalyze": "2026-10-22 08:43:05.375834+00"
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "monitoring_html",
+      "total_bytes": 16777216,
+      "n_live_tup": 9,
+      "n_dead_tup": 0,
+      "last_autovacuum": null,
+      "last_autoanalyze": null
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "trips",
+      "total_bytes": 3047424,
+      "n_live_tup": 9232,
+      "n_dead_tup": 0,
+      "last_autovacuum": "2026-10-18 11:29:26.300334+00",
+      "last_autoanalyze": "2026-10-18 11:30:26.374692+00"
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "corridor_duration_features_hourly",
+      "total_bytes": 2695168,
+      "n_live_tup": 8760,
+      "n_dead_tup": 0,
+      "last_autovacuum": "2026-10-22 08:43:05.4647+00",
+      "last_autoanalyze": "2026-10-22 08:43:05.53456+00"
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "feast_entity_df_f0b091df49614ddeb9d57a83779a078b",
+      "total_bytes": 442368,
+      "n_live_tup": 6647,
+      "n_dead_tup": 0,
+      "last_autovacuum": "2026-10-18 15:10:28.535238+00",
+      "last_autoanalyze": "2026-10-18 15:10:28.612027+00"
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "feast_entity_df_9aebc1ec0dc141dd9a402fb4e4cc3e89",
+      "total_bytes": 442368,
+      "n_live_tup": 6647,
+      "n_dead_tup": 0,
+      "last_autovacuum": "2026-10-18 15:18:28.637521+00",
+      "last_autoanalyze": "2026-10-18 15:18:28.790586+00"
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "predictions",
+      "total_bytes": 253952,
+      "n_live_tup": 1215,
+      "n_dead_tup": 0,
+      "last_autovacuum": "2026-10-19 09:37:41.071357+00",
+      "last_autoanalyze": "2026-10-19 09:37:41.080858+00"
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "taxi_zones",
+      "total_bytes": 122880,
+      "n_live_tup": 263,
+      "n_dead_tup": 0,
+      "last_autovacuum": "2026-10-19 14:49:57.851279+00",
+      "last_autoanalyze": "2026-10-19 14:49:57.865928+00"
+    },
+    {
+      "schemaname": "feast",
+      "relname": "feature_views",
+      "total_bytes": 90112,
+      "n_live_tup": 2,
+      "n_dead_tup": 7,
+      "last_autovacuum": null,
+      "last_autoanalyze": "2026-10-21 19:21:54.687907+00"
+    },
+    {
+      "schemaname": "feast",
+      "relname": "feast_metadata",
+      "total_bytes": 81920,
+      "n_live_tup": 2,
+      "n_dead_tup": 10,
+      "last_autovacuum": "2026-10-21 08:40:13.603009+00",
+      "last_autoanalyze": "2026-10-20 19:23:03.496244+00"
+    },
+    {
+      "schemaname": "warehouse",
+      "relname": "monitoring_reports",
+      "total_bytes": 73728,
+      "n_live_tup": 9,
+      "n_dead_tup": 5,
+      "last_autovacuum": null,
+      "last_autoanalyze": null
+    },
+    {
+      "schemaname": "feast",
+      "relname": "feature_view_version_history",
+      "total_bytes": 49152,
+      "n_live_tup": 2,
+      "n_dead_tup": 0,
+      "last_autovacuum": null,
+      "last_autoanalyze": null
+    },
+    {
+      "schemaname": "feast",
+      "relname": "projects",
+      "total_bytes": 49152,
+      "n_live_tup": 1,
+      "n_dead_tup": 0,
+      "last_autovacuum": null,
+      "last_autoanalyze": null
+    },
+    {
+      "schemaname": "feast",
+      "relname": "data_sources",
+      "total_bytes": 49152,
+      "n_live_tup": 2,
+      "n_dead_tup": 0,
+      "last_autovacuum": null,
+      "last_autoanalyze": null
+    },
+    {
+      "schemaname": "feast",
+      "relname": "entities",
+      "total_bytes": 49152,
+      "n_live_tup": 3,
+      "n_dead_tup": 0,
+      "last_autovacuum": null,
+      "last_autoanalyze": null
+    }
+  ],
+  "limitations": "Instantaneous sessions and cumulative counters, not RAM telemetry. A postmaster start time alone does not prove an OOM cause. Database size excludes other databases and provider disk overhead.",
+  "database_bytes": 70407871,
+  "generated_at": "2026-10-22T09:16:30.933006+00:00"
+}

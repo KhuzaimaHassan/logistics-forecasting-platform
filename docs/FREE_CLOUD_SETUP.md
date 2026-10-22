@@ -618,6 +618,11 @@ inspected. Preserve no-payment-method status and Free compute.
 
 ### Genuine scheduled acceptance — 2026-10-21
 
+Operational follow-up: the owner later reported a PostgreSQL OOM interruption.
+Do not delete data or upgrade to treat a RAM alert. Follow the
+[memory investigation/runbook](POSTGRES_MEMORY_RUNBOOK.md); current cause and
+sustained recovery are not verified by historical deployment acceptance.
+
 Run39482347476 on main8a9b4d0 was genuinely triggered by schedule and succeeded.
 It started00:18:36 Pakistan on October21, about4hours after the intended20:17
 October20 slot. Actual managed output retained9,232 trips and renewed1,319 online
