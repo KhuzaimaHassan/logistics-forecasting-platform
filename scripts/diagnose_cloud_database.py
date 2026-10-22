@@ -29,10 +29,48 @@ def collect(connection):
         sessions = [dict(row) for row in cursor.fetchall()]
         cursor.execute("SELECT pg_database_size(current_database()) AS database_bytes")
         capacity = dict(cursor.fetchone())
+        cursor.execute("""
+            SELECT name, setting, unit, source
+            FROM pg_settings
+            WHERE name IN (
+                'shared_buffers', 'work_mem', 'hash_mem_multiplier',
+                'maintenance_work_mem', 'autovacuum_work_mem',
+                'max_connections', 'max_parallel_workers_per_gather',
+                'max_parallel_maintenance_workers', 'temp_file_limit',
+                'statement_timeout', 'idle_in_transaction_session_timeout', 'jit'
+            )
+            ORDER BY name
+        """)
+        settings = [dict(row) for row in cursor.fetchall()]
+        cursor.execute("""
+            SELECT numbackends, temp_files, temp_bytes, deadlocks,
+                   stats_reset::text,
+                   pg_postmaster_start_time()::text AS postmaster_started_at
+            FROM pg_stat_database WHERE datname = current_database()
+        """)
+        statistics = dict(cursor.fetchone())
+        cursor.execute("""
+            SELECT schemaname, relname,
+                   pg_total_relation_size(relid) AS total_bytes,
+                   n_live_tup, n_dead_tup,
+                   last_autovacuum::text, last_autoanalyze::text
+            FROM pg_stat_user_tables
+            ORDER BY pg_total_relation_size(relid) DESC
+            LIMIT 15
+        """)
+        relations = [dict(row) for row in cursor.fetchall()]
     return {
         "status": "VERIFIED",
         "scope": "Read-only database diagnostics; no model or deployment acceptance",
         "sessions": sessions,
+        "settings": settings,
+        "statistics": statistics,
+        "largest_relations": relations,
+        "limitations": (
+            "Instantaneous sessions and cumulative counters, not RAM telemetry. "
+            "A postmaster start time alone does not prove an OOM cause. "
+            "Database size excludes other databases and provider disk overhead."
+        ),
         **capacity,
     }
 

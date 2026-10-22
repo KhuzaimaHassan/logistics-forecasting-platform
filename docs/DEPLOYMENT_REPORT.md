@@ -2,6 +2,15 @@
 
 ## Outcome
 
+**Open operational issue, 2026-10-21:** the owner supplied an Aiven PostgreSQL
+out-of-memory interruption warning and a RAM graph rising to about95% before
+dropping near03:00UTC. Cause and sustained recovery are **NOT VERIFIED**.
+Historical acceptance below does not certify current memory stability. New
+read-only managed diagnostics succeeded: database64,829,119 bytes (61.83MiB),
+work_mem2MiB, no other sessions at collection. No data deletion or upgrade.
+See the [memory investigation](POSTGRES_MEMORY_RUNBOOK.md) and
+[sanitized live result](postgres-memory-diagnostics-evidence.json).
+
 **The bounded free-cloud profile has completed its required acceptance checks:**
 public dashboard, real-model API, Groq tools, nine managed checks, application
 recovery after a measured idle interval, and a genuine scheduled pipeline.
@@ -81,11 +90,21 @@ See [official provider limits](FREE_TIER_RESEARCH.md) and
 
 ## Verification matrix
 
+Resource-saving follow-up2026-10-22 (ADR-030): monitoring now checks idempotency
+before historical Feast extraction; runtime/dependency fingerprints avoid
+docs-only re-evaluation. Five focused local checks passed. Source CI39753862820
+on4c169fa passed402 tests,1 skipped,45 warnings (57.66s). No full managed training,
+feature-table rebuild or stress run was launched for this follow-up.
+
 Only genuine observations below certify deployed behavior. Disposable CI services
 and mocked unit tests do not certify Aiven, DagsHub or public applications.
 
 | Service/capability | Status | Actual evidence / remaining condition |
 |---|---|---|
+| Bounded managed PIT query probe | **VERIFIED** | [39753857626](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39753857626),4c169fa: four zone and four corridor rows matched real PostgreSQL values/timestamps. Read-only,8s statement/2s lock timeout,2MiB work_mem,no parallel gather. Read phases5.68s/2.35s. [Evidence](query-budget-evidence.json); not a full training benchmark |
+| Resource follow-up public API | **VERIFIED** | [39754119428](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39754119428): demand0.71 and ETA715.8s, Productionv1, two new durable prediction rows matched. [Scoped evidence](resource-api-evidence.json); other acceptance scopes were not rerun |
+| Resource follow-up database health | **VERIFIED** | [39754124002](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39754124002):70,407,871 bytes (67.15MiB), two backends including diagnostic, zero recorded deadlocks. [Snapshot](postgres-resource-health-evidence.json). Not host RAM telemetry or sustained OOM recovery |
+| PostgreSQL OOM cause / sustained recovery | **NOT VERIFIED** | Owner warning and RAM graph establish an incident; read-only run39578655289 succeeded but does not identify the killed process. Provider logs around03:00–03:15UTC required |
 | Managed Kafka produce/consume | **VERIFIED** | [Aggregate 39272455345](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/39272455345): partition 1 produced/consumed offset 4672; authentic TLC trip, mutual TLS |
 | Managed PostgreSQL write/read | **VERIFIED** | Same aggregate wrote/read a retained verification record; prior bootstrap persisted 9,232 authentic warehouse trips; actual PostgreSQL 18.6 |
 | Valkey TLS + Feast materialization/retrieval | **VERIFIED** | Same aggregate rematerialized real features; zone 7 pickups=1 matched PostgreSQL with historical event timestamp |

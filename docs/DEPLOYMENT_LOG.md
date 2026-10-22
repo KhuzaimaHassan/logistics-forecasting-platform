@@ -1,5 +1,19 @@
 # Free cloud deployment log
 
+### PostgreSQL memory incident — 2026-10-21
+
+- Owner supplied Aiven OOM warning and graph of RAM gradually rising near95%,
+  dropping around03:00UTC. No data deletion or paid plan authorized/performed.
+- Baseline read-only run39578320625 and expanded run39578655289 succeeded.
+  Database61.83MiB, work_mem2MiB, no other sessions at collection. Cumulative
+  temp writes1.49TB are historical I/O, not current disk occupation.
+- Added bounded, sanitized catalog diagnostics; focused unit test passed1/1,
+  Ruff/Black passed. Raw live evidence and memory runbook recorded. No heavy
+  reproduction, database-wide tuning, restart or speculative fix applied.
+- Only evening cloud job in queried18:00–04:00UTC history ended19:22UTC, not
+  overlapping apparent03:00UTC drop. Exact victim/cause needs provider logs;
+  root cause and sustained recovery NOT VERIFIED. Prior acceptance is historical.
+
 Dates use Asia/Karachi. No cloud deployment is claimed without service evidence.
 
 ## 2026-10-17 — D0 audit and implementation plan
@@ -519,3 +533,31 @@ Free plans preserved; no payment-method change was performed by the agent.
   or punctuality guarantee; optional Gemini/FAISS and separate train/monitor cron
   events remain uncertified. Historical automated artifacts retain original scopes.
 - Unrelated current local .env.example and Oracle retry edits remain excluded.
+
+### Resource improvements — 2026-10-22
+
+- Moved monitoring's idempotency check ahead of historical Feast extraction.
+  Runtime/dependency digests replace Git SHA so docs-only commits do not trigger
+  unnecessary retraining/monitoring. One initial cache miss is expected; no full
+  training run was launched to seed the new fingerprint.
+- Added an opt-in eight-row genuine Feast PIT query-budget probe using read-only
+  SELECT, 8s statement timeout, 2s lock timeout, 2MiB work_mem and no parallel
+  gather workers. No feature rebuild, entity-table upload, deletion or stress test.
+- Local and managed validation results are recorded after execution. A passing
+  bounded probe does not certify the unresolved OOM cause or sustained recovery.
+
+### Resource validation results — 2026-10-22
+
+- Five focused local tests, Ruff/Black and offline cloud-config validation passed.
+  Source CI39753862820 on4c169fa:402 passed,1 skipped,45 warnings in57.66s.
+- Managed query-budget39753857626 VERIFIED: four zone and four corridor Feast PIT
+  rows matched actual offline values and timestamps. Read phases5.68s and2.35s;
+  read-only,8s statement/2s lock timeout,2MiB work_mem,no parallel gather workers.
+- Scoped public API39754119428 VERIFIED: demand0.71, ETA715.8s, real Productionv1,
+  two newly persisted forecast rows matched. No extra load/stress repetitions.
+- Read-only health39754124002 VERIFIED: database70,407,871 bytes (~67MiB), two
+  backends including diagnostic, zero recorded deadlocks. Postmaster still Oct18.
+  Cumulative temporary writes cannot be attributed to this probe from day-apart
+  snapshots. No claim of measured peak RAM, solved OOM cause or sustained recovery.
+- Sanitized query-budget, API and database-health artifacts committed separately
+  from prior acceptance artifacts, whose original scopes remain unchanged.
