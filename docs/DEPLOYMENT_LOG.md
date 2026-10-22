@@ -561,3 +561,20 @@ Free plans preserved; no payment-method change was performed by the agent.
   snapshots. No claim of measured peak RAM, solved OOM cause or sustained recovery.
 - Sanitized query-budget, API and database-health artifacts committed separately
   from prior acceptance artifacts, whose original scopes remain unchanged.
+
+### Browser acceptance and observed-entity shortcuts — 2026-10-22
+
+- Public Streamlit loaded real demand3.69/5.55/2.26 and ETA715.8s, kept demand
+  after ETA rerun, displayed HEALTHY10 recent pipeline runs, Productionv1 models,
+  drift trends and actual interactive performance/data-drift HTML reports.
+- Initial90s health timeout recovered on rerun; no dummy predictions. A separate
+  readiness200 confirmed PostgreSQL/Redis/MLflow and genuine loaded models.
+- Original Zone161 quick action returned503. Actual /zones reports161 unobserved,
+  while74 is observed. Pipeline question passed in Streamlit with real Groq
+  gpt-oss-20b,query_pipeline_status and warehouse.pipeline_runs citation873.3ms.
+  Scoped agent check39759151789 also passed; the provider is not globally down.
+- Corrected cloud shortcuts to select observed zone/corridor metadata, disable
+  missing examples, and distinguish feature inspection from model ETA. Reuse
+  the existing /zones read rather than adding a per-rerun request. Seven focused
+  offline UI tests and Ruff/Black passed. Live corrected shortcut retest pending.
+- No training, rebuilding, destructive action, new account or paid plan used.
