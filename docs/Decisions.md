@@ -686,3 +686,31 @@ interpretation untrusted, omit their flags from actionable alert aggregation,
 and warn rather than presenting them as current evidence. A monitoring database
 exception is an error, not an empty/healthy report set. Performance metrics use
 case-insensitive names consistently with the dashboard.
+
+## ADR-030: Avoid redundant cloud monitoring queries and bound live probes
+
+**Date:** 2026-10-22. **Status:** Accepted.
+
+An owner-reported PostgreSQL OOM incident remains unattributed. Source review
+found that monitoring extracted the entire historical Feast dataset before its
+idempotency check, and Git commit SHA invalidated completed training/monitoring
+on documentation-only releases. These are avoidable workload costs regardless
+of the incident's cause.
+
+Check the existing source/checkpoint/model fingerprint before historical dataset
+retrieval. Hash runtime Python sources, Feast YAML and root pyproject/uv.lock
+instead of Git SHA. Normalize CRLF for equivalent Windows/Linux checkouts; missing
+required files fail explicitly. This is conservative: any runtime source change
+invalidates prior job results. A one-time cache miss occurs when migrating from
+old SHA-based fingerprints; do not run full training just to populate a cache.
+Retain the prior report and genuine sample, and keep skipped-job output explicit.
+No new retention/deletion policy, provider configuration or core-stack change.
+
+For managed validation, a manual query-budget operation reads only four zone and
+four corridor observations using the existing Feast-generated point-in-time SQL.
+Feast's supported embed_query mode avoids creating/uploading entity tables. Execute
+that SELECT on a read-only transaction with 8s statement timeout, 2s lock timeout,
+2MiB work_mem and zero parallel gather workers. Compare all eight values and
+entity timestamps with the actual offline source. This deliberately validates a
+small query, not production training throughput or OOM recovery. Do not certify
+host RAM stability from a successful query or cumulative temp-file counters.

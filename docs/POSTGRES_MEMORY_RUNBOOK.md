@@ -90,3 +90,19 @@ Official references:
 [PostgreSQL18 resource consumption](https://www.postgresql.org/docs/18/runtime-config-resource.html).
 Operation and parallel-worker memory can multiply across plans and sessions;
 small persistent tables do not guarantee a small RAM peak.
+
+## Resource-saving follow-up — 2026-10-22
+
+Monitoring now checks whether the sample/model/code were already evaluated before
+issuing historical Feast queries. Training and monitoring fingerprints use a digest
+of runtime Python sources, Feast YAML and root pyproject/uv.lock; docs-only commits
+no longer cause re-evaluation. Source/checkpoint/model/runtime changes still do.
+The first run after migration may recompute once; no full training was manually
+launched solely to seed fingerprints. See ADR-030.
+
+A new manual operation, `query-budget`, compares four real zone and four real
+corridor Feast PIT results with managed offline values. It embeds the entity SELECT
+instead of uploading entity tables, and executes read-only with 8s statement and
+2s lock timeouts, work_mem2MiB and parallel gather workers disabled. This small
+check is not a full training benchmark or proof that the OOM incident is fixed.
+Use the existing free-cloud workflow environment; no new secrets are required.

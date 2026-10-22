@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import json
 import logging
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -39,6 +38,22 @@ def observation_window(engine):
     return start + timedelta(days=8), end - timedelta(hours=1), end - timedelta(days=7)
 
 
+def runtime_code_digest(root=None):
+    """Invalidate on runtime/dependency changes, not documentation or Git ancestry."""
+    root = Path(root) if root is not None else Path(__file__).resolve().parents[2]
+    files = [root / "pyproject.toml", root / "uv.lock"]
+    files.extend(sorted((root / "src").rglob("*.py")))
+    files.extend(sorted((root / "src" / "features").glob("*.yaml")))
+    digest = hashlib.sha256()
+    for path in files:
+        # Missing deployment inputs must fail rather than reuse a stale result.
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def job_fingerprint(engine, model_version=""):
     with engine.connect() as connection:
         value = connection.execute(
@@ -51,7 +66,7 @@ def job_fingerprint(engine, model_version=""):
     payload = [
         metadata.get("source_sha256"),
         metadata.get("next_index"),
-        os.getenv("GITHUB_SHA", "local"),
+        runtime_code_digest(),
         model_version,
     ]
     return hashlib.sha256(json.dumps(payload).encode()).hexdigest(), metadata
@@ -112,13 +127,6 @@ def monitor():
     engine = get_engine()
     require_capacity(engine)
     start, end, split = observation_window(engine)
-    dataset = generate_demand_training_dataset(
-        store=get_feature_store(), engine=engine, start_time=start, end_time=end
-    )
-    if dataset.empty:
-        raise RuntimeError(
-            "No observed historical monitoring rows; synthetic references are disabled"
-        )
     loader = ModelLoaderService()
     model = loader.load_demand_model()
     fingerprint, metadata = job_fingerprint(engine, model.version)
@@ -127,6 +135,13 @@ def monitor():
             "status": "skipped",
             "reason": "same observed windows and champion already monitored",
         }
+    dataset = generate_demand_training_dataset(
+        store=get_feature_store(), engine=engine, start_time=start, end_time=end
+    )
+    if dataset.empty:
+        raise RuntimeError(
+            "No observed historical monitoring rows; synthetic references are disabled"
+        )
     x, target = prepare_demand_features(dataset)
     dataset["predicted_value"] = model.predict(x).clip(min=0)
     dataset["actual_value"] = target.to_numpy()

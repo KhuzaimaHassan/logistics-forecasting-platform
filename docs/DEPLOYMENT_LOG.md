@@ -533,3 +533,15 @@ Free plans preserved; no payment-method change was performed by the agent.
   or punctuality guarantee; optional Gemini/FAISS and separate train/monitor cron
   events remain uncertified. Historical automated artifacts retain original scopes.
 - Unrelated current local .env.example and Oracle retry edits remain excluded.
+
+### Resource improvements — 2026-10-22
+
+- Moved monitoring's idempotency check ahead of historical Feast extraction.
+  Runtime/dependency digests replace Git SHA so docs-only commits do not trigger
+  unnecessary retraining/monitoring. One initial cache miss is expected; no full
+  training run was launched to seed the new fingerprint.
+- Added an opt-in eight-row genuine Feast PIT query-budget probe using read-only
+  SELECT, 8s statement timeout, 2s lock timeout, 2MiB work_mem and no parallel
+  gather workers. No feature rebuild, entity-table upload, deletion or stress test.
+- Local and managed validation results are recorded after execution. A passing
+  bounded probe does not certify the unresolved OOM cause or sustained recovery.
