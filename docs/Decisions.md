@@ -714,3 +714,9 @@ that SELECT on a read-only transaction with 8s statement timeout, 2s lock timeou
 entity timestamps with the actual offline source. This deliberately validates a
 small query, not production training throughput or OOM recovery. Do not certify
 host RAM stability from a successful query or cumulative temp-file counters.
+
+ADR-029 browser follow-up (2026-10-22): cloud quick-action examples must refer to
+observed sample entities, not hardcoded full-dataset zone161/corridor161_236.
+Use the existing zone metadata read once per rerun and available_corridors to
+choose examples, disabling unavailable examples. Name feature inspection honestly;
+the trained-model forecasts remain on Forecasts & Map. Preserve local examples.

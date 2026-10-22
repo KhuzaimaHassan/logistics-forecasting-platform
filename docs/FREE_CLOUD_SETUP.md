@@ -1,7 +1,8 @@
 # Free cloud setup
 
-**No public application is currently claimed live. Managed Aiven and DagsHub
-checks have passed; see the report for exact scope.** Read
+**Public dashboard and API are deployed; dated managed-service and browser
+checks are recorded in the report. The PostgreSQL memory investigation remains
+open; historical acceptance is not an uptime or RAM-stability guarantee.** Read
 [DEPLOYMENT_REPORT.md](DEPLOYMENT_REPORT.md) for verification and
 [FREE_TIER_RESEARCH.md](FREE_TIER_RESEARCH.md) for current official offers.
 

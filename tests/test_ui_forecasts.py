@@ -4,6 +4,21 @@ from unittest.mock import Mock, patch
 
 from streamlit.testing.v1 import AppTest
 
+from ui.app import choose_agent_examples
+
+
+def test_cloud_examples_only_offer_observed_entities():
+    zones = [
+        {"zone_id": 161, "has_observed_features": False},
+        {"zone_id": 75, "has_observed_features": True},
+    ]
+    assert choose_agent_examples(True, zones, {"available_corridors": ["75_237"]}) == (
+        75,
+        "75_237",
+    )
+    assert choose_agent_examples(True, [], {}) == (None, None)
+    assert choose_agent_examples(False, [], {}) == (161, "161_236")
+
 
 def test_forecasts_survive_eta_rerun_and_disabled_agent_is_honest(monkeypatch):
     api = "https://api.example.test"
@@ -70,6 +85,8 @@ def test_forecasts_survive_eta_rerun_and_disabled_agent_is_honest(monkeypatch):
     ):
         app = AppTest.from_file("ui/app.py", default_timeout=30).run()
         assert not app.exception
+        assert any(button.label == "🚕 Zone 74 Features" for button in app.button)
+        assert any(button.label == "⏱️ Corridor 75 → 237" for button in app.button)
         assert all(
             button.disabled for button in app.button if "Drift Alerts" in button.label
         )

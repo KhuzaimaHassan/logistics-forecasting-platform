@@ -156,6 +156,21 @@ def get_monitoring_report_html(base_url: str, report_id: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
+def choose_agent_examples(cloud_mode, zones, observations):
+    """Offer only observed cloud entities; preserve the full-stack local examples."""
+    if not cloud_mode:
+        return 161, "161_236"
+    available = sorted(
+        z["zone_id"] for z in zones if z.get("has_observed_features", False)
+    )
+    zone = 74 if 74 in available else (available[0] if available else None)
+    corridors = observations.get("available_corridors", [])
+    corridor = (
+        "75_237" if "75_237" in corridors else (corridors[0] if corridors else None)
+    )
+    return zone, corridor
+
+
 def main():
     with st.sidebar:
         st.title("🚖 Logistics Platform")
@@ -196,6 +211,20 @@ def main():
         except (requests.RequestException, ValueError):
             deployment = {}
         cloud_mode = deployment.get("mode") == "scheduled"
+        zones = []
+        zones_error = False
+        if deployment:
+            try:
+                zones_response = requests.get(
+                    f"{api_url.rstrip('/')}/zones", timeout=API_TIMEOUT
+                )
+                zones_response.raise_for_status()
+                zones = zones_response.json().get("zones", [])
+            except (requests.RequestException, ValueError):
+                zones_error = True
+        example_zone, example_corridor = choose_agent_examples(
+            cloud_mode, zones, deployment.get("observations", {})
+        )
         agent_available = bool(deployment.get("agent_enabled")) and (
             not cloud_mode or bool(os.getenv("AGENT_API_KEY"))
         )
@@ -272,18 +301,31 @@ def main():
 
         with col1:
             if st.button(
-                "🚕 Zone 161 Demand",
+                (
+                    f"🚕 Zone {example_zone} Features"
+                    if example_zone
+                    else "🚕 Zone unavailable"
+                ),
                 use_container_width=True,
-                disabled=not agent_available,
+                disabled=not agent_available or example_zone is None,
             ):
-                quick_query = "What is the current feature state and demand forecast for zone 161?"
+                quick_query = (
+                    f"What is the observed feature state for zone {example_zone}?"
+                )
         with col2:
             if st.button(
-                "⏱️ Corridor 161 → 236 ETA",
+                (
+                    f"⏱️ Corridor {example_corridor.replace('_', ' → ')}"
+                    if example_corridor
+                    else "⏱️ Corridor unavailable"
+                ),
                 use_container_width=True,
-                disabled=not agent_available,
+                disabled=not agent_available or example_corridor is None,
             ):
-                quick_query = "What is the ETA prediction for corridor 161 to 236?"
+                quick_query = (
+                    f"What is the observed feature state for corridor {example_corridor}? "
+                    "Use the Forecasts & Map tab for the trained model ETA."
+                )
         with col3:
             if st.button(
                 "🔄 Retraining Status",
@@ -348,7 +390,7 @@ def main():
 
         # Chat Input Box
         user_input = st.chat_input(
-            "Ask Ops Copilot an operational question (e.g. 'Show recent predictions for zone 161')...",
+            "Ask Ops Copilot about observed features, recent predictions, pipelines or drift...",
             disabled=not agent_available,
         )
         prompt_to_submit = quick_query or user_input
@@ -452,11 +494,8 @@ def main():
             st.caption(
                 f"Last successful feature materialization: {observations.get('feature_materialized_at') or 'not recorded yet'}"
             )
-            zones_response = requests.get(
-                f"{api_url.rstrip('/')}/zones", timeout=API_TIMEOUT
-            )
-            zones_response.raise_for_status()
-            zones = zones_response.json().get("zones", [])
+            if zones_error:
+                raise ValueError("Observed zone metadata is unavailable")
             labels = {
                 z["zone_id"]: f"{z['zone_id']} · {z['zone_name']}"
                 for z in zones

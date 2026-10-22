@@ -561,3 +561,63 @@ Free plans preserved; no payment-method change was performed by the agent.
   snapshots. No claim of measured peak RAM, solved OOM cause or sustained recovery.
 - Sanitized query-budget, API and database-health artifacts committed separately
   from prior acceptance artifacts, whose original scopes remain unchanged.
+
+### Browser acceptance and observed-entity shortcuts — 2026-10-22
+
+- Public Streamlit loaded real demand3.69/5.55/2.26 and ETA715.8s, kept demand
+  after ETA rerun, displayed HEALTHY10 recent pipeline runs, Productionv1 models,
+  drift trends and actual interactive performance/data-drift HTML reports.
+- Initial90s health timeout recovered on rerun; no dummy predictions. A separate
+  readiness200 confirmed PostgreSQL/Redis/MLflow and genuine loaded models.
+- Original Zone161 quick action returned503. Actual /zones reports161 unobserved,
+  while74 is observed. Pipeline question passed in Streamlit with real Groq
+  gpt-oss-20b,query_pipeline_status and warehouse.pipeline_runs citation873.3ms.
+  Scoped agent check39759151789 also passed; the provider is not globally down.
+- Corrected cloud shortcuts to select observed zone/corridor metadata, disable
+  missing examples, and distinguish feature inspection from model ETA. Reuse
+  the existing /zones read rather than adding a per-rerun request. Seven focused
+  offline UI tests and Ruff/Black passed. Live corrected shortcut retest pending.
+- No training, rebuilding, destructive action, new account or paid plan used.
+
+### Browser verification results and remaining owner action — 2026-10-22
+
+- All UI fix checks passed on eba7168:source CI39760092043 (403 tests passed,
+  one skipped),Compose,512MiB runtime and all ARM64 builds39760078913.
+- Additional public Streamlit prompts passed with real Groq:drift1124.8ms,
+  zone74 Feast6793.2ms,corridor75_237 Feast1283.7ms. Documentation search746.7ms
+  retrieved sources but answer relevance remains limited; FAISS not certified.
+- Actual fullscreen map displayed three forecast markers. Captured screenshots
+  and accessibility snapshots; full scoped matrix in STREAMLIT_ACCEPTANCE_2026-10-22.md.
+- The public app still served original161 shortcuts after reload. Owner reboot
+  requested through the account-access question; corrected control deployment
+  and retest NOT VERIFIED. Supported feature prompts worked when entered manually.
+- HTML download button exercised but saved file not independently confirmed.
+  Startup90s timeout recovered; no blanket all-targets/uptime/OOM recovery claim.
+
+### Owner reboot and actual shortcut retest — 2026-10-22
+
+- Owner confirmed reboot. Public dashboard now displayed Zone74 Features and
+  Corridor75→237 controls and the updated placeholder; Serving Online (OK).
+- Clicked both actual buttons. Zone74:real Groq gpt-oss-20b,get_features,live Redis
+  hit,15m3/1h3/24h66/weekly1,14487.0ms,statussuccess,zone-feature citation.
+- Corridor75_237:real Groq,get_features,live Redis hit,duration1003s,distance3.14km,
+  demand pressure9,14697.2ms,statussuccess,corridor-feature citation. Both retain
+  genuine historical observation timestamp Jan31 2023 23:00UTC.
+- Corrected control deployment/retest VERIFIED; source-fix owner blocker resolved.
+  Earlier failed shortcut and initial timeout retained as historical observations.
+  No claim of sustained OOM recovery, perfect document QA or verified saved HTML.
+
+## 2026-10-22 — GitHub About and deployment README
+
+Updated repository About with a concise platform description, public Streamlit
+website and relevant technology topics. Rewrote README around the actual deployed
+Free profile, historical sample provenance, current dashboard tabs, managed
+architecture, real API routes and dated verification evidence. Removed unqualified
+real-time, latency, mock-uptime and obsolete benchmark claims from the project
+landing page. Preserved reference-stack documentation links and explicitly retained
+the open PostgreSQL OOM issue, cold-start behavior and verification limits.
+Corrected the stale setup introduction that still claimed no public application.
+No managed test, training, data deletion, resource provisioning or plan change was
+performed for this documentation update. Validation: README relative links and
+endpoint methods checked against repository files/source; Git diff whitespace
+check passed. Publication follows the existing protected PR workflow.
