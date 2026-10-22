@@ -5,11 +5,12 @@ through browser controls against the bounded Free-cloud targets. These are actua
 observations, not mocked tests. No training, feature rebuild, load test, deletion
 or paid resource was used.
 
-**Outcome: core paths work, but blanket acceptance is not complete.** An original
-Copilot shortcut selected an unobserved entity and failed. A fix is published in
-[PR174](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/pull/174);
-the public page still showed the old shortcuts after reload. Owner Community
-Cloud reboot and the corrected control-level retest remain **NOT VERIFIED**.
+**Outcome: core public UI paths verified after the owner reboot.** An original
+Copilot shortcut selected an unobserved entity and failed. The fix in
+[PR174](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/pull/174)
+is now visible publicly, and both corrected buttons passed real Groq/Feast
+retests. The earlier failure and remaining verification limits are retained below;
+this is not a blanket uptime, model-quality or RAM-stability certification.
 
 | Target | Status | Actual observation |
 |---|---|---|
@@ -29,7 +30,7 @@ Cloud reboot and the corrected control-level retest remain **NOT VERIFIED**.
 | Copilot corridor features | VERIFIED | Exact proposed corridor prompt submitted manually on existing UI:real Groq,1283.7ms,75_237 live Redis hit,1h/15m duration1003s,distance3.1400001km,demand pressure9; feast_redis:corridor_features citation |
 | Documentation retrieval | VERIFIED | Real Groq746.7ms returned repository snippets and citations. Limited answer relevance: broad snippets did not precisely explain the promotion rule. FAISS execution not verified |
 | Original zone161 shortcut | FAILED | HTTP503, no offline substitute. Separate actual /zones read reports161 has_observed_features=false,74=true. Other agent queries succeeded; this is not evidence of a global provider outage |
-| Corrected shortcuts deployed | NOT VERIFIED | Offline helper/AppTest checks cover observed entity selection, empty metadata and preserved forecast reruns. Seven focused tests passed; source CI403 passed,1 skipped,45 warnings. Existing public page still showed161 after reload |
+| Corrected shortcuts deployed | VERIFIED | After owner reboot, actual Zone74 Features and Corridor75→237 buttons executed successfully. Real Groq openai/gpt-oss-20b, get_features, live Redis hits and correct zone/corridor citations; latencies14487.0ms/14697.2ms. Seven focused offline tests and source CI403 tests passed |
 | First-load timeout | FAILED | Initial health read exceeded90s and sidebar showed Serving Offline. Later readiness200 and a normal rerun recovered. Provider-internal sleep/deploy cause not observed; do not call this seamless startup |
 | Sustained RAM/OOM recovery | NOT VERIFIED | No provider RAM trace or reproduction during this browser session. Prior PostgreSQL incident remains open |
 
@@ -58,10 +59,13 @@ Cloud examples now select an observed zone (prefer74) and materialized corridor
 reused, with no extra request per rerun. Feature inspection is labelled separately
 from the real-model forecasts on Forecasts & Map. Local examples remain available.
 
-Owner action pending: Community Cloud → Manage app → Reboot app on the existing
-Free app. Confirm the new Zone74 Features / Corridor75→237 labels, then retest
-those controls. Supported prompts already work when entered manually; that does
-not prove deployment of the new controls. No credentials should be shared.
+Owner confirmed the Community Cloud reboot. Subsequent browser observation
+showed the new Zone74 Features / Corridor75→237 labels and updated chat placeholder.
+Both actual buttons were clicked, not just equivalent manually typed prompts.
+Zone74 returned15m3/1h3/24h66/weekly1; corridor75_237 returned1h duration1003s,
+distance3.1400001km and demand pressure9. Both retained the historical observation
+timestamp2023-01-31T23:00:00UTC, live Redis hits, real Groq metadata and successful
+tool status. No additional owner action is required for this shortcut fix.
 
 ## Captured evidence
 
@@ -76,3 +80,6 @@ not prove deployment of the new controls. No credentials should be shared.
 - [Actual Feast feature result](evidence/streamlit-2026-10-22-agent-features.png)
 - [Corridor response snapshot](evidence/streamlit-2026-10-22-agent-corridor.txt)
 - [Raw scoped API artifact](streamlit-agent-api-check-evidence.json)
+- [Deployed zone-button retest](evidence/streamlit-2026-10-22-zone-shortcut-retest.txt)
+- [Deployed corridor-button retest](evidence/streamlit-2026-10-22-corridor-shortcut-retest.txt)
+- [Successful deployed shortcut screenshot](evidence/streamlit-2026-10-22-shortcut-retest.png)

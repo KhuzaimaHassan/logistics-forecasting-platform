@@ -593,3 +593,16 @@ Free plans preserved; no payment-method change was performed by the agent.
   and retest NOT VERIFIED. Supported feature prompts worked when entered manually.
 - HTML download button exercised but saved file not independently confirmed.
   Startup90s timeout recovered; no blanket all-targets/uptime/OOM recovery claim.
+
+### Owner reboot and actual shortcut retest — 2026-10-22
+
+- Owner confirmed reboot. Public dashboard now displayed Zone74 Features and
+  Corridor75→237 controls and the updated placeholder; Serving Online (OK).
+- Clicked both actual buttons. Zone74:real Groq gpt-oss-20b,get_features,live Redis
+  hit,15m3/1h3/24h66/weekly1,14487.0ms,statussuccess,zone-feature citation.
+- Corridor75_237:real Groq,get_features,live Redis hit,duration1003s,distance3.14km,
+  demand pressure9,14697.2ms,statussuccess,corridor-feature citation. Both retain
+  genuine historical observation timestamp Jan31 2023 23:00UTC.
+- Corrected control deployment/retest VERIFIED; source-fix owner blocker resolved.
+  Earlier failed shortcut and initial timeout retained as historical observations.
+  No claim of sustained OOM recovery, perfect document QA or verified saved HTML.
