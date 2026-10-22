@@ -1,0 +1,19 @@
+{
+  "status": "VERIFIED",
+  "scope": "Eight-row read-only Feast PIT probe; not an OOM recovery certification",
+  "checks": [
+    {
+      "view": "zone_demand_features",
+      "rows": 4,
+      "matches_offline_source": true,
+      "elapsed_seconds": 5.68
+    },
+    {
+      "view": "corridor_duration_features",
+      "rows": 4,
+      "matches_offline_source": true,
+      "elapsed_seconds": 2.35
+    }
+  ],
+  "generated_at": "2026-10-22T09:15:27.991712+00:00"
+}

@@ -106,3 +106,10 @@ instead of uploading entity tables, and executes read-only with 8s statement and
 2s lock timeouts, work_mem2MiB and parallel gather workers disabled. This small
 check is not a full training benchmark or proof that the OOM incident is fixed.
 Use the existing free-cloud workflow environment; no new secrets are required.
+
+Latest bounded validation: October22 query-budget39753857626 passed all eight
+real PIT rows (5.68s zone read phase,2.35s corridor); API39754119428 passed two
+real predictions with durable readback; database-health39754124002 passed. See
+query-budget-evidence.json, resource-api-evidence.json and
+postgres-resource-health-evidence.json. Host RAM was not sampled by these checks;
+OOM root cause and sustained stability remain NOT VERIFIED.

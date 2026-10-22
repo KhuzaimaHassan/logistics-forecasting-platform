@@ -545,3 +545,19 @@ Free plans preserved; no payment-method change was performed by the agent.
   gather workers. No feature rebuild, entity-table upload, deletion or stress test.
 - Local and managed validation results are recorded after execution. A passing
   bounded probe does not certify the unresolved OOM cause or sustained recovery.
+
+### Resource validation results — 2026-10-22
+
+- Five focused local tests, Ruff/Black and offline cloud-config validation passed.
+  Source CI39753862820 on4c169fa:402 passed,1 skipped,45 warnings in57.66s.
+- Managed query-budget39753857626 VERIFIED: four zone and four corridor Feast PIT
+  rows matched actual offline values and timestamps. Read phases5.68s and2.35s;
+  read-only,8s statement/2s lock timeout,2MiB work_mem,no parallel gather workers.
+- Scoped public API39754119428 VERIFIED: demand0.71, ETA715.8s, real Productionv1,
+  two newly persisted forecast rows matched. No extra load/stress repetitions.
+- Read-only health39754124002 VERIFIED: database70,407,871 bytes (~67MiB), two
+  backends including diagnostic, zero recorded deadlocks. Postmaster still Oct18.
+  Cumulative temporary writes cannot be attributed to this probe from day-apart
+  snapshots. No claim of measured peak RAM, solved OOM cause or sustained recovery.
+- Sanitized query-budget, API and database-health artifacts committed separately
+  from prior acceptance artifacts, whose original scopes remain unchanged.
