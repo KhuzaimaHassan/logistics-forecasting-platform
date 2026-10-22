@@ -606,3 +606,18 @@ Free plans preserved; no payment-method change was performed by the agent.
 - Corrected control deployment/retest VERIFIED; source-fix owner blocker resolved.
   Earlier failed shortcut and initial timeout retained as historical observations.
   No claim of sustained OOM recovery, perfect document QA or verified saved HTML.
+
+## 2026-10-22 — GitHub About and deployment README
+
+Updated repository About with a concise platform description, public Streamlit
+website and relevant technology topics. Rewrote README around the actual deployed
+Free profile, historical sample provenance, current dashboard tabs, managed
+architecture, real API routes and dated verification evidence. Removed unqualified
+real-time, latency, mock-uptime and obsolete benchmark claims from the project
+landing page. Preserved reference-stack documentation links and explicitly retained
+the open PostgreSQL OOM issue, cold-start behavior and verification limits.
+Corrected the stale setup introduction that still claimed no public application.
+No managed test, training, data deletion, resource provisioning or plan change was
+performed for this documentation update. Validation: README relative links and
+endpoint methods checked against repository files/source; Git diff whitespace
+check passed. Publication follows the existing protected PR workflow.
