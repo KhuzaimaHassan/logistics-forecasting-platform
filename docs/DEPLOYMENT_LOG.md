@@ -578,3 +578,18 @@ Free plans preserved; no payment-method change was performed by the agent.
   the existing /zones read rather than adding a per-rerun request. Seven focused
   offline UI tests and Ruff/Black passed. Live corrected shortcut retest pending.
 - No training, rebuilding, destructive action, new account or paid plan used.
+
+### Browser verification results and remaining owner action — 2026-10-22
+
+- All UI fix checks passed on eba7168:source CI39760092043 (403 tests passed,
+  one skipped),Compose,512MiB runtime and all ARM64 builds39760078913.
+- Additional public Streamlit prompts passed with real Groq:drift1124.8ms,
+  zone74 Feast6793.2ms,corridor75_237 Feast1283.7ms. Documentation search746.7ms
+  retrieved sources but answer relevance remains limited; FAISS not certified.
+- Actual fullscreen map displayed three forecast markers. Captured screenshots
+  and accessibility snapshots; full scoped matrix in STREAMLIT_ACCEPTANCE_2026-10-22.md.
+- The public app still served original161 shortcuts after reload. Owner reboot
+  requested through the account-access question; corrected control deployment
+  and retest NOT VERIFIED. Supported feature prompts worked when entered manually.
+- HTML download button exercised but saved file not independently confirmed.
+  Startup90s timeout recovered; no blanket all-targets/uptime/OOM recovery claim.

@@ -1,0 +1,86 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+0 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	1 container
+		7 container streamlitApp
+			8 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				9 container
+					10 container
+						11 container
+							12 heading 🚖 Logistics Platform, Value: 1
+								13 text 🚖 Logistics Platform
+							14 text NYC TLC Demand & ETA Forecasting
+							15 heading 🔌 Backend Service, Value: 3
+								16 text 🔌 Backend Service
+							17 container
+								18 button Help for FastAPI Service URL
+								19 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :r3:
+							20 text ● Serving Online (OK)
+							21 button (collapsed) keyboard_arrow_right Model Registry Status, Secondary Actions: Expand
+								22 text keyboard_arrow_right
+								23 text Model Registry Status
+							24 heading 🛡️ Agent Architecture, Value: 3
+								25 text 🛡️ Agent Architecture
+							26 content list
+								27 container
+									28 AXListMarker • 
+									29 text Framework : LangGraph stategraph
+								30 container
+									31 AXListMarker • 
+									32 text Supported providers : API-configured Groq or Gemini
+								33 container
+									34 AXListMarker • 
+									35 text Security Boundary : Read-only tool allowlist (ADR-023)
+							36 text Cloud responses require a live provider; mock responses are disabled.
+							37 button (collapsed) keyboard_arrow_right Allowlisted Tools, Secondary Actions: Expand
+								38 text keyboard_arrow_right
+								39 text Allowlisted Tools
+							40 button 🗑️ Clear Chat History
+								41 text 🗑️ Clear Chat History
+						42 container
+							43 button keyboard_double_arrow_right
+							46 button Fork
+							47 button
+							48 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						49 container
+							50 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								51 text NYC Logistics Forecasting Platform
+								52 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							53 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							54 tab group react-aria9639360214-:re:
+								55 tab (selected, settable, boolean) 🤖 Ops Copilot, ID: react-aria9639360214-:re:-tab-0, Value: 1
+🤖 Ops Copilot
+								56 tab (selectable, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria9639360214-:re:-tab-1, Value: 0
+🗺️ Forecasts & Map
+								57 tab (selectable, settable, boolean) 📈 Pipeline Observability, ID: react-aria9639360214-:re:-tab-2, Value: 0
+📈 Pipeline Observability
+								58 tab (selectable, settable, boolean) 📉 Model Monitoring, ID: react-aria9639360214-:re:-tab-3, Value: 0
+📉 Model Monitoring
+							60 container Description: 🤖 Ops Copilot, ID: react-aria9639360214-:re:-tabpanel-0
+								61 heading Ops Copilot — Conversational Platform Observability, Value: 3, ID: ops-copilot-conversational-platform-observability
+									62 text Ops Copilot — Conversational Platform Observability
+									63 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#ops-copilot-conversational-platform-observability
+								64 text Ask operational questions regarding zone demand, corridor ETAs, model promotion safety gates, or pipeline execution health.
+								65 text Quick Operational Queries:
+								66 button 🚕 Zone 161 Demand
+									67 text 🚕 Zone 161 Demand
+								68 button ⏱️ Corridor 161 → 236 ETA
+									69 text ⏱️ Corridor 161 → 236 ETA
+								70 button 🔄 Retraining Status
+									71 text 🔄 Retraining Status
+								72 button 📉 Drift Alerts
+									73 text 📉 Drift Alerts
+								74 button 📋 Promotion Hurdle (ADR-021)
+									75 text 📋 Promotion Hurdle (ADR-021)
+								84 text face
+								85 container Chat message from user
+									90 text What is the current feature state and demand forecast for zone 161?
+								86 text smart_toy
+								82 container Chat message from assistant
+									83 text ⚠️ Ops Copilot connection failed: Backend returned HTTP 503: {"error":"service_unavailable","detail":"Live LLM provider unavailable; no offline response was substituted."}
+								87 container
+									88 text entry area (settable) Ask Ops Copilot an operational question (e.g. 'Show recent predictions for zone 161')...
+									89 button (disabled) Send message
+		3 link streamlit.io/cloud
+		6 link (collapsed) Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan, Secondary Actions: Expand
+
+The focused UI element is 66 button 🚕 Zone 161 Demand
