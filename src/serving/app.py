@@ -487,6 +487,27 @@ def readiness(request: Request, response: Response) -> HealthCheckResponse:
     return result
 
 
+@app.head("/health", include_in_schema=False)
+def health_head(request: Request) -> Response:
+    """Match the legacy GET probe's status without transmitting its JSON body."""
+    health_check(request)
+    return Response(status_code=200)
+
+
+@app.head("/health/live", include_in_schema=False)
+def liveness_head() -> Response:
+    """Process-only probe; never contact managed dependencies."""
+    return Response(status_code=200)
+
+
+@app.head("/health/ready", include_in_schema=False)
+def readiness_head(request: Request) -> Response:
+    """Preserve GET readiness checks and 503 failures for HEAD-only monitors."""
+    response = Response()
+    readiness(request, response)
+    return Response(status_code=response.status_code)
+
+
 @app.get("/zones")
 def list_zones() -> dict:
     """Map only authoritative reference centroids already loaded into PostgreSQL."""

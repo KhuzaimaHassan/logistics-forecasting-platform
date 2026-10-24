@@ -621,3 +621,19 @@ No managed test, training, data deletion, resource provisioning or plan change w
 performed for this documentation update. Validation: README relative links and
 endpoint methods checked against repository files/source; Git diff whitespace
 check passed. Publication follows the existing protected PR workflow.
+
+## 2026-10-24 — HEAD-only uptime monitor compatibility
+
+Owner screenshots showed a UptimeRobot incident for HEAD `/health`: 405 with
+Allow: GET. Three bounded live requests confirmed HEAD `/health` 405, GET
+`/health` 200 with status ok (7.99s), and GET `/health/live` 200 (0.26s).
+This establishes a method mismatch, not six hours of proven application downtime.
+Added explicit HEAD handlers for the three health routes. Readiness reuses GET's
+checks and status; liveness contacts no dependencies; legacy diagnostic status
+is preserved. HEAD responses contain no body. Documented HEAD `/health/ready`
+as the required monitor target. No managed training, prediction or data change.
+Initial local test collection was blocked by sandbox access to Feast metrics
+files; rerun outside that restriction uses mocked dependencies only.
+Validation: all 10 focused offline tests passed (17.96s); Ruff and Black passed
+for changed Python files, and Git whitespace validation passed. Managed-service
+and deployed HEAD checks remain pending until the new commit is served.
