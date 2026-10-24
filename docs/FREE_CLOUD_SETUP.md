@@ -633,3 +633,15 @@ were correct at their recorded times and remain in the log. See the final report
 and scheduled-pipeline-evidence.json. This does not promise punctual cron delivery
 or certify separate train/monitor schedule execution. Do not treat manual dispatch
 or continuous polling as scheduled-event proof.
+
+## HEAD-only availability monitoring
+
+For a monitor that permits only HEAD, use
+`https://logistics-forecasting-platform.onrender.com/health/ready` with expected
+HTTP 200. GET and HEAD readiness use the same dependency/model checks; HEAD
+returns an empty body and 503 when readiness is degraded. `/health/live` supports
+HEAD but checks process liveness only. Legacy `/health` retains HTTP 200 for
+its diagnostic JSON contract and is unsuitable for HEAD-based readiness checks.
+Do not treat every 405 or cold-start timeout as evidence of a database outage.
+Probe readiness sparingly because each check contacts managed dependencies.
+The route update must be deployed before switching an existing monitor to it.

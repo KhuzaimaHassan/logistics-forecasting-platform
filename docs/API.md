@@ -4,6 +4,24 @@ FastAPI service, single app, deployed on the Oracle VM (see Deployment.md). Host
 
 ## Endpoints
 
+### Health probes and HEAD-only uptime monitors
+
+GET and HEAD are supported on `/health`, `/health/live` and `/health/ready`.
+HEAD responses contain no body. Use **HEAD `/health/ready`** for external
+readiness monitoring: it executes the same checks as GET and returns 503 when
+required database, online-store or model readiness fails. `/health/live` only
+checks the running process and does not contact managed services. The legacy
+`/health` endpoint retains GET's HTTP 200 diagnostic contract even when its
+JSON status is degraded; HEAD cannot inspect that JSON, so do not use it to
+certify readiness. MLflow reachability is diagnostic, not an additional readiness
+gate; already-loaded models can serve during a tracking outage.
+
+For a HEAD-only UptimeRobot monitor, set the URL to
+`https://logistics-forecasting-platform.onrender.com/health/ready`, method HEAD,
+expected status 200. Readiness probes contact managed dependencies: avoid
+unnecessarily frequent checks. Free compute may sleep or exceed the monitor's
+timeout on cold starts; a HEAD-compatible route does not remove that constraint.
+
 ### `GET /health`
 Liveness/readiness check. Returns overall system status and dependency checks (PostgreSQL database, Redis online store, MLflow model registry status, and active model versions).
 ```json
