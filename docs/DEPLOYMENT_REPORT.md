@@ -2,6 +2,14 @@
 
 ## Outcome
 
+**Responsive review 2026-10-27:** reproduced cramped tablet action columns and
+truncated monitoring alerts on the public UI. Candidate styling was measured at
+seven sizes320–1440px with no page-level horizontal overflow. Real API demand,
+ETA, map, pipeline and monitoring views passed local-preview browser checks;
+one real Groq pipeline query passed on the existing public app. Updated public
+layout verification is pending deployment, separately from those results. See
+the [responsive review](RESPONSIVE_REVIEW_2026-10-27.md) for screenshots and limits.
+
 **Latest browser review2026-10-22: core UI paths passed after owner reboot.**
 Demand/map/ETA, registry, pipeline history, actual drift HTML and
 Groq queries against PostgreSQL/Feast worked. An original shortcut requested
