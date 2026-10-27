@@ -17,7 +17,7 @@ is separate from responsive layout behavior.
   tiny fragments. Monitoring cards truncated Normal/Performance Decay and MAE
   details. Before screenshots capture both failures.
 - Add content-width container queries, so an open sidebar is accounted for when
-  wrapping columns. Use auto sidebar initialization, shorter tab labels, readable
+  wrapping columns. Use collapsed sidebar initialization, shorter tab labels, readable
   metric values/deltas, smaller mobile headings and 44px mobile action/tab targets.
 - Preserve native tab scrolling, table scrolling, charts, maps and report embeds.
   Do not hide overflow globally or remove alerts to make the page fit.
@@ -60,7 +60,9 @@ across some resizes. Not every interaction was repeated at all seven sizes.
 | Saved HTML download | NOT VERIFIED | Browser download-event capture timed out; no saved file located. Do not label as passed or proven broken |
 | Public Copilot pipeline query | VERIFIED on existing public UI | Real Groq openai/gpt-oss-20b,1337.4ms,tool/citation metadata and warehouse.pipeline_runs; returned genuine recent runs |
 | Local Copilot | NOT VERIFIED | Intentionally disabled: no owner agent credential copied to local preview |
-| Updated public deployment | NOT VERIFIED at preparation | Candidate must be served by Community Cloud and retested before claiming the public layout is fixed |
+| Public responsive layout | VERIFIED after owner reboot | Seven public viewport measurements320–1440px have no page-level overflow;320px native tab scrolling and complete MAE warning passed |
+| Public demand/ETA/map | VERIFIED after owner reboot | Real modelv1 demand3.69/5.55/2.26 at2026-10-27T16:18:56.887982UTC; ETA11.9min; demand retained |
+| Final sidebar default | NOT VERIFIED publicly | Auto reopened the sidebar after a mobile ETA rerun; changed to collapsed. Final deployed rerun needs retest |
 
 ## Screenshots
 
@@ -81,6 +83,21 @@ monitoring-score tests). Ruff, Black and whitespace checks passed for the change
 Python source. An attempted nonexistent extra test path collected no tests and
 was corrected; it is not counted as a pass. No new implementation-mirroring CSS
 unit tests were added; actual browser evidence checks the rendered behavior.
+
+## Public follow-up
+
+The owner rebooted Community Cloud and the new tabs/styles appeared. Actual
+[public viewport measurements](evidence/responsive-2026-10-27/public-measurements.json)
+show no page overflow at all seven sizes. At768px with sidebar open, actions
+were426px wide instead of fragmented columns. At320px, metric child text did
+not overflow and Performance Decay/+29.9% remained visible. Public demand/ETA/map
+and rerun persistence passed. The auto sidebar reopened over the mobile results
+after ETA; the final revision uses an explicitly collapsed default, preserving
+the manual toggle. Its final public rerun check is pending.
+
+- [Actual public320px warning](evidence/responsive-2026-10-27/public-320-monitoring.png)
+- [Public real demand](evidence/responsive-2026-10-27/public-demand.png)
+- [Public ETA with reopened sidebar](evidence/responsive-2026-10-27/public-map-eta.png)
 
 ## Verification limits
 

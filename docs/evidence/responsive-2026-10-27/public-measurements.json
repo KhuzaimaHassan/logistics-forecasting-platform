@@ -1,0 +1,359 @@
+[
+  {
+    "actions": [
+      {
+        "height": 44,
+        "label": "🚕 Zone 74 Features",
+        "width": 278
+      },
+      {
+        "height": 44,
+        "label": "⏱️ Corridor 75 → 237",
+        "width": 278
+      },
+      {
+        "height": 44,
+        "label": "🔄 Retraining Status",
+        "width": 278
+      },
+      {
+        "height": 44,
+        "label": "📉 Drift Alerts",
+        "width": 278
+      },
+      {
+        "height": 44,
+        "label": "📋 Promotion Policy",
+        "width": 278
+      }
+    ],
+    "documentWidth": 320,
+    "height": 740,
+    "sidebar": "false",
+    "tabs": [
+      {
+        "height": 44,
+        "label": "🤖 Copilot"
+      },
+      {
+        "height": 44,
+        "label": "🗺️ Forecasts & Map"
+      },
+      {
+        "height": 44,
+        "label": "📈 Pipeline"
+      },
+      {
+        "height": 44,
+        "label": "📉 Monitoring"
+      }
+    ],
+    "width": 320
+  },
+  {
+    "actions": [
+      {
+        "height": 44,
+        "label": "🚕 Zone 74 Features",
+        "width": 318
+      },
+      {
+        "height": 44,
+        "label": "⏱️ Corridor 75 → 237",
+        "width": 318
+      },
+      {
+        "height": 44,
+        "label": "🔄 Retraining Status",
+        "width": 318
+      },
+      {
+        "height": 44,
+        "label": "📉 Drift Alerts",
+        "width": 318
+      },
+      {
+        "height": 44,
+        "label": "📋 Promotion Policy",
+        "width": 318
+      }
+    ],
+    "documentWidth": 360,
+    "height": 800,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "height": 44,
+        "label": "🤖 Copilot"
+      },
+      {
+        "height": 44,
+        "label": "🗺️ Forecasts & Map"
+      },
+      {
+        "height": 44,
+        "label": "📈 Pipeline"
+      },
+      {
+        "height": 44,
+        "label": "📉 Monitoring"
+      }
+    ],
+    "width": 360
+  },
+  {
+    "actions": [
+      {
+        "height": 44,
+        "label": "🚕 Zone 74 Features",
+        "width": 348
+      },
+      {
+        "height": 44,
+        "label": "⏱️ Corridor 75 → 237",
+        "width": 348
+      },
+      {
+        "height": 44,
+        "label": "🔄 Retraining Status",
+        "width": 348
+      },
+      {
+        "height": 44,
+        "label": "📉 Drift Alerts",
+        "width": 348
+      },
+      {
+        "height": 44,
+        "label": "📋 Promotion Policy",
+        "width": 348
+      }
+    ],
+    "documentWidth": 390,
+    "height": 844,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "height": 44,
+        "label": "🤖 Copilot"
+      },
+      {
+        "height": 44,
+        "label": "🗺️ Forecasts & Map"
+      },
+      {
+        "height": 44,
+        "label": "📈 Pipeline"
+      },
+      {
+        "height": 44,
+        "label": "📉 Monitoring"
+      }
+    ],
+    "width": 390
+  },
+  {
+    "actions": [
+      {
+        "height": 40,
+        "label": "🚕 Zone 74 Features",
+        "width": 426
+      },
+      {
+        "height": 40,
+        "label": "⏱️ Corridor 75 → 237",
+        "width": 426
+      },
+      {
+        "height": 40,
+        "label": "🔄 Retraining Status",
+        "width": 426
+      },
+      {
+        "height": 40,
+        "label": "📉 Drift Alerts",
+        "width": 426
+      },
+      {
+        "height": 40,
+        "label": "📋 Promotion Policy",
+        "width": 426
+      }
+    ],
+    "documentWidth": 768,
+    "height": 1024,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "height": 40,
+        "label": "🤖 Copilot"
+      },
+      {
+        "height": 40,
+        "label": "🗺️ Forecasts & Map"
+      },
+      {
+        "height": 40,
+        "label": "📈 Pipeline"
+      },
+      {
+        "height": 40,
+        "label": "📉 Monitoring"
+      }
+    ],
+    "width": 768
+  },
+  {
+    "actions": [
+      {
+        "height": 40,
+        "label": "🚕 Zone 74 Features",
+        "width": 243
+      },
+      {
+        "height": 40,
+        "label": "⏱️ Corridor 75 → 237",
+        "width": 243
+      },
+      {
+        "height": 40,
+        "label": "🔄 Retraining Status",
+        "width": 243
+      },
+      {
+        "height": 40,
+        "label": "📉 Drift Alerts",
+        "width": 243
+      },
+      {
+        "height": 40,
+        "label": "📋 Promotion Policy",
+        "width": 502
+      }
+    ],
+    "documentWidth": 844,
+    "height": 390,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "height": 40,
+        "label": "🤖 Copilot"
+      },
+      {
+        "height": 40,
+        "label": "🗺️ Forecasts & Map"
+      },
+      {
+        "height": 40,
+        "label": "📈 Pipeline"
+      },
+      {
+        "height": 40,
+        "label": "📉 Monitoring"
+      }
+    ],
+    "width": 844
+  },
+  {
+    "actions": [
+      {
+        "height": 40,
+        "label": "🚕 Zone 74 Features",
+        "width": 269
+      },
+      {
+        "height": 40,
+        "label": "⏱️ Corridor 75 → 237",
+        "width": 269
+      },
+      {
+        "height": 40,
+        "label": "🔄 Retraining Status",
+        "width": 269
+      },
+      {
+        "height": 40,
+        "label": "📉 Drift Alerts",
+        "width": 269
+      },
+      {
+        "height": 40,
+        "label": "📋 Promotion Policy",
+        "width": 554
+      }
+    ],
+    "documentWidth": 1024,
+    "height": 768,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "height": 40,
+        "label": "🤖 Copilot"
+      },
+      {
+        "height": 40,
+        "label": "🗺️ Forecasts & Map"
+      },
+      {
+        "height": 40,
+        "label": "📈 Pipeline"
+      },
+      {
+        "height": 40,
+        "label": "📉 Monitoring"
+      }
+    ],
+    "width": 1024
+  },
+  {
+    "actions": [
+      {
+        "height": 40,
+        "label": "🚕 Zone 74 Features",
+        "width": 183
+      },
+      {
+        "height": 40,
+        "label": "⏱️ Corridor 75 → 237",
+        "width": 183
+      },
+      {
+        "height": 40,
+        "label": "🔄 Retraining Status",
+        "width": 183
+      },
+      {
+        "height": 40,
+        "label": "📉 Drift Alerts",
+        "width": 183
+      },
+      {
+        "height": 40,
+        "label": "📋 Promotion Policy",
+        "width": 183
+      }
+    ],
+    "documentWidth": 1440,
+    "height": 900,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "height": 40,
+        "label": "🤖 Copilot"
+      },
+      {
+        "height": 40,
+        "label": "🗺️ Forecasts & Map"
+      },
+      {
+        "height": 40,
+        "label": "📈 Pipeline"
+      },
+      {
+        "height": 40,
+        "label": "📉 Monitoring"
+      }
+    ],
+    "width": 1440
+  }
+]
