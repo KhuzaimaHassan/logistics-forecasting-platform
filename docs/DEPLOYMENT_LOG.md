@@ -637,3 +637,25 @@ files; rerun outside that restriction uses mocked dependencies only.
 Validation: all 10 focused offline tests passed (17.96s); Ruff and Black passed
 for changed Python files, and Git whitespace validation passed. Managed-service
 and deployed HEAD checks remain pending until the new commit is served.
+
+## 2026-10-27 — Responsive browser review
+
+Public app woke successfully after Community Cloud inactivity. Reproduced cramped
+five-column quick actions and truncated monitoring values at768px with sidebar
+open. Implemented content-width wrapping, auto sidebar, concise tab labels,
+metric wrapping, mobile spacing and44px action targets. Preserved real alerts,
+map, forecast rerun state and native scrolling. Added forecast request feedback
+and an accurate cold-start caption. No backend or architecture replacement.
+
+Candidate preview measured seven viewport sizes320–1440px without page-level
+horizontal overflow. Detailed browser checks confirmed tablet sidebar layout,
+320px tab navigation/full MAE warning, real demand3.69/5.55/2.26, mobile map,
+real ETA11.9min with retained demand, pipeline history and stored report HTML.
+Saved HTML download remains NOT VERIFIED after a browser event-capture timeout.
+No local agent credentials were copied; the local Copilot stays disabled.
+The responsive report separates candidate evidence from pending public deployment.
+Seven focused offline UI tests passed; Ruff, Black and whitespace checks passed.
+A public Copilot query used real Groq openai/gpt-oss-20b in1337.4ms and cited
+warehouse.pipeline_runs. Candidate viewport checks and actual before/after images
+are in docs/RESPONSIVE_REVIEW_2026-10-27.md. Public updated-style acceptance is
+still pending; no hosted result is inferred from local screenshots.
