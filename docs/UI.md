@@ -35,3 +35,5 @@ space), wrap columns, preserve full monitoring alert text and enlarge mobile tap
 targets. Native tabs and data tables retain internal scrolling on small screens.
 See [responsive review](RESPONSIVE_REVIEW_2026-10-27.md) for actual viewport and
 interaction evidence, with local-preview and public-deployment status separated.
+The sidebar starts collapsed so a mobile forecast rerun cannot initialize an
+overlay over its results; users can expand it with the native toggle.

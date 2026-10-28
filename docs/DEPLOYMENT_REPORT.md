@@ -6,8 +6,10 @@
 truncated monitoring alerts on the public UI. Candidate styling was measured at
 seven sizes320–1440px with no page-level horizontal overflow. Real API demand,
 ETA, map, pipeline and monitoring views passed local-preview browser checks;
-one real Groq pipeline query passed on the existing public app. Updated public
-layout verification is pending deployment, separately from those results. See
+one real Groq pipeline query passed on the existing public app. After owner reboot,
+public viewport/monitoring/demand/map/ETA checks passed. A final collapsed-sidebar
+default addresses an overlay reopening after the mobile ETA rerun; that last
+deployed behavior remains pending retest. See
 the [responsive review](RESPONSIVE_REVIEW_2026-10-27.md) for screenshots and limits.
 
 **Latest browser review2026-10-22: core UI paths passed after owner reboot.**

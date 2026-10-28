@@ -659,3 +659,10 @@ A public Copilot query used real Groq openai/gpt-oss-20b in1337.4ms and cited
 warehouse.pipeline_runs. Candidate viewport checks and actual before/after images
 are in docs/RESPONSIVE_REVIEW_2026-10-27.md. Public updated-style acceptance is
 still pending; no hosted result is inferred from local screenshots.
+
+Public follow-up: owner reboot exposed the new layout. Seven public viewport
+measurements320–1440px fit without document overflow, and the complete320px MAE
+warning remained visible. Public real demand3.69/5.55/2.26, modelv1, score
+2026-10-27T16:18:56.887982UTC, map and ETA11.9min passed with retained demand.
+The auto sidebar reopened over mobile ETA results; final default changed to
+collapsed with manual toggle retained. Its final deployed rerun remains pending.
