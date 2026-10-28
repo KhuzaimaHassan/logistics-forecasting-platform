@@ -9,8 +9,10 @@
 
 [data-testid="stMetricValue"],
 [data-testid="stMetricValue"] > div,
+[data-testid="stMetricValue"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stMetricDelta"],
-[data-testid="stMetricDelta"] > div {
+[data-testid="stMetricDelta"] > div,
+[data-testid="stMetricDelta"] [data-testid="stMarkdownContainer"] p {
     white-space: normal !important;
     overflow: visible;
     text-overflow: clip;
