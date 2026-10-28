@@ -666,3 +666,15 @@ warning remained visible. Public real demand3.69/5.55/2.26, modelv1, score
 2026-10-27T16:18:56.887982UTC, map and ETA11.9min passed with retained demand.
 The auto sidebar reopened over mobile ETA results; final default changed to
 collapsed with manual toggle retained. Its final deployed rerun remains pending.
+
+## 2026-10-28 — Final public mobile rerun
+
+After the owner reboot, one public ETA request for75_237 returned11.93minutes,
+modelv1, timestamp2026-10-28T08:40:36.591892UTC. At390x844, closing the browser's
+previously open sidebar via its toggle kept it hidden during and after the
+completed rerun (aria-expanded=false,x=-300px); document/scroll widths both390px.
+Prior open preference persisted on reload, so clean-browser initial state is
+not certified. Screenshot and sanitized DOM measurements are saved with the
+responsive review. PR180 passed all source, constrained-runtime, Compose and
+ARM64 checks and merged normally into dev; release179 is awaiting its new-head
+checks. No managed load test, training, data deletion or paid change occurred.

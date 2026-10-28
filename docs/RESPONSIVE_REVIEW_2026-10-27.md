@@ -62,7 +62,7 @@ across some resizes. Not every interaction was repeated at all seven sizes.
 | Local Copilot | NOT VERIFIED | Intentionally disabled: no owner agent credential copied to local preview |
 | Public responsive layout | VERIFIED after owner reboot | Seven public viewport measurements320–1440px have no page-level overflow;320px native tab scrolling and complete MAE warning passed |
 | Public demand/ETA/map | VERIFIED after owner reboot | Real modelv1 demand3.69/5.55/2.26 at2026-10-27T16:18:56.887982UTC; ETA11.9min; demand retained |
-| Final sidebar default | NOT VERIFIED publicly | Auto reopened the sidebar after a mobile ETA rerun; changed to collapsed. Final deployed rerun needs retest |
+| Final sidebar rerun | VERIFIED publicly October 28 | At390px, manually closed sidebar stayed hidden during and after a real ETA rerun; prior open preference persisted on reload, so fresh-user default is not certified |
 
 ## Screenshots
 
@@ -93,7 +93,16 @@ were426px wide instead of fragmented columns. At320px, metric child text did
 not overflow and Performance Decay/+29.9% remained visible. Public demand/ETA/map
 and rerun persistence passed. The auto sidebar reopened over the mobile results
 after ETA; the final revision uses an explicitly collapsed default, preserving
-the manual toggle. Its final public rerun check is pending.
+the manual toggle. On October 28, the rebooted app's real ETA rerun returned
+11.93 minutes from model v1 (prediction timestamp2026-10-28T08:40:36.591892UTC).
+After closing the sidebar using its UI toggle, it remained hidden during and
+after the request (aria-expanded=false, x=-300px). Document width and scroll width
+both measured390px. This browser retained its prior open preference on reload;
+the test certifies rerun behavior, not a clean browser's initial preference.
+No extra training, ingestion, stress test or resource change was performed.
+
+- [Final mobile ETA/sidebar screenshot](evidence/responsive-2026-10-27/public-mobile-final-sidebar.png)
+- [Final DOM measurements](evidence/responsive-2026-10-27/public-mobile-final-sidebar.json)
 
 - [Actual public320px warning](evidence/responsive-2026-10-27/public-320-monitoring.png)
 - [Public real demand](evidence/responsive-2026-10-27/public-demand.png)

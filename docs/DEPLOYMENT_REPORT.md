@@ -8,8 +8,11 @@ seven sizes320–1440px with no page-level horizontal overflow. Real API demand,
 ETA, map, pipeline and monitoring views passed local-preview browser checks;
 one real Groq pipeline query passed on the existing public app. After owner reboot,
 public viewport/monitoring/demand/map/ETA checks passed. A final collapsed-sidebar
-default addresses an overlay reopening after the mobile ETA rerun; that last
-deployed behavior remains pending retest. See
+default addresses an overlay reopening after the mobile ETA rerun. On October 28,
+the public 390px ETA rerun returned 11.93 minutes from model v1 and kept the
+manually closed sidebar hidden, with no page overflow. This browser initially
+retained its prior open-sidebar preference; a fresh-user default is not certified.
+See
 the [responsive review](RESPONSIVE_REVIEW_2026-10-27.md) for screenshots and limits.
 
 **Latest browser review2026-10-22: core UI paths passed after owner reboot.**
