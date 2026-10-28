@@ -637,3 +637,44 @@ files; rerun outside that restriction uses mocked dependencies only.
 Validation: all 10 focused offline tests passed (17.96s); Ruff and Black passed
 for changed Python files, and Git whitespace validation passed. Managed-service
 and deployed HEAD checks remain pending until the new commit is served.
+
+## 2026-10-27 — Responsive browser review
+
+Public app woke successfully after Community Cloud inactivity. Reproduced cramped
+five-column quick actions and truncated monitoring values at768px with sidebar
+open. Implemented content-width wrapping, auto sidebar, concise tab labels,
+metric wrapping, mobile spacing and44px action targets. Preserved real alerts,
+map, forecast rerun state and native scrolling. Added forecast request feedback
+and an accurate cold-start caption. No backend or architecture replacement.
+
+Candidate preview measured seven viewport sizes320–1440px without page-level
+horizontal overflow. Detailed browser checks confirmed tablet sidebar layout,
+320px tab navigation/full MAE warning, real demand3.69/5.55/2.26, mobile map,
+real ETA11.9min with retained demand, pipeline history and stored report HTML.
+Saved HTML download remains NOT VERIFIED after a browser event-capture timeout.
+No local agent credentials were copied; the local Copilot stays disabled.
+The responsive report separates candidate evidence from pending public deployment.
+Seven focused offline UI tests passed; Ruff, Black and whitespace checks passed.
+A public Copilot query used real Groq openai/gpt-oss-20b in1337.4ms and cited
+warehouse.pipeline_runs. Candidate viewport checks and actual before/after images
+are in docs/RESPONSIVE_REVIEW_2026-10-27.md. Public updated-style acceptance is
+still pending; no hosted result is inferred from local screenshots.
+
+Public follow-up: owner reboot exposed the new layout. Seven public viewport
+measurements320–1440px fit without document overflow, and the complete320px MAE
+warning remained visible. Public real demand3.69/5.55/2.26, modelv1, score
+2026-10-27T16:18:56.887982UTC, map and ETA11.9min passed with retained demand.
+The auto sidebar reopened over mobile ETA results; final default changed to
+collapsed with manual toggle retained. Its final deployed rerun remains pending.
+
+## 2026-10-28 — Final public mobile rerun
+
+After the owner reboot, one public ETA request for75_237 returned11.93minutes,
+modelv1, timestamp2026-10-28T08:40:36.591892UTC. At390x844, closing the browser's
+previously open sidebar via its toggle kept it hidden during and after the
+completed rerun (aria-expanded=false,x=-300px); document/scroll widths both390px.
+Prior open preference persisted on reload, so clean-browser initial state is
+not certified. Screenshot and sanitized DOM measurements are saved with the
+responsive review. PR180 passed all source, constrained-runtime, Compose and
+ARM64 checks and merged normally into dev; release179 is awaiting its new-head
+checks. No managed load test, training, data deletion or paid change occurred.

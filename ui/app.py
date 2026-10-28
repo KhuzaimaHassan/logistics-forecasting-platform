@@ -22,7 +22,7 @@ st.set_page_config(
     page_title="NYC Logistics Ops Copilot",
     page_icon="🚖",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # Constants & Configuration
@@ -172,6 +172,11 @@ def choose_agent_examples(cloud_mode, zones, observations):
 
 
 def main():
+    # Scope layout rules with Streamlit test IDs, avoiding generated class names.
+    st.markdown(
+        f"<style>{Path(__file__).with_name('responsive.css').read_text()}</style>",
+        unsafe_allow_html=True,
+    )
     with st.sidebar:
         st.title("🚖 Logistics Platform")
         st.caption("NYC TLC Demand & ETA Forecasting")
@@ -271,10 +276,10 @@ def main():
 
     tab_copilot, tab_map, tab_pipeline, tab_monitoring = st.tabs(
         [
-            "🤖 Ops Copilot",
+            "🤖 Copilot",
             "🗺️ Forecasts & Map",
-            "📈 Pipeline Observability",
-            "📉 Model Monitoring",
+            "📈 Pipeline",
+            "📉 Monitoring",
         ]
     )
 
@@ -342,12 +347,13 @@ def main():
                 quick_query = "Have any feature drift or model performance decay alerts been detected recently?"
         with col5:
             if st.button(
-                "📋 Promotion Hurdle (ADR-021)",
+                "📋 Promotion Policy",
                 use_container_width=True,
                 disabled=not agent_available,
             ):
                 quick_query = (
-                    "How does the model promotion hurdle rate work in ADR-021?"
+                    "What checks must a candidate model pass before promotion? "
+                    "Cite the relevant repository documentation."
                 )
 
         # Render conversational message thread
@@ -481,7 +487,7 @@ def main():
             "Scheduled historical data. Forecast counts describe a bounded TLC sample, not total NYC demand. Prediction time does not imply live observations."
         )
         st.caption(
-            "Free API hosting can take about a minute to wake up. Retry after a temporary unavailable response."
+            "Free API hosting may take a few minutes to wake up. Retry after a temporary unavailable response."
         )
         try:
             if not deployment:
@@ -510,11 +516,12 @@ def main():
             )
             if st.button("Predict next-hour demand", disabled=not chosen_zones):
                 st.session_state.pop("demand_forecast", None)
-                result = requests.post(
-                    f"{api_url.rstrip('/')}/predict/demand/batch",
-                    json={"zone_ids": chosen_zones, "horizon_minutes": 60},
-                    timeout=API_TIMEOUT,
-                )
+                with st.spinner("Requesting trained-model demand forecasts…"):
+                    result = requests.post(
+                        f"{api_url.rstrip('/')}/predict/demand/batch",
+                        json={"zone_ids": chosen_zones, "horizon_minutes": 60},
+                        timeout=API_TIMEOUT,
+                    )
                 result.raise_for_status()
                 payload = result.json()
                 predictions = payload.get("predictions", [])
@@ -592,11 +599,12 @@ def main():
                 if st.button("Predict corridor ETA"):
                     st.session_state.pop("eta_forecast", None)
                     origin, destination = corridor.split("_")
-                    result = requests.get(
-                        f"{api_url.rstrip('/')}/predict/eta",
-                        params={"origin": int(origin), "dest": int(destination)},
-                        timeout=API_TIMEOUT,
-                    )
+                    with st.spinner("Requesting a trained-model corridor ETA…"):
+                        result = requests.get(
+                            f"{api_url.rstrip('/')}/predict/eta",
+                            params={"origin": int(origin), "dest": int(destination)},
+                            timeout=API_TIMEOUT,
+                        )
                     result.raise_for_status()
                     st.session_state["eta_forecast"] = {
                         "api_url": api_url,

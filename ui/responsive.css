@@ -1,0 +1,63 @@
+/* Respond to the content width: an open sidebar also reduces usable space. */
+[data-testid="stMainBlockContainer"] {
+    container-type: inline-size;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: clamp(1.25rem, 2vw, 2rem);
+}
+
+[data-testid="stMetricValue"],
+[data-testid="stMetricValue"] > div,
+[data-testid="stMetricDelta"],
+[data-testid="stMetricDelta"] > div {
+    white-space: normal !important;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+
+@container (max-width: 52rem) {
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap;
+    }
+
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+        flex: 1 1 14rem !important;
+        min-width: min(100%, 14rem) !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        font-size: 1.5rem;
+    }
+
+}
+
+@media (max-width: 640px) {
+    [data-testid="stMainBlockContainer"] {
+        padding: 3rem 1rem 6rem;
+    }
+
+    [data-testid="stMainBlockContainer"] h1 {
+        font-size: 1.9rem;
+        line-height: 1.2;
+    }
+
+    [data-testid="stMainBlockContainer"] h3 {
+        font-size: 1.25rem;
+        line-height: 1.35;
+    }
+
+    [role="tablist"] {
+        gap: 0.25rem;
+    }
+
+    [role="tab"] {
+        min-height: 44px;
+    }
+
+    [data-testid="stButton"] button,
+    [data-testid="stDownloadButton"] button {
+        min-height: 44px;
+    }
+}

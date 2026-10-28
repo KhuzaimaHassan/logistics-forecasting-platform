@@ -1,0 +1,170 @@
+[
+  {
+    "documentWidth": 320,
+    "height": 740,
+    "sidebar": "false",
+    "tabs": [
+      {
+        "label": "🤖 Copilot",
+        "width": 54
+      },
+      {
+        "label": "🗺️ Forecasts & Map",
+        "width": 116
+      },
+      {
+        "label": "📈 Pipeline",
+        "width": 70
+      },
+      {
+        "label": "📉 Monitoring",
+        "width": 86
+      }
+    ],
+    "width": 320
+  },
+  {
+    "documentWidth": 360,
+    "height": 800,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "label": "🤖 Copilot",
+        "width": 54
+      },
+      {
+        "label": "🗺️ Forecasts & Map",
+        "width": 116
+      },
+      {
+        "label": "📈 Pipeline",
+        "width": 70
+      },
+      {
+        "label": "📉 Monitoring",
+        "width": 86
+      }
+    ],
+    "width": 360
+  },
+  {
+    "documentWidth": 390,
+    "height": 844,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "label": "🤖 Copilot",
+        "width": 54
+      },
+      {
+        "label": "🗺️ Forecasts & Map",
+        "width": 116
+      },
+      {
+        "label": "📈 Pipeline",
+        "width": 70
+      },
+      {
+        "label": "📉 Monitoring",
+        "width": 86
+      }
+    ],
+    "width": 390
+  },
+  {
+    "documentWidth": 768,
+    "height": 1024,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "label": "🤖 Copilot",
+        "width": 54
+      },
+      {
+        "label": "🗺️ Forecasts & Map",
+        "width": 116
+      },
+      {
+        "label": "📈 Pipeline",
+        "width": 70
+      },
+      {
+        "label": "📉 Monitoring",
+        "width": 86
+      }
+    ],
+    "width": 768
+  },
+  {
+    "documentWidth": 844,
+    "height": 390,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "label": "🤖 Copilot",
+        "width": 54
+      },
+      {
+        "label": "🗺️ Forecasts & Map",
+        "width": 116
+      },
+      {
+        "label": "📈 Pipeline",
+        "width": 70
+      },
+      {
+        "label": "📉 Monitoring",
+        "width": 86
+      }
+    ],
+    "width": 844
+  },
+  {
+    "documentWidth": 1024,
+    "height": 768,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "label": "🤖 Copilot",
+        "width": 54
+      },
+      {
+        "label": "🗺️ Forecasts & Map",
+        "width": 116
+      },
+      {
+        "label": "📈 Pipeline",
+        "width": 70
+      },
+      {
+        "label": "📉 Monitoring",
+        "width": 86
+      }
+    ],
+    "width": 1024
+  },
+  {
+    "documentWidth": 1440,
+    "height": 900,
+    "sidebar": "true",
+    "tabs": [
+      {
+        "label": "🤖 Copilot",
+        "width": 54
+      },
+      {
+        "label": "🗺️ Forecasts & Map",
+        "width": 116
+      },
+      {
+        "label": "📈 Pipeline",
+        "width": 70
+      },
+      {
+        "label": "📉 Monitoring",
+        "width": 86
+      }
+    ],
+    "width": 1440
+  }
+]
