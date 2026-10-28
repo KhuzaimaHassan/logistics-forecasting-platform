@@ -1,0 +1,124 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+1 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	2 container
+		3 container streamlitApp
+			4 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				5 container
+					6 container
+						7 container
+							8 heading 🚖 Logistics Platform, Value: 1
+								9 text 🚖 Logistics Platform
+							10 text NYC TLC Demand & ETA Forecasting
+							11 heading 🔌 Backend Service, Value: 3
+								12 text 🔌 Backend Service
+							13 container
+								14 button Help for FastAPI Service URL
+								15 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :r3:
+							16 text ● Serving Online (OK)
+							17 button (collapsed) keyboard_arrow_right Model Registry Status, Secondary Actions: Expand
+								18 text keyboard_arrow_right
+								19 text Model Registry Status
+							20 heading 🛡️ Agent Architecture, Value: 3
+								21 text 🛡️ Agent Architecture
+							22 content list
+								23 container
+									24 AXListMarker • 
+									25 text Framework : LangGraph stategraph
+								26 container
+									27 AXListMarker • 
+									28 text Supported providers : API-configured Groq or Gemini
+								29 container
+									30 AXListMarker • 
+									31 text Security Boundary : Read-only tool allowlist (ADR-023)
+							32 text Cloud responses require a live provider; mock responses are disabled.
+							33 button (collapsed) keyboard_arrow_right Allowlisted Tools, Secondary Actions: Expand
+								34 text keyboard_arrow_right
+								35 text Allowlisted Tools
+							36 button 🗑️ Clear Chat History
+								37 text 🗑️ Clear Chat History
+						38 container
+							650 button keyboard_double_arrow_right
+							40 button Fork
+							41 button
+							42 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						43 container
+							44 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								45 text NYC Logistics Forecasting Platform
+								46 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							47 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							48 tab group react-aria6297765458-:re:
+								49 tab (selectable, settable, boolean) 🤖 Copilot, ID: react-aria6297765458-:re:-tab-0, Value: 0
+🤖 Copilot
+								50 tab (selected, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria6297765458-:re:-tab-1, Value: 1
+🗺️ Forecasts & Map
+								51 tab (selectable, settable, boolean) 📈 Pipeline, ID: react-aria6297765458-:re:-tab-2, Value: 0
+📈 Pipeline
+								52 tab (selectable, settable, boolean) 📉 Monitoring, ID: react-aria6297765458-:re:-tab-3, Value: 0
+📉 Monitoring
+							652 container Description: 🗺️ Forecasts & Map, ID: react-aria6297765458-:re:-tabpanel-1
+								653 heading Demand forecasts & corridor ETA, Value: 3, ID: demand-forecasts-and-corridor-eta
+									654 text Demand forecasts & corridor ETA
+									655 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#demand-forecasts-and-corridor-eta
+								656 text Scheduled historical data. Forecast counts describe a bounded TLC sample, not total NYC demand. Prediction time does not imply live observations.
+								657 text Free API hosting may take a few minutes to wake up. Retry after a temporary unavailable response.
+								658 text NYC TLC recorded trips
+								659 container
+									660 text Observed period: 2023-01-01T05:00 :00 +00 :00  → 2023-01-31T23:00 :00 +00 :00
+								661 container
+									662 text Last successful feature materialization: 2026-10-28T09:47 :20 .442264+00 :00
+								663 container
+									664 container
+										665 button 74 · East Harlem North, close by backspace
+											666 text 74 · East Harlem North
+										667 combo box (collapsed, settable) Description: Selected 74 · East Harlem North. Demand zones, Secondary Actions: Expand
+										668 button Clear all
+										669 image open
+								670 button Predict next-hour demand
+									671 text Predict next-hour demand
+								677 container
+									678 text Model v1 · scored at 2026-10-28T09:53 :53 .886808+00 :00
+								679 container
+									680 button Show/hide columns
+									681 button Download as CSV
+									682 button Search
+									683 button Fullscreen
+									684 image
+										685 table
+											686 row Taxi zone Next-hour sample pickups Feature observation (UTC) Horizon (min) Status
+												687 cell (selectable) Taxi zone
+												688 cell (selectable) Next-hour sample pickups
+												689 cell (selectable) Feature observation (UTC)
+												690 cell (selectable) Horizon (min)
+												691 cell (selectable) Status
+											692 row (selectable) 74 3.69 2023-01-31T23:00:00+00:00 60 ok
+												693 cell (selectable) Value: 74, ID: glide-cell-0-0
+												694 cell (selectable) Value: 3.69, ID: glide-cell-1-0
+												695 cell (selectable) Value: 2023-01-31T23:00:00+00:00, ID: glide-cell-2-0
+												696 cell (selectable) Value: 60, ID: glide-cell-3-0
+												697 cell (selectable) Value: ok, ID: glide-cell-4-0
+								698 container
+									699 button Fullscreen
+									700 container deckgl-wrapper
+										701 container
+											702 image deckgl-overlay
+											703 container view-default-view
+												704 container
+													705 container Map
+													706 container
+														707 content list
+															708 text © 
+															709 link Description: OpenStreetMap, Value: openstreetmap.org/copyright
+															710 text  contributors © 
+															711 link Description: CARTO, Value: carto.com/about-carto/
+												712 container
+													713 button Zoom In
+													714 button Zoom Out
+								715 container
+									716 combo box (collapsed, settable) Description: Materialized corridor, Value: 75_237, ID: react-aria6297765458-:r5n:, Secondary Actions: Expand
+									717 pop up button (collapsed) Description: Open, ID: react-aria6297765458-:r5j:, Secondary Actions: Expand
+								675 button Predict corridor ETA
+									676 text Predict corridor ETA
+		72 link streamlit.io/cloud
+		363 link (collapsed) Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan, Secondary Actions: Expand
+
+The focused UI element is 670 button Predict next-hour demand

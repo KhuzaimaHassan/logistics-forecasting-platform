@@ -1,0 +1,66 @@
+[
+  {
+    "width": 320,
+    "height": 740,
+    "tab": "🤖 Copilot",
+    "metrics": [],
+    "scrollWidth": 320,
+    "sidebarExpanded": "false",
+    "viewport": 320
+  },
+  {
+    "width": 320,
+    "height": 740,
+    "tab": "🗺️ Forecasts & Map",
+    "metrics": [
+      {
+        "scrollWidth": 278,
+        "text": "11.9 minutes",
+        "width": 278
+      }
+    ],
+    "scrollWidth": 320,
+    "sidebarExpanded": "false",
+    "viewport": 320
+  },
+  {
+    "width": 320,
+    "height": 740,
+    "tab": "📈 Pipeline",
+    "metrics": [
+      {
+        "scrollWidth": 278,
+        "text": "HEALTHY",
+        "width": 278
+      }
+    ],
+    "scrollWidth": 320,
+    "sidebarExpanded": "false",
+    "viewport": 320
+  },
+  {
+    "width": 320,
+    "height": 740,
+    "tab": "📉 Monitoring",
+    "metrics": [
+      {
+        "scrollWidth": 278,
+        "text": "🟢 Normal",
+        "width": 278
+      },
+      {
+        "scrollWidth": 278,
+        "text": "🟢 Normal",
+        "width": 278
+      },
+      {
+        "scrollWidth": 278,
+        "text": "🔴 Performance Decay",
+        "width": 278
+      }
+    ],
+    "scrollWidth": 320,
+    "sidebarExpanded": "false",
+    "viewport": 320
+  }
+]
