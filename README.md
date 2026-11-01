@@ -17,26 +17,26 @@ A public MLOps portfolio built around real event processing, online features and
 
 > **Before you try it:** forecasts describe a bounded **January 2023 Green TLC sample**, not current NYC traffic or full-city demand. Render Free can take a few minutes to wake up. Retry after startup; availability depends on shared free-tier quotas.
 
-## See it in action
+## Inside the platform
 
-Real screenshots from the public application, captured in October 2026. Values and alerts reflect those sessions, rather than fixed expected results. Click an image to inspect it at full size.
-
-**Desktop · demand forecast and geographic context · 1024 × 768**
-
-[![Desktop dashboard showing a trained-model demand prediction and the NYC zone map](docs/assets/desktop-forecast.jpg)](docs/assets/desktop-forecast.jpg)
+Four pages, one connected workflow. These are actual public-app captures from October–November 2026; results and alerts reflect those sessions. Select a preview to open the original image at full size.
 
 <table>
   <tr>
-    <th>Tablet · model monitoring</th>
-    <th>Mobile · corridor ETA</th>
+    <th width="50%">Forecasts &amp; Map</th>
+    <th width="50%">Ops Copilot</th>
   </tr>
   <tr>
-    <td align="center"><a href="docs/assets/tablet-monitoring.jpg"><img src="docs/assets/tablet-monitoring.jpg" height="400" alt="Tablet monitoring dashboard with drift scorecards, a performance decay alert and trend charts"></a></td>
-    <td align="center"><a href="docs/assets/mobile-eta.jpg"><img src="docs/assets/mobile-eta.jpg" height="400" alt="Mobile forecast controls and an actual 11.9-minute corridor ETA result"></a></td>
+    <td valign="top"><a href="docs/assets/desktop-forecast.jpg"><img src="docs/assets/desktop-forecast.jpg" width="100%" alt="Forecasts and Map page: real model demand output and NYC zone map"></a><br>Demand predictions with geographic context.</td>
+    <td valign="top"><a href="docs/assets/page-copilot.jpg"><img src="docs/assets/page-copilot.jpg" width="100%" alt="Ops Copilot page: operational shortcuts and a real zone feature query"></a><br>Ask operational questions and inspect feature retrieval.</td>
   </tr>
   <tr>
-    <td align="center">768 × 1024 · drift, alerts and trends</td>
-    <td align="center">390 × 843 · controls and inference result</td>
+    <th>Pipeline Observability</th>
+    <th>Model Monitoring</th>
+  </tr>
+  <tr>
+    <td valign="top"><a href="docs/assets/page-pipeline.jpg"><img src="docs/assets/page-pipeline.jpg" width="100%" alt="Pipeline Observability page: orchestration health and persistent pipeline run history"></a><br>Track orchestration health and recorded executions.</td>
+    <td valign="top"><a href="docs/assets/page-monitoring.jpg"><img src="docs/assets/page-monitoring.jpg" width="100%" alt="Monitoring page: drift scorecards, genuine performance decay alert and historical trends"></a><br>Review drift, performance alerts and historical trends.</td>
   </tr>
 </table>
 
