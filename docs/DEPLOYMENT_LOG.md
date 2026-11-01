@@ -692,3 +692,18 @@ fullscreen and chat controls passed. Retraining and promotion shortcut answer
 relevance failed; download capture remains NOT VERIFIED. Seven focused tests
 passed with a Windows temporary-directory finalizer warning; Ruff/Black and
 whitespace checks passed. Full evidence and limits: LIVE_UI_AUDIT_2026-10-28.md.
+
+
+## 2026-11-01 — CI runner disk exhaustion
+
+Main push run 41317852519 failed in the Compose job's host dependency installation:
+extracting the XGBoost transitive NVIDIA NCCL wheel reported "No space left on
+device". Source checks and the constrained cloud runtime passed; the Compose
+integration tests had not yet run. This is a runner disk failure, not evidence of
+a public-service outage.
+
+Add disk diagnostics and prune disposable Buildx/default-builder caches after
+image builds, before starting the stack and installing host dependencies.
+Retain built images, service volumes, dependency versions and every smoke test.
+No local Docker or managed infrastructure cleanup is performed.
+Validation pending the feature PR's actual CI run.
