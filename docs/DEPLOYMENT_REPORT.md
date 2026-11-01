@@ -2,6 +2,15 @@
 
 ## Outcome
 
+**Live UI audit2026-10-28:** all four tabs tested at seven viewport sizes
+(28 saved measurements), with no page-level overflow. Screenshot inspection
+caught nested metric paragraph clipping at768px; the CSS correction was deployed
+and publicly verified after owner reboot. Real demand, ETA, map, persisted
+prediction lookup, feature retrieval, pipeline history, three monitoring report
+types, chart data/fullscreen and chat controls worked. Retraining/promotion
+shortcut answer relevance failed the audit; report-download completion remains
+NOT VERIFIED. See [the functional matrix and evidence](LIVE_UI_AUDIT_2026-10-28.md).
+
 **Responsive review 2026-10-27:** reproduced cramped tablet action columns and
 truncated monitoring alerts on the public UI. Candidate styling was measured at
 seven sizes320–1440px with no page-level horizontal overflow. Real API demand,

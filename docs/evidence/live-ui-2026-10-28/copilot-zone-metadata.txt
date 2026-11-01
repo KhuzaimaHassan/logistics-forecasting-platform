@@ -1,0 +1,170 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+0 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	1 container
+		2 container streamlitApp
+			3 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				4 container
+					444 container
+						445 container
+							446 heading 🚖 Logistics Platform, Value: 1
+								447 text 🚖 Logistics Platform
+							448 text NYC TLC Demand & ETA Forecasting
+							449 heading 🔌 Backend Service, Value: 3
+								450 text 🔌 Backend Service
+							451 container
+								452 button Help for FastAPI Service URL
+								453 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :rb:
+							454 text ● Serving Online (OK)
+							455 button (expanded) keyboard_arrow_down Model Registry Status, Secondary Actions: Collapse
+								456 text keyboard_arrow_down
+								457 text Model Registry Status
+							458 container
+								459 text demand : Version  1  ( Production )
+							460 container
+								461 text demand_lightgbm_model : Version  1  ( Production )
+							462 container
+								463 text duration : Version  1  ( Production )
+							464 container
+								465 text corridor_duration_lightgbm_model : Version  1  ( Production )
+							466 heading 🛡️ Agent Architecture, Value: 3
+								467 text 🛡️ Agent Architecture
+							468 content list
+								469 container
+									470 AXListMarker • 
+									471 text Framework : LangGraph stategraph
+								472 container
+									473 AXListMarker • 
+									474 text Supported providers : API-configured Groq or Gemini
+								475 container
+									476 AXListMarker • 
+									477 text Security Boundary : Read-only tool allowlist (ADR-023)
+							478 text Cloud responses require a live provider; mock responses are disabled.
+							479 button (expanded) keyboard_arrow_down Allowlisted Tools, Secondary Actions: Collapse
+								480 text keyboard_arrow_down
+								481 text Allowlisted Tools
+							482 content list
+								483 container
+									484 AXListMarker 1. 
+									485 text get_features : Feast Redis online store
+								486 container
+									487 AXListMarker 2. 
+									488 text query_recent_predictions : PostgreSQL predictions log
+								489 container
+									490 AXListMarker 3. 
+									491 text query_pipeline_status : PostgreSQL pipeline runs log
+								492 container
+									493 AXListMarker 4. 
+									494 text search_logs_and_model_cards : FAISS CPU vector index
+								495 container
+									496 AXListMarker 5. 
+									497 text query_drift_reports : PostgreSQL monitoring reports & drift alerts
+							498 button 🗑️ Clear Chat History
+								499 text 🗑️ Clear Chat History
+						500 container
+							501 button keyboard_double_arrow_right
+							517 image Running...
+							518 button Stop
+							504 button Fork
+							505 button
+							506 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						507 container
+							508 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								509 text NYC Logistics Forecasting Platform
+								510 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							511 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							512 tab group react-aria9312318690-:rm:
+								513 tab (selected, settable, boolean) 🤖 Copilot, ID: react-aria9312318690-:rm:-tab-0, Value: 1
+🤖 Copilot
+								514 tab (selectable, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria9312318690-:rm:-tab-1, Value: 0
+🗺️ Forecasts & Map
+								515 tab (selectable, settable, boolean) 📈 Pipeline, ID: react-aria9312318690-:rm:-tab-2, Value: 0
+📈 Pipeline
+								516 tab (selectable, settable, boolean) 📉 Monitoring, ID: react-aria9312318690-:rm:-tab-3, Value: 0
+📉 Monitoring
+							519 container Description: 🤖 Copilot, ID: react-aria9312318690-:rm:-tabpanel-0
+								520 heading Ops Copilot — Conversational Platform Observability, Value: 3, ID: ops-copilot-conversational-platform-observability
+									521 text Ops Copilot — Conversational Platform Observability
+									522 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#ops-copilot-conversational-platform-observability
+								523 text Ask operational questions regarding zone demand, corridor ETAs, model promotion safety gates, or pipeline execution health.
+								524 text Quick Operational Queries:
+								525 button 🚕 Zone 74 Features
+									526 text 🚕 Zone 74 Features
+								527 button ⏱️ Corridor 75 → 237
+									528 text ⏱️ Corridor 75 → 237
+								529 button 🔄 Retraining Status
+									530 text 🔄 Retraining Status
+								531 button 📉 Drift Alerts
+									532 text 📉 Drift Alerts
+								533 button 📋 Promotion Policy
+									534 text 📋 Promotion Policy
+								538 text face
+								539 container Chat message from user
+									540 text What is the observed feature state for zone 74?
+								541 text smart_toy
+								542 container Chat message from assistant
+									543 container
+										544 text Ops Copilot Analysis
+										545 heading Feature State: Zone 74 ([Live Redis Hit]), Value: 3, ID: feature-state-zone-74-live-redis-hit
+											546 container :r6d:
+												547 text Feature State: Zone 
+												548 text 74
+												549 text  ([Live Redis Hit])
+											550 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#feature-state-zone-74-live-redis-hit
+										551 content list
+											552 container
+												553 AXListMarker • 
+												554 text avg_temp_last_1h :  None
+											555 container
+												556 AXListMarker • 
+												557 text day_of_week :  1
+											558 container
+												559 AXListMarker • 
+												560 text hour_of_day :  23
+											561 container
+												562 AXListMarker • 
+												563 text is_holiday :  False
+											564 container
+												565 AXListMarker • 
+												566 text is_precipitating :  False
+											567 container
+												568 AXListMarker • 
+												569 text is_weekend :  False
+											570 container
+												571 AXListMarker • 
+												572 text observed_at :  2023-01-31 23:00:00+00:00
+											573 container
+												574 AXListMarker • 
+												575 text pickup_count_last_15m :  3
+											576 container
+												577 AXListMarker • 
+												578 text pickup_count_last_1h :  3
+											579 container
+												580 AXListMarker • 
+												581 text pickup_count_last_24h :  66
+											582 container
+												583 AXListMarker • 
+												584 text pickup_count_same_hour_last_week :  1
+										585 text Data Sources Cited
+										586 text : 
+										587 text feast_redis:zone_features
+									588 container
+										589 text 🧠  Provider :  groq  ( openai/gpt-oss-20b )
+									590 container
+										591 text ⚡  Latency :  13039.6ms
+									592 container
+										593 text Status:  🟢 OK
+									594 container
+										595 button (expanded) keyboard_arrow_down 🔍 Inspect Tools (1) & Citations (1), Secondary Actions: Collapse
+											596 text keyboard_arrow_down
+											597 text 🔍 Inspect Tools (1) & Citations (1)
+										598 container
+											599 text Allowlisted Tools Executed :  get_features
+										600 container
+											601 text Data Sources Cited :  feast_redis:zone_features
+								535 container
+									536 text entry area (settable) Ask Ops Copilot about observed features, recent predictions, pipelines or drift...
+									537 button (disabled) Send message
+		422 link streamlit.io/cloud
+		443 link (collapsed) Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan, Secondary Actions: Expand
+
+The focused UI element is 595 button (expanded) keyboard_arrow_down 🔍 Inspect Tools (1) & Citations (1), Secondary Actions: Collapse

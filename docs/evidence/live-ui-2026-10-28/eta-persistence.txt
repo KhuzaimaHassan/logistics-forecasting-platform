@@ -1,0 +1,210 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+1 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	2 container
+		3 container streamlitApp
+			4 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				5 container
+					6 container
+						7 container
+							136 button keyboard_double_arrow_left
+							8 heading 🚖 Logistics Platform, Value: 1
+								9 text 🚖 Logistics Platform
+							10 text NYC TLC Demand & ETA Forecasting
+							11 heading 🔌 Backend Service, Value: 3
+								12 text 🔌 Backend Service
+							13 container
+								14 button Help for FastAPI Service URL
+								15 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :rb:
+							16 text ● Serving Online (OK)
+							17 button (expanded) keyboard_arrow_down Model Registry Status, Secondary Actions: Collapse
+								77 text keyboard_arrow_down
+								19 text Model Registry Status
+							78 container
+								79 text demand : Version  1  ( Production )
+							80 container
+								81 text demand_lightgbm_model : Version  1  ( Production )
+							82 container
+								83 text duration : Version  1  ( Production )
+							84 container
+								85 text corridor_duration_lightgbm_model : Version  1  ( Production )
+							20 heading 🛡️ Agent Architecture, Value: 3
+								21 text 🛡️ Agent Architecture
+							22 content list
+								23 container
+									24 AXListMarker • 
+									25 text Framework : LangGraph stategraph
+								26 container
+									27 AXListMarker • 
+									28 text Supported providers : API-configured Groq or Gemini
+								29 container
+									30 AXListMarker • 
+									31 text Security Boundary : Read-only tool allowlist (ADR-023)
+							32 text Cloud responses require a live provider; mock responses are disabled.
+							33 button (expanded) keyboard_arrow_down Allowlisted Tools, Secondary Actions: Collapse
+								86 text keyboard_arrow_down
+								35 text Allowlisted Tools
+							87 content list
+								88 container
+									89 AXListMarker 1. 
+									90 text get_features : Feast Redis online store
+								91 container
+									92 AXListMarker 2. 
+									93 text query_recent_predictions : PostgreSQL predictions log
+								94 container
+									95 AXListMarker 3. 
+									96 text query_pipeline_status : PostgreSQL pipeline runs log
+								97 container
+									98 AXListMarker 4. 
+									99 text search_logs_and_model_cards : FAISS CPU vector index
+								100 container
+									101 AXListMarker 5. 
+									102 text query_drift_reports : PostgreSQL monitoring reports & drift alerts
+							36 button 🗑️ Clear Chat History
+								37 text 🗑️ Clear Chat History
+						38 container
+							103 button keyboard_double_arrow_right
+							42 button Fork
+							43 button
+							44 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						45 container
+							46 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								47 text NYC Logistics Forecasting Platform
+								48 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							49 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							50 tab group react-aria9312318690-:rm:
+								51 tab (selectable, settable, boolean) 🤖 Copilot, ID: react-aria9312318690-:rm:-tab-0, Value: 0
+🤖 Copilot
+								52 tab (selected, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria9312318690-:rm:-tab-1, Value: 1
+🗺️ Forecasts & Map
+								53 tab (selectable, settable, boolean) 📈 Pipeline, ID: react-aria9312318690-:rm:-tab-2, Value: 0
+📈 Pipeline
+								54 tab (selectable, settable, boolean) 📉 Monitoring, ID: react-aria9312318690-:rm:-tab-3, Value: 0
+📉 Monitoring
+							105 container Description: 🗺️ Forecasts & Map, ID: react-aria9312318690-:rm:-tabpanel-1
+								106 heading Demand forecasts & corridor ETA, Value: 3, ID: demand-forecasts-and-corridor-eta
+									107 text Demand forecasts & corridor ETA
+									108 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#demand-forecasts-and-corridor-eta
+								109 text Scheduled historical data. Forecast counts describe a bounded TLC sample, not total NYC demand. Prediction time does not imply live observations.
+								110 text Free API hosting may take a few minutes to wake up. Retry after a temporary unavailable response.
+								111 text NYC TLC recorded trips
+								112 container
+									113 text Observed period: 2023-01-01T05:00 :00 +00 :00  → 2023-01-31T23:00 :00 +00 :00
+								114 container
+									115 text Last successful feature materialization: 2026-10-27T20:10 :49 .546593+00 :00
+								116 container
+									117 container
+										118 button 74 · East Harlem North, close by backspace
+											119 text 74 · East Harlem North
+										120 button 75 · East Harlem South, close by backspace
+											121 text 75 · East Harlem South
+										122 button 166 · Morningside Heights, close by backspace
+											123 text 166 · Morningside Heights
+										124 combo box (collapsed, settable) Description: Selected 74 · East Harlem North, 75 · East Harlem South, 166 · Morningside Heights. Demand zones, Secondary Actions: Expand
+										125 button Clear all
+										126 image open
+								127 button Predict next-hour demand
+									128 text Predict next-hour demand
+								139 container
+									140 text Model v1 · scored at 2026-10-28T09:12 :01 .686019+00 :00
+								141 container
+									142 button Show/hide columns
+									143 button Download as CSV
+									144 button Search
+									145 button Fullscreen
+									146 container
+										147 image
+											148 table
+												149 row Taxi zone Next-hour sample pickups Feature observation (UTC)
+													150 cell (selectable) Taxi zone
+													151 cell (selectable) Next-hour sample pickups
+													152 cell (selectable) Feature observation (UTC)
+												153 container
+													154 row (selectable) 74 3.69 2023-01-31T23:00:00+00:00
+														155 cell (selectable) Value: 74, ID: glide-cell-0-0
+														156 cell (selectable) Value: 3.69, ID: glide-cell-1-0
+														157 cell (selectable) Value: 2023-01-31T23:00:00+00:00, ID: glide-cell-2-0
+													158 row (selectable) 75 5.55 2023-01-31T23:00:00+00:00
+														159 cell (selectable) Value: 75, ID: glide-cell-0-1
+														160 cell (selectable) Value: 5.55, ID: glide-cell-1-1
+														161 cell (selectable) Value: 2023-01-31T23:00:00+00:00, ID: glide-cell-2-1
+													162 row (selectable) 166 2.26 2023-01-31T23:00:00+00:00
+														163 cell (selectable) Value: 166, ID: glide-cell-0-2
+														164 cell (selectable) Value: 2.26, ID: glide-cell-1-2
+														165 cell (selectable) Value: 2023-01-31T23:00:00+00:00, ID: glide-cell-2-2
+								166 container
+									167 button Fullscreen
+									168 container deckgl-wrapper
+										169 container
+											170 image deckgl-overlay
+											171 container view-default-view
+												172 container
+													173 container Map
+													174 container
+														175 button Toggle attribution
+												176 container
+													177 button Zoom In
+													178 button Zoom Out
+								179 container
+									180 combo box (collapsed, settable) Description: Materialized corridor, Value: 75_237, ID: react-aria9312318690-:r3h:, Secondary Actions: Expand
+									181 pop up button (collapsed) Description: Open, ID: react-aria9312318690-:r3d:, Secondary Actions: Expand
+								132 button Predict corridor ETA
+									133 text Predict corridor ETA
+								182 container
+									183 text Estimated trip duration
+									184 text 11.9 minutes
+								185 container
+									186 text {
+									187 container
+										188 text " data_as_of "
+									189 text :
+									190 container
+										191 text " 2023-01-31T23:00:00+00:00 "
+									192 container
+										193 text " origin_zone_id "
+									194 text :
+									195 text 75
+									196 container
+										197 text " dest_zone_id "
+									198 text :
+									199 text 237
+									200 container
+										201 text " corridor_id "
+									202 text :
+									203 container
+										204 text " 75_237 "
+									205 container
+										206 text " predicted_duration_seconds "
+									207 text :
+									208 text 715.8
+									209 container
+										210 text " predicted_duration_minutes "
+									211 text :
+									212 text 11.93
+									213 container
+										214 text " status "
+									215 text :
+									216 container
+										217 text " ok "
+									218 container
+										219 text " cache_hit "
+									220 text :
+									221 text true
+									222 container
+										223 text " model_version "
+									224 text :
+									225 container
+										226 text " 1 "
+									227 container
+										228 text " as_of "
+									229 text :
+									230 container
+										231 text " 2026-10-28T09:12:40.230506+00:00 "
+									232 container
+										233 text " warning "
+									234 text :
+									235 text NULL
+									236 text }
+		74 link streamlit.io/cloud
+		138 link Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan
+
+The focused UI element is 132 button Predict corridor ETA

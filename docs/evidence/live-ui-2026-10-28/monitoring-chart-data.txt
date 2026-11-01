@@ -1,0 +1,404 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+1 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	2 container
+		3 container streamlitApp
+			4 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				5 container
+					6 container
+						7 container
+							8 heading 🚖 Logistics Platform, Value: 1
+								9 text 🚖 Logistics Platform
+							10 text NYC TLC Demand & ETA Forecasting
+							11 heading 🔌 Backend Service, Value: 3
+								12 text 🔌 Backend Service
+							13 container
+								14 button Help for FastAPI Service URL
+								15 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :r3:
+							16 text ● Serving Online (OK)
+							17 button (collapsed) keyboard_arrow_right Model Registry Status, Secondary Actions: Expand
+								18 text keyboard_arrow_right
+								19 text Model Registry Status
+							20 heading 🛡️ Agent Architecture, Value: 3
+								21 text 🛡️ Agent Architecture
+							22 content list
+								23 container
+									24 AXListMarker • 
+									25 text Framework : LangGraph stategraph
+								26 container
+									27 AXListMarker • 
+									28 text Supported providers : API-configured Groq or Gemini
+								29 container
+									30 AXListMarker • 
+									31 text Security Boundary : Read-only tool allowlist (ADR-023)
+							32 text Cloud responses require a live provider; mock responses are disabled.
+							33 button (collapsed) keyboard_arrow_right Allowlisted Tools, Secondary Actions: Expand
+								34 text keyboard_arrow_right
+								35 text Allowlisted Tools
+							36 button 🗑️ Clear Chat History
+								37 text 🗑️ Clear Chat History
+						38 container
+							650 button keyboard_double_arrow_right
+							40 button Fork
+							41 button
+							42 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						43 container
+							44 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								45 text NYC Logistics Forecasting Platform
+								46 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							47 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							48 tab group react-aria6297765458-:re:
+								49 tab (selectable, settable, boolean) 🤖 Copilot, ID: react-aria6297765458-:re:-tab-0, Value: 0
+🤖 Copilot
+								50 tab (selectable, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria6297765458-:re:-tab-1, Value: 0
+🗺️ Forecasts & Map
+								51 tab (selectable, settable, boolean) 📈 Pipeline, ID: react-aria6297765458-:re:-tab-2, Value: 0
+📈 Pipeline
+								52 tab (selected, settable, boolean) 📉 Monitoring, Value: 1, ID: react-aria6297765458-:re:-tab-3
+									651 text 📉 Monitoring
+							652 container Description: 📉 Monitoring, ID: react-aria6297765458-:re:-tabpanel-3
+								653 heading Evidently AI Model & Data Drift Observability, Value: 3, ID: evidently-ai-model-and-data-drift-observability
+									654 text Evidently AI Model & Data Drift Observability
+									655 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#evidently-ai-model-and-data-drift-observability
+								656 text Scheduled evaluation of observed historical sample features, predictions, and model performance (ADR-026).
+								657 heading High-Level Drift & Performance Scorecards, Value: 3, ID: high-level-drift-and-performance-scorecards
+									658 text High-Level Drift & Performance Scorecards
+									659 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#high-level-drift-and-performance-scorecards
+								660 container
+									661 text Feature Data Drift
+									662 text 🟢 Normal 12.5% share (1/8 cols)
+								663 container
+									664 text Prediction Drift
+									665 text 🟢 Normal Drift score: 0.0232
+								666 container
+									667 text Model MAE Decay
+									668 text 🔴 Performance Decay MAE 0.06 vs Base 0.05 (+29.9%)
+								669 container
+									670 text Action Required: Model Retraining Recommended!
+									671 text 5 recent monitoring reports triggered automated retraining alerts. Review the historical backtest reports before triggering retraining.
+								672 heading Historical Drift & Performance Trends, Value: 3, ID: historical-drift-and-performance-trends
+									673 text Historical Drift & Performance Trends
+									674 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#historical-drift-and-performance-trends
+								675 text 📈 Feature Drift Share Trend (%)
+								676 container
+									677 button Show data
+									678 button Fullscreen
+									679 container Vega visualization
+										680 image
+											681 container X-axis for a discrete scale with 5 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33, 2026-10-22 10:45:33, 2026-10-25 10:15:53 Y-axis for a linear scale with values from 0 to 13 Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5 Timestamp: 2026-10-19 11:13:36; Drift Share (%): 12.5 Timestamp: 2026-10-21 10:42:33; Drift Share (%): 12.5 Timestamp: 2026-10-22 10:45:33; Drift Share (%): 12.5 Timestamp: 2026-10-25 10:15:53; Drift Share (%): 12.5Timestamp: 2026-10-25 10:15:53; Drift Share (%): 12.5
+												682 axis X-axis for a discrete scale with 5 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33, 2026-10-22 10:45:33, 2026-10-25 10:15:53
+												683 axis Y-axis for a linear scale with values from 0 to 13
+												684 container Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5
+													685 line mark Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5
+												686 container Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5 Timestamp: 2026-10-19 11:13:36; Drift Share (%): 12.5 Timestamp: 2026-10-21 10:42:33; Drift Share (%): 12.5 Timestamp: 2026-10-22 10:45:33; Drift Share (%): 12.5 Timestamp: 2026-10-25 10:15:53; Drift Share (%): 12.5
+													687 point Timestamp: 2026-10-19 09:41:41; Drift Share (%): 12.5
+													688 point Timestamp: 2026-10-19 11:13:36; Drift Share (%): 12.5
+													689 point Timestamp: 2026-10-21 10:42:33; Drift Share (%): 12.5
+													690 point Timestamp: 2026-10-22 10:45:33; Drift Share (%): 12.5
+													691 point Timestamp: 2026-10-25 10:15:53; Drift Share (%): 12.5
+												692 container Timestamp: 2026-10-25 10:15:53; Drift Share (%): 12.5
+													919 point Timestamp: 2026-10-25 10:15:53; Drift Share (%): 12.5
+									693 container Click to view actions
+										694 button (collapsed) Secondary Actions: Expand
+											695 image
+								696 text 📊 Drifted Columns Count
+								697 container
+									698 button Show data
+									699 button Fullscreen
+									700 container Vega visualization
+										701 image
+											702 container X-axis for a discrete scale with 5 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33, 2026-10-22 10:45:33, 2026-10-25 10:15:53 Y-axis for a linear scale with values from 0.0 to 1.0 Timestamp: 2026-10-19 09:41:41; Drifted Columns: 1 Timestamp: 2026-10-19 11:13:36; Drifted Columns: 1 Timestamp: 2026-10-21 10:42:33; Drifted Columns: 1 Timestamp: 2026-10-22 10:45:33; Drifted Columns: 1 Timestamp: 2026-10-25 10:15:53; Drifted Columns: 1
+												703 axis X-axis for a discrete scale with 5 values: 2026-10-19 09:41:41, 2026-10-19 11:13:36, 2026-10-21 10:42:33, 2026-10-22 10:45:33, 2026-10-25 10:15:53
+												704 axis Y-axis for a linear scale with values from 0.0 to 1.0
+												705 container Timestamp: 2026-10-19 09:41:41; Drifted Columns: 1 Timestamp: 2026-10-19 11:13:36; Drifted Columns: 1 Timestamp: 2026-10-21 10:42:33; Drifted Columns: 1 Timestamp: 2026-10-22 10:45:33; Drifted Columns: 1 Timestamp: 2026-10-25 10:15:53; Drifted Columns: 1
+													706 bar Timestamp: 2026-10-19 09:41:41; Drifted Columns: 1
+													707 bar Timestamp: 2026-10-19 11:13:36; Drifted Columns: 1
+													708 bar Timestamp: 2026-10-21 10:42:33; Drifted Columns: 1
+													709 bar Timestamp: 2026-10-22 10:45:33; Drifted Columns: 1
+													710 bar Timestamp: 2026-10-25 10:15:53; Drifted Columns: 1
+									711 container Click to view actions
+										712 button (collapsed) Secondary Actions: Expand
+											713 image
+								714 heading Interactive Evidently AI HTML Report Viewer, Value: 3, ID: interactive-evidently-ai-html-report-viewer
+									715 text Interactive Evidently AI HTML Report Viewer
+									716 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#interactive-evidently-ai-html-report-viewer
+								717 container
+									718 combo box (collapsed, settable) Description: Select a monitoring report to inspect:, Value: PERFORMANCE_DECAY | 2026-10-25 10:15:54 | 🔴 ALERT (ID: fabcc504), ID: react-aria6297765458-:r20:, Secondary Actions: Expand
+									719 pop up button (collapsed) Description: Open, ID: react-aria6297765458-:r1s:, Secondary Actions: Expand
+								720 container
+									721 text Report Type :  performance_decay
+								722 container
+									723 text Severity :  CRITICAL
+								724 container
+									725 text Retrain Recommended :  True
+								726 container
+									727 text Model version :  1
+								728 container
+									729 button (expanded) keyboard_arrow_down 🚨 View Alert Reasons, Secondary Actions: Collapse
+										730 text keyboard_arrow_down
+										731 text 🚨 View Alert Reasons
+									732 content list
+										733 container
+											734 AXListMarker • 
+											735 text Model MAE degraded by 29.9% (Current MAE 0.06 vs MLflow Production Baseline 0.05, threshold 15.0%)
+								736 button 📥 Download HTML Report
+									737 text 📥 Download HTML Report
+								738 container st.iframe
+									739 AXWebArea about:srcdoc
+										740 container root_metric_3e7986f27ffe48558491756ca61fc829
+											741 button
+											742 heading Regression Model Performance. Target: 'actual_value’, Value: 5
+												743 text Regression Model Performance. Target: 'actual_value’
+											744 heading Current: Model Quality (+/- std), Value: 5
+												745 text Current: Model Quality (+/- std)
+											746 text 0.01 (0.27)
+											747 heading ME, Value: 5
+												748 text ME
+											749 text 0.06 (0.27)
+											750 heading MAE, Value: 5
+												751 text MAE
+											752 text 98.6 (0.11)
+											753 heading MAPE, Value: 5
+												754 text MAPE
+											755 heading Reference: Model Quality (+/- std), Value: 5
+												756 text Reference: Model Quality (+/- std)
+											757 text -0.0 (0.25)
+											758 heading ME, Value: 5
+												759 text ME
+											760 text 0.06 (0.24)
+											761 heading MAE, Value: 5
+												762 text MAE
+											763 text 56.56 (0.33)
+											764 heading MAPE, Value: 5
+												765 text MAPE
+											766 heading Predicted vs Actual in Time, Value: 5
+												767 text Predicted vs Actual in Time
+											768 container
+												769 image
+													770 image
+													771 image
+													772 image
+													773 image
+													774 image
+													775 image
+													776 image
+													777 image
+													778 image
+													779 image
+													780 image
+													920 container
+														921 text 14:00 Jan 31, 2023
+													922 text 15:00
+													923 text 16:00
+													924 text 17:00
+													925 text 18:00
+													926 text 19:00
+													927 text 20:00
+													928 text 21:00
+													929 text −0.4
+													930 text −0.2
+													931 text 0
+													932 text 0.2
+													933 text 0.4
+													934 text 0.6
+												781 image
+													782 text Actual
+													783 image
+													784 text Predicted
+													785 image
+													935 text event_timestamp (hour)
+													936 text Value
+												786 container modebar-f800c6
+													787 link Description: plotly-logomark, Value: plotly.com/
+												788 image
+											789 heading Error (Predicted - Actual), Value: 5
+												790 text Error (Predicted - Actual)
+											791 container
+												792 image
+													793 image
+													794 image
+													795 image
+													796 image
+													797 image
+													798 image
+													799 image
+													800 image
+													801 image
+													802 image
+													803 image
+													804 image
+													805 image
+													806 image
+													807 image
+													808 image
+													809 image
+													810 image
+													811 image
+													812 image
+													813 image
+													814 image
+													937 container
+														938 text 14:00 Jan 31, 2023
+													939 text 16:00
+													940 text 18:00
+													941 text 20:00
+													942 text −0.3
+													943 text −0.2
+													944 text −0.1
+													945 text 0
+													946 text 0.1
+													947 text 0.2
+													948 text 0.3
+													949 text 0.4
+													950 container
+														951 text 16:00 Jan 24, 2023
+													952 text 18:00
+													953 text 20:00
+													954 text 22:00
+												815 image
+													816 text Predicted - Actual
+													817 image
+													955 text event_timestamp (hour)
+													956 text event_timestamp (hour)
+													957 text Error
+													958 text current
+													959 text reference
+												818 container modebar-faf020
+													819 link Description: plotly-logomark, Value: plotly.com/
+												820 image
+											821 heading Error Distribution, Value: 5
+												822 text Error Distribution
+											823 container
+												824 image
+													825 image
+													826 image
+													827 image
+													828 image
+													829 image
+													830 image
+													831 image
+													832 image
+													833 image
+													834 image
+													835 image
+													836 image
+													837 image
+													838 image
+													839 image
+													840 image
+													841 image
+													842 image
+													843 image
+													844 image
+													845 image
+													846 image
+													960 text −2
+													961 text 0
+													962 text 2
+													963 text 0
+													964 text 500
+													965 text 1000
+													966 text 1500
+													967 text −2
+													968 text 0
+													969 text 2
+												847 image
+													970 text Error (Predicted - Actual)
+													971 text Error (Predicted - Actual)
+													972 text Number Of Objects
+													973 text current
+													974 text reference
+													848 text abs
+													849 text perc
+												850 container modebar-e48261
+													851 link Description: plotly-logomark, Value: plotly.com/
+												852 image
+											853 heading Mean Absolute Percentage Error: Current, Value: 5
+												854 text Mean Absolute Percentage Error: Current
+											855 text 98.60
+											856 heading Mean, Value: 5
+												857 text Mean
+											858 text 0.11
+											859 heading Std, Value: 5
+												860 text Std
+											861 heading Mean Absolute Percentage Error: Reference, Value: 5
+												862 text Mean Absolute Percentage Error: Reference
+											863 text 56.56
+											864 heading Mean, Value: 5
+												865 text Mean
+											866 text 0.33
+											867 heading Std, Value: 5
+												868 text Std
+											869 heading Absolute Percentage Error, Value: 5
+												870 text Absolute Percentage Error
+											871 text Near-zero values detected (|actual_value| ≤ epsilon). Applied zero_handling='replace'. Affected rows — current: 3850, reference: 3824.
+											872 container
+												873 image
+													874 image
+													875 image
+													876 image
+													877 image
+													878 image
+													879 image
+													880 image
+													881 image
+													882 image
+													883 image
+													884 image
+													885 image
+													886 image
+													887 image
+													888 image
+													889 image
+													890 image
+													891 image
+													892 image
+													893 image
+													894 image
+													895 image
+													975 container
+														976 text 14:00 Jan 31, 2023
+													977 text 16:00
+													978 text 18:00
+													979 text 20:00
+													980 text −1
+													981 text −0.5
+													982 text 0
+													983 text 0.5
+													984 text 1
+													985 container
+														986 text 16:00 Jan 24, 2023
+													987 text 18:00
+													988 text 20:00
+													989 text 22:00
+												896 image
+													897 text Absolute Percentage Error
+													898 image
+													990 text event_timestamp (hour)
+													991 text event_timestamp (hour)
+													992 text Percent
+													993 text current
+													994 text reference
+												899 container modebar-494ec5
+													900 link Description: plotly-logomark, Value: plotly.com/
+												901 image
+											902 heading Absolute Max Error (current), Value: 5
+												903 text Absolute Max Error (current)
+											904 text 3.764
+											905 heading 5
+											906 heading Absolute Max Error (reference), Value: 5
+												907 text Absolute Max Error (reference)
+											908 text 3.252
+											909 heading 5
+											910 heading R2 Score (current), Value: 5
+												911 text R2 Score (current)
+											912 text 0.546
+											913 heading 5
+											914 heading R2 Score (reference), Value: 5
+												915 text R2 Score (reference)
+											916 text 0.700
+											917 heading 5
+										918 image js-plotly-tester
+		72 link streamlit.io/cloud
+		363 link (collapsed) Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan, Secondary Actions: Expand
+
+The focused UI element is 52 tab (selected, settable, boolean) 📉 Monitoring, Value: 1, ID: react-aria6297765458-:re:-tab-3

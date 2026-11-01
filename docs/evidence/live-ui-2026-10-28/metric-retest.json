@@ -1,0 +1,352 @@
+[
+  {
+    "width": 320,
+    "height": 740,
+    "paragraphs": [
+      {
+        "scroll": 278,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 278
+      },
+      {
+        "scroll": 127,
+        "text": "12.5% share (1/8 cols)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 127
+      },
+      {
+        "scroll": 278,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 278
+      },
+      {
+        "scroll": 104,
+        "text": "Drift score: 0.0232",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 104
+      },
+      {
+        "scroll": 278,
+        "text": "🔴 Performance Decay",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 278
+      },
+      {
+        "scroll": 180,
+        "text": "MAE 0.06 vs Base 0.05 (+29.9%)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 180
+      }
+    ],
+    "scrollWidth": 320,
+    "viewport": 320
+  },
+  {
+    "width": 360,
+    "height": 800,
+    "paragraphs": [
+      {
+        "scroll": 318,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 318
+      },
+      {
+        "scroll": 127,
+        "text": "12.5% share (1/8 cols)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 127
+      },
+      {
+        "scroll": 318,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 318
+      },
+      {
+        "scroll": 104,
+        "text": "Drift score: 0.0232",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 104
+      },
+      {
+        "scroll": 318,
+        "text": "🔴 Performance Decay",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 318
+      },
+      {
+        "scroll": 180,
+        "text": "MAE 0.06 vs Base 0.05 (+29.9%)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 180
+      }
+    ],
+    "scrollWidth": 360,
+    "viewport": 360
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "paragraphs": [
+      {
+        "scroll": 348,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 348
+      },
+      {
+        "scroll": 127,
+        "text": "12.5% share (1/8 cols)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 127
+      },
+      {
+        "scroll": 348,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 348
+      },
+      {
+        "scroll": 104,
+        "text": "Drift score: 0.0232",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 104
+      },
+      {
+        "scroll": 348,
+        "text": "🔴 Performance Decay",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 348
+      },
+      {
+        "scroll": 180,
+        "text": "MAE 0.06 vs Base 0.05 (+29.9%)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 180
+      }
+    ],
+    "scrollWidth": 390,
+    "viewport": 390
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "paragraphs": [
+      {
+        "scroll": 231,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 231
+      },
+      {
+        "scroll": 127,
+        "text": "12.5% share (1/8 cols)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 127
+      },
+      {
+        "scroll": 231,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 231
+      },
+      {
+        "scroll": 104,
+        "text": "Drift score: 0.0232",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 104
+      },
+      {
+        "scroll": 231,
+        "text": "🔴 Performance Decay",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 231
+      },
+      {
+        "scroll": 180,
+        "text": "MAE 0.06 vs Base 0.05 (+29.9%)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 180
+      }
+    ],
+    "scrollWidth": 768,
+    "viewport": 768
+  },
+  {
+    "width": 844,
+    "height": 390,
+    "paragraphs": [
+      {
+        "scroll": 257,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 257
+      },
+      {
+        "scroll": 127,
+        "text": "12.5% share (1/8 cols)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 127
+      },
+      {
+        "scroll": 257,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 257
+      },
+      {
+        "scroll": 104,
+        "text": "Drift score: 0.0232",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 104
+      },
+      {
+        "scroll": 257,
+        "text": "🔴 Performance Decay",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 257
+      },
+      {
+        "scroll": 180,
+        "text": "MAE 0.06 vs Base 0.05 (+29.9%)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 180
+      }
+    ],
+    "scrollWidth": 844,
+    "viewport": 844
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "paragraphs": [
+      {
+        "scroll": 274,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 274
+      },
+      {
+        "scroll": 127,
+        "text": "12.5% share (1/8 cols)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 127
+      },
+      {
+        "scroll": 274,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 274
+      },
+      {
+        "scroll": 104,
+        "text": "Drift score: 0.0232",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 104
+      },
+      {
+        "scroll": 274,
+        "text": "🔴 Performance Decay",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 274
+      },
+      {
+        "scroll": 180,
+        "text": "MAE 0.06 vs Base 0.05 (+29.9%)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 180
+      }
+    ],
+    "scrollWidth": 1024,
+    "viewport": 1024
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "paragraphs": [
+      {
+        "scroll": 413,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 413
+      },
+      {
+        "scroll": 127,
+        "text": "12.5% share (1/8 cols)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 127
+      },
+      {
+        "scroll": 413,
+        "text": "🟢 Normal",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 413
+      },
+      {
+        "scroll": 104,
+        "text": "Drift score: 0.0232",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 104
+      },
+      {
+        "scroll": 413,
+        "text": "🔴 Performance Decay",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 413
+      },
+      {
+        "scroll": 180,
+        "text": "MAE 0.06 vs Base 0.05 (+29.9%)",
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 180
+      }
+    ],
+    "scrollWidth": 1440,
+    "viewport": 1440
+  }
+]
