@@ -706,4 +706,8 @@ Add disk diagnostics and prune disposable Buildx/default-builder caches after
 image builds, before starting the stack and installing host dependencies.
 Retain built images, service volumes, dependency versions and every smoke test.
 No local Docker or managed infrastructure cleanup is performed.
-Validation pending the feature PR's actual CI run.
+Validation: feature CI run [41319645688](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/41319645688)
+passed all nine checks, including the complete Compose suite and ARM64 builds.
+The formerly failing dependency installation passed. Cleanup increased available
+root disk from 74G to 81G on that runner. This validates the change on that runner;
+capacity still depends on the hosted runner image and installed dependencies.
