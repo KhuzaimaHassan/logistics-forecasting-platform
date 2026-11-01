@@ -108,6 +108,16 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci build
 
 
+      - name: Reclaim disposable build cache before integration dependencies
+        run: |
+          # Images remain available; only this hosted runner's build cache is removed.
+          df -h /
+          docker system df
+          docker buildx prune --all --force
+          docker builder prune --all --force
+          df -h /
+          docker system df
+
       - name: Start Docker Compose stack
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.yml --env-file .env.ci up -d
