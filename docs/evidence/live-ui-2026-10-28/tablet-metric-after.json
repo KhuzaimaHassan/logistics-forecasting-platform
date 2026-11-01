@@ -1,0 +1,44 @@
+[
+  {
+    "paragraphs": [
+      {
+        "height": 33.60000228881836,
+        "overflow": "visible",
+        "scrollWidth": 231,
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 231
+      }
+    ],
+    "text": "🟢 Normal",
+    "width": 231
+  },
+  {
+    "paragraphs": [
+      {
+        "height": 33.60000228881836,
+        "overflow": "visible",
+        "scrollWidth": 231,
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 231
+      }
+    ],
+    "text": "🟢 Normal",
+    "width": 231
+  },
+  {
+    "paragraphs": [
+      {
+        "height": 65.5999984741211,
+        "overflow": "visible",
+        "scrollWidth": 231,
+        "textOverflow": "clip",
+        "whiteSpace": "normal",
+        "width": 231
+      }
+    ],
+    "text": "🔴 Performance Decay",
+    "width": 231
+  }
+]

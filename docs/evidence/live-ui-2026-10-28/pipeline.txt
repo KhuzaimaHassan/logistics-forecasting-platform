@@ -1,0 +1,208 @@
+Browser tab: 1, Title: "NYC Logistics Ops Copilot · Streamlit", URL: "https://logistics-forecasting-platform.streamlit.app/".
+0 AXWebArea NYC Logistics Ops Copilot · Streamlit, URL: logistics-forecasting-platform.streamlit.app/
+	1 container
+		2 container streamlitApp
+			3 AXWebArea NYC Logistics Ops Copilot, URL: logistics-forecasting-platform.streamlit.app/~/+/
+				4 container
+					5 container
+						6 container
+							8 heading 🚖 Logistics Platform, Value: 1
+								9 text 🚖 Logistics Platform
+							10 text NYC TLC Demand & ETA Forecasting
+							11 heading 🔌 Backend Service, Value: 3
+								12 text 🔌 Backend Service
+							13 container
+								14 button Help for FastAPI Service URL
+								15 text field (settable) Description: FastAPI Service URL, Value: https://logistics-forecasting-platform.onrender.com, ID: :rb:
+							16 text ● Serving Online (OK)
+							17 button (expanded) keyboard_arrow_down Model Registry Status, Secondary Actions: Collapse
+								18 text keyboard_arrow_down
+								19 text Model Registry Status
+							20 container
+								21 text demand : Version  1  ( Production )
+							22 container
+								23 text demand_lightgbm_model : Version  1  ( Production )
+							24 container
+								25 text duration : Version  1  ( Production )
+							26 container
+								27 text corridor_duration_lightgbm_model : Version  1  ( Production )
+							28 heading 🛡️ Agent Architecture, Value: 3
+								29 text 🛡️ Agent Architecture
+							30 content list
+								31 container
+									32 AXListMarker • 
+									33 text Framework : LangGraph stategraph
+								34 container
+									35 AXListMarker • 
+									36 text Supported providers : API-configured Groq or Gemini
+								37 container
+									38 AXListMarker • 
+									39 text Security Boundary : Read-only tool allowlist (ADR-023)
+							40 text Cloud responses require a live provider; mock responses are disabled.
+							41 button (expanded) keyboard_arrow_down Allowlisted Tools, Secondary Actions: Collapse
+								42 text keyboard_arrow_down
+								43 text Allowlisted Tools
+							44 content list
+								45 container
+									46 AXListMarker 1. 
+									47 text get_features : Feast Redis online store
+								48 container
+									49 AXListMarker 2. 
+									50 text query_recent_predictions : PostgreSQL predictions log
+								51 container
+									52 AXListMarker 3. 
+									53 text query_pipeline_status : PostgreSQL pipeline runs log
+								54 container
+									55 AXListMarker 4. 
+									56 text search_logs_and_model_cards : FAISS CPU vector index
+								57 container
+									58 AXListMarker 5. 
+									59 text query_drift_reports : PostgreSQL monitoring reports & drift alerts
+							60 button 🗑️ Clear Chat History
+								61 text 🗑️ Clear Chat History
+						62 container
+							63 button keyboard_double_arrow_right
+							64 button Fork
+							65 button
+							66 pop up button (collapsed) Description: Main menu, Secondary Actions: Expand
+						67 container
+							68 heading NYC Logistics Forecasting Platform, Value: 1, ID: nyc-logistics-forecasting-platform
+								69 text NYC Logistics Forecasting Platform
+								70 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#nyc-logistics-forecasting-platform
+							71 text Forecasts for a bounded historical NYC TLC sample with scheduled Kafka processing.
+							72 tab group react-aria9312318690-:rm:
+								73 tab (selectable, settable, boolean) 🤖 Copilot, ID: react-aria9312318690-:rm:-tab-0, Value: 0
+🤖 Copilot
+								74 tab (selectable, settable, boolean) 🗺️ Forecasts & Map, ID: react-aria9312318690-:rm:-tab-1, Value: 0
+🗺️ Forecasts & Map
+								75 tab (selected, settable, boolean) 📈 Pipeline, Value: 1, ID: react-aria9312318690-:rm:-tab-2
+									444 text 📈 Pipeline
+								76 tab (selectable, settable, boolean) 📉 Monitoring, ID: react-aria9312318690-:rm:-tab-3, Value: 0
+📉 Monitoring
+							445 container Description: 📈 Pipeline, ID: react-aria9312318690-:rm:-tabpanel-2
+								446 heading Pipeline & Model Observability, Value: 3, ID: pipeline-and-model-observability
+									447 text Pipeline & Model Observability
+									448 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#pipeline-and-model-observability
+								449 text Recorded pipeline execution results. Manual runs do not prove that a recurring schedule has executed.
+								450 container
+									451 text Orchestration Health
+									452 text HEALTHY 10 recent runs
+								453 heading Recent Pipeline Runs (warehouse.pipeline_runs), Value: 3, ID: recent-pipeline-runs-warehouse-pipeline-runs
+									454 container :r14:
+										455 text Recent Pipeline Runs (
+										456 text warehouse.pipeline_runs
+										457 text )
+									458 link Description: Link to heading, Value: logistics-forecasting-platform.streamlit.app/~/+/#recent-pipeline-runs-warehouse-pipeline-runs
+								459 container
+									460 button Show/hide columns
+									461 button Download as CSV
+									462 button Search
+									463 button Fullscreen
+									464 container
+										465 image
+											466 table
+												467 row run_id job_name status started_at finished_at duration_seconds records_processed
+													468 cell (selectable)
+													469 cell (selectable) run_id
+													470 cell (selectable) job_name
+													471 cell (selectable) status
+													472 cell (selectable) started_at
+													473 cell (selectable)
+													474 cell (selectable)
+													475 cell (selectable)
+												476 container
+													477 row (selectable) 0 2cd7eeb4-f018-4bbe-be30-a16467f64c41 free-tier-scheduled-kafka-pipeline completed 2026-10-27T20:07:20.333849+00:00 2026-10-27T20:10:50.810816+00:00 0
+														478 cell (selectable) Value: 0, ID: glide-cell-0-0
+														479 cell (selectable) Value: 2cd7eeb4-f018-4bbe-be30-a16467f64c41, ID: glide-cell-1-0
+														480 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-0
+														481 cell (selectable) Value: completed, ID: glide-cell-3-0
+														482 cell (selectable) Value: 2026-10-27T20:07:20.333849+00:00, ID: glide-cell-4-0
+														483 cell (selectable)
+														484 cell (selectable)
+														485 cell (selectable)
+													486 row (selectable) 1 6563d1c8-3246-441c-93ca-d78b1757d3af free-tier-scheduled-kafka-pipeline completed 2026-10-27T09:03:19.341800+00:00 2026-10-27T09:06:56.565194+00:00 0
+														487 cell (selectable) Value: 1, ID: glide-cell-0-1
+														488 cell (selectable) Value: 6563d1c8-3246-441c-93ca-d78b1757d3af, ID: glide-cell-1-1
+														489 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-1
+														490 cell (selectable) Value: completed, ID: glide-cell-3-1
+														491 cell (selectable) Value: 2026-10-27T09:03:19.341800+00:00, ID: glide-cell-4-1
+														492 cell (selectable)
+														493 cell (selectable)
+														494 cell (selectable)
+													495 row (selectable) 2 c108332c-0182-4fb6-b4fd-029f6986fcbf free-tier-scheduled-kafka-pipeline completed 2026-10-26T20:31:18.978535+00:00 2026-10-26T20:34:54.278721+00:00 0
+														496 cell (selectable) Value: 2, ID: glide-cell-0-2
+														497 cell (selectable) Value: c108332c-0182-4fb6-b4fd-029f6986fcbf, ID: glide-cell-1-2
+														498 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-2
+														499 cell (selectable) Value: completed, ID: glide-cell-3-2
+														500 cell (selectable) Value: 2026-10-26T20:31:18.978535+00:00, ID: glide-cell-4-2
+														501 cell (selectable)
+														502 cell (selectable)
+														503 cell (selectable)
+													504 row (selectable) 3 70304bbb-2951-49dc-aa00-5f4099e453e0 free-tier-scheduled-kafka-pipeline completed 2026-10-26T08:59:46.755850+00:00 2026-10-26T09:03:16.488843+00:00 0
+														505 cell (selectable) Value: 3, ID: glide-cell-0-3
+														506 cell (selectable) Value: 70304bbb-2951-49dc-aa00-5f4099e453e0, ID: glide-cell-1-3
+														507 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-3
+														508 cell (selectable) Value: completed, ID: glide-cell-3-3
+														509 cell (selectable) Value: 2026-10-26T08:59:46.755850+00:00, ID: glide-cell-4-3
+														510 cell (selectable)
+														511 cell (selectable)
+														512 cell (selectable)
+													513 row (selectable) 4 162713d5-c164-4824-b415-31ecd161a5c5 free-tier-scheduled-kafka-pipeline completed 2026-10-25T18:25:56.697805+00:00 2026-10-25T18:29:56.944788+00:00 0
+														514 cell (selectable) Value: 4, ID: glide-cell-0-4
+														515 cell (selectable) Value: 162713d5-c164-4824-b415-31ecd161a5c5, ID: glide-cell-1-4
+														516 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-4
+														517 cell (selectable) Value: completed, ID: glide-cell-3-4
+														518 cell (selectable) Value: 2026-10-25T18:25:56.697805+00:00, ID: glide-cell-4-4
+														519 cell (selectable)
+														520 cell (selectable)
+														521 cell (selectable)
+													522 row (selectable) 5 monitor-5f794a9db4b4 daily-model-monitoring-flow completed_with_alerts 2026-10-25T10:15:52.834683+00:00 2026-10-25T10:16:00.632105+00:00 7.8 2000
+														523 cell (selectable) Value: 5, ID: glide-cell-0-5
+														524 cell (selectable) Value: monitor-5f794a9db4b4, ID: glide-cell-1-5
+														525 cell (selectable) Value: daily-model-monitoring-flow, ID: glide-cell-2-5
+														526 cell (selectable) Value: completed_with_alerts, ID: glide-cell-3-5
+														527 cell (selectable) Value: 2026-10-25T10:15:52.834683+00:00, ID: glide-cell-4-5
+														528 cell (selectable)
+														529 cell (selectable)
+														530 cell (selectable)
+													531 row (selectable) 6 7f5924b6-9231-4acb-a969-22b34b6d8d4e free-tier-scheduled-kafka-pipeline completed 2026-10-25T08:28:33.094305+00:00 2026-10-25T08:32:24.191058+00:00 0
+														532 cell (selectable) Value: 6, ID: glide-cell-0-6
+														533 cell (selectable) Value: 7f5924b6-9231-4acb-a969-22b34b6d8d4e, ID: glide-cell-1-6
+														534 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-6
+														535 cell (selectable) Value: completed, ID: glide-cell-3-6
+														536 cell (selectable) Value: 2026-10-25T08:28:33.094305+00:00, ID: glide-cell-4-6
+														537 cell (selectable)
+														538 cell (selectable)
+														539 cell (selectable)
+													540 row (selectable) 7 843040dd-ad26-4663-933b-c7bb8ef99d90 free-tier-scheduled-kafka-pipeline completed 2026-10-24T18:11:51.609127+00:00 2026-10-24T18:15:46.238319+00:00 0
+														541 cell (selectable) Value: 7, ID: glide-cell-0-7
+														542 cell (selectable) Value: 843040dd-ad26-4663-933b-c7bb8ef99d90, ID: glide-cell-1-7
+														543 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-7
+														544 cell (selectable) Value: completed, ID: glide-cell-3-7
+														545 cell (selectable) Value: 2026-10-24T18:11:51.609127+00:00, ID: glide-cell-4-7
+														546 cell (selectable)
+														547 cell (selectable)
+														548 cell (selectable)
+													549 row (selectable) 8 9723025c-db39-4810-9b0c-adc288728aeb free-tier-scheduled-kafka-pipeline completed 2026-10-24T08:11:04.968627+00:00 2026-10-24T08:14:48.462763+00:00 0
+														550 cell (selectable) Value: 8, ID: glide-cell-0-8
+														551 cell (selectable) Value: 9723025c-db39-4810-9b0c-adc288728aeb, ID: glide-cell-1-8
+														552 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-8
+														553 cell (selectable) Value: completed, ID: glide-cell-3-8
+														554 cell (selectable) Value: 2026-10-24T08:11:04.968627+00:00, ID: glide-cell-4-8
+														555 cell (selectable)
+														556 cell (selectable)
+														557 cell (selectable)
+													558 row (selectable) 9 e1d6844d-aba8-4604-b35b-ee65f893b56c free-tier-scheduled-kafka-pipeline completed 2026-10-23T19:17:09.551726+00:00 2026-10-23T19:20:46.569254+00:00 0
+														559 cell (selectable) Value: 9, ID: glide-cell-0-9
+														560 cell (selectable) Value: e1d6844d-aba8-4604-b35b-ee65f893b56c, ID: glide-cell-1-9
+														561 cell (selectable) Value: free-tier-scheduled-kafka-pipeline, ID: glide-cell-2-9
+														562 cell (selectable) Value: completed, ID: glide-cell-3-9
+														563 cell (selectable) Value: 2026-10-23T19:17:09.551726+00:00, ID: glide-cell-4-9
+														564 cell (selectable)
+														565 cell (selectable)
+														566 cell (selectable)
+										567 image
+		422 link streamlit.io/cloud
+		443 link (collapsed) Description: App Creator Avatar, Value: share.streamlit.io/user/khuzaimahassan, Secondary Actions: Expand
+
+The focused UI element is 75 tab (selected, settable, boolean) 📈 Pipeline, Value: 1, ID: react-aria9312318690-:rm:-tab-2

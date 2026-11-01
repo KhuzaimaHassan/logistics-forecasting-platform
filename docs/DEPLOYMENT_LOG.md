@@ -678,3 +678,17 @@ not certified. Screenshot and sanitized DOM measurements are saved with the
 responsive review. PR180 passed all source, constrained-runtime, Compose and
 ARM64 checks and merged normally into dev; release179 is awaiting its new-head
 checks. No managed load test, training, data deletion or paid change occurred.
+
+## 2026-10-28 — Public functional and responsive re-audit
+
+PR179 merged to main as74458e0 after all release checks passed. Re-tested the
+public app's four tabs across seven sizes320–1440px (28 saved measurements),
+all without page overflow. Screenshot review exposed nested metric paragraph
+ellipsis missed by wrapper checks. Extended CSS to metric Markdown paragraphs
+in7a1b81d; owner rebooted and public768px full two-line Performance Decay text
+was verified. Real model predictions, ETA/persistence, Feast Copilot features,
+persisted prediction lookup, pipeline history, three report types, chart data /
+fullscreen and chat controls passed. Retraining and promotion shortcut answer
+relevance failed; download capture remains NOT VERIFIED. Seven focused tests
+passed with a Windows temporary-directory finalizer warning; Ruff/Black and
+whitespace checks passed. Full evidence and limits: LIVE_UI_AUDIT_2026-10-28.md.
