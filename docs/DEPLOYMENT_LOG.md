@@ -692,3 +692,22 @@ fullscreen and chat controls passed. Retraining and promotion shortcut answer
 relevance failed; download capture remains NOT VERIFIED. Seven focused tests
 passed with a Windows temporary-directory finalizer warning; Ruff/Black and
 whitespace checks passed. Full evidence and limits: LIVE_UI_AUDIT_2026-10-28.md.
+
+
+## 2026-11-01 — CI runner disk exhaustion
+
+Main push run 41317852519 failed in the Compose job's host dependency installation:
+extracting the XGBoost transitive NVIDIA NCCL wheel reported "No space left on
+device". Source checks and the constrained cloud runtime passed; the Compose
+integration tests had not yet run. This is a runner disk failure, not evidence of
+a public-service outage.
+
+Add disk diagnostics and prune disposable Buildx/default-builder caches after
+image builds, before starting the stack and installing host dependencies.
+Retain built images, service volumes, dependency versions and every smoke test.
+No local Docker or managed infrastructure cleanup is performed.
+Validation: feature CI run [41319645688](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/runs/41319645688)
+passed all nine checks, including the complete Compose suite and ARM64 builds.
+The formerly failing dependency installation passed. Cleanup increased available
+root disk from 74G to 81G on that runner. This validates the change on that runner;
+capacity still depends on the hosted runner image and installed dependencies.
