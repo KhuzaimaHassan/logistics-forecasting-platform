@@ -17,26 +17,26 @@ A public MLOps portfolio built around real event processing, online features and
 
 > **Before you try it:** forecasts describe a bounded **January 2023 Green TLC sample**, not current NYC traffic or full-city demand. Render Free can take a few minutes to wake up. Retry after startup; availability depends on shared free-tier quotas.
 
-## See it in action
+## Inside the platform
 
-Real screenshots from the public application, captured in October 2026. Values and alerts reflect those sessions, rather than fixed expected results. Click an image to inspect it at full size.
-
-**Desktop · demand forecast and geographic context · 1024 × 768**
-
-[![Desktop dashboard showing a trained-model demand prediction and the NYC zone map](docs/assets/desktop-forecast.jpg)](docs/assets/desktop-forecast.jpg)
+Four pages, one connected workflow. These are actual public-app captures from October–November 2026; results and alerts reflect those sessions. Select a preview to open the original image at full size.
 
 <table>
   <tr>
-    <th>Tablet · model monitoring</th>
-    <th>Mobile · corridor ETA</th>
+    <th width="50%">Forecasts &amp; Map</th>
+    <th width="50%">Ops Copilot</th>
   </tr>
   <tr>
-    <td align="center"><a href="docs/assets/tablet-monitoring.jpg"><img src="docs/assets/tablet-monitoring.jpg" height="400" alt="Tablet monitoring dashboard with drift scorecards, a performance decay alert and trend charts"></a></td>
-    <td align="center"><a href="docs/assets/mobile-eta.jpg"><img src="docs/assets/mobile-eta.jpg" height="400" alt="Mobile forecast controls and an actual 11.9-minute corridor ETA result"></a></td>
+    <td valign="top"><a href="docs/assets/desktop-forecast.jpg"><img src="docs/assets/desktop-forecast.jpg" width="100%" alt="Forecasts and Map page: real model demand output and NYC zone map"></a><br>Demand predictions with geographic context.</td>
+    <td valign="top"><a href="docs/assets/page-copilot.jpg"><img src="docs/assets/page-copilot.jpg" width="100%" alt="Ops Copilot page: operational shortcuts and a real zone feature query"></a><br>Ask operational questions and inspect feature retrieval.</td>
   </tr>
   <tr>
-    <td align="center">768 × 1024 · drift, alerts and trends</td>
-    <td align="center">390 × 843 · controls and inference result</td>
+    <th>Pipeline Observability</th>
+    <th>Model Monitoring</th>
+  </tr>
+  <tr>
+    <td valign="top"><a href="docs/assets/page-pipeline.jpg"><img src="docs/assets/page-pipeline.jpg" width="100%" alt="Pipeline Observability page: orchestration health and persistent pipeline run history"></a><br>Track orchestration health and recorded executions.</td>
+    <td valign="top"><a href="docs/assets/page-monitoring.jpg"><img src="docs/assets/page-monitoring.jpg" width="100%" alt="Monitoring page: drift scorecards, genuine performance decay alert and historical trends"></a><br>Review drift, performance alerts and historical trends.</td>
   </tr>
 </table>
 
@@ -70,7 +70,7 @@ flowchart LR
     MON --> PG
 ```
 
-Kafka producers and consumers run as **bounded scheduled jobs**; PostgreSQL persists validated trips, predictions and reports. Feast serves online features from Valkey, while MLflow stores experiments and model artifacts. The dashboard calls the inference API on demand.
+In the **free cloud profile**, GitHub Actions starts bounded Prefect OSS flows on a schedule or by manual dispatch. The pipeline replays only the retained historical trip sample into Kafka, consumes bounded batches, and stores validated trips, predictions and monitoring reports in PostgreSQL. It is scheduled processing, not a continuously running real-time consumer; the finite January 2023 sample is exhausted and later runs reconcile existing data and refresh Feast/Valkey features. LightGBM training and Evidently monitoring are separate bounded operations. The dashboard requests forecasts from FastAPI on demand.
 
 **Public hosting:** Aiven Kafka, PostgreSQL 18.6 and Valkey · DagsHub MLflow · GitHub Actions with Prefect OSS · Render Free · Streamlit Community Cloud · Groq Free.
 
@@ -89,12 +89,12 @@ The [deployment report](docs/DEPLOYMENT_REPORT.md) records service verification,
 
 | Constraint | What to expect |
 |---|---|
-| **Historical sample** | 10,000 sampled positions: 9,232 valid trips and 768 rejected records. Exhausted ingestion does not invent new trips; scheduled jobs reconcile data and renew features. |
+| **Historical sample** | The official January 2023 Green TLC Parquet yielded 10,000 sampled positions: 9,232 valid trips and 768 rejected records. The finite replay is exhausted; jobs do not invent new trips, and scheduled runs reconcile stored data and renew online feature availability. |
 | **Free compute** | Sleeping, cold starts, rate limits and quota suspension are possible. [Render's 750 free instance hours](https://render.com/docs/free#free-instance-hours) are shared per workspace; continuous uptime polling can exhaust them across services. |
 | **Model quality** | A genuine **29.9% historical MAE decay alert** remains visible. No unverified production accuracy benchmark is advertised. |
-| **Operational limits** | PostgreSQL memory stability remains unconfirmed after OOM alerts. GitHub schedules are best effort. Some downloads and advanced retrieval/planning paths remain unverified; consult the report. |
+| **Operational limits** | PostgreSQL memory stability has not been certified after OOM alerts. GitHub schedules are best effort. Some downloads and advanced retrieval/planning paths remain unverified; consult the dated verification reports. |
 
-**Expected recurring hosting cost: $0/month within Free quotas; no uptime SLA.** Billing controls were owner-confirmed, not independently audited. Keep paid resources disabled and follow the [cloud setup guide](docs/FREE_CLOUD_SETUP.md). Avoid uptime polling that prevents free services from sleeping.
+**Target recurring hosting cost: $0/month within Free quotas; no uptime SLA.** Account billing controls were owner-confirmed at the time, not independently audited. Keep paid resources disabled and follow the [cloud setup guide](docs/FREE_CLOUD_SETUP.md). Avoid uptime polling that prevents free services from sleeping.
 
 ## Try the API
 
