@@ -1,160 +1,229 @@
 <div align="center">
 
-# NYC Logistics Forecasting Platform
+# Logistics Forecasting Platform
 
-**From taxi trips to demand forecasts, corridor ETAs and operational insights.**
-
-A public MLOps portfolio built around real event processing, online features and trained models.
+**NYC taxi zone demand forecasting and corridor ETA prediction — end-to-end MLOps on free cloud services.**
 
 [![CI](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/KhuzaimaHassan/logistics-forecasting-platform/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)](https://logistics-forecasting-platform.onrender.com/docs)
 [![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://logistics-forecasting-platform.streamlit.app/)
 
-**[Open dashboard →](https://logistics-forecasting-platform.streamlit.app/) · [Explore API →](https://logistics-forecasting-platform.onrender.com/docs) · [Deployment evidence →](docs/DEPLOYMENT_REPORT.md)**
+[**Live Dashboard →**](https://logistics-forecasting-platform.streamlit.app/) &nbsp;·&nbsp; [**API Docs →**](https://logistics-forecasting-platform.onrender.com/docs) &nbsp;·&nbsp; [**Deployment Report →**](docs/DEPLOYMENT_REPORT.md)
 
 </div>
 
-> **Before you try it:** forecasts describe a bounded **January 2023 Green TLC sample**, not current NYC traffic or full-city demand. Render Free can take a few minutes to wake up. Retry after startup; availability depends on shared free-tier quotas.
+> **Data scope:** forecasts are trained on a bounded January 2023 NYC Green Taxi sample (9,232 valid trips). This is not a live feed of current city traffic — it is a fully instrumented MLOps pipeline demonstrating production-grade engineering on historical data. Render Free instances may need 1–2 minutes to wake from cold start.
 
-## Inside the platform
+---
 
-Four pages, one connected workflow. These are actual public-app captures from October–November 2026; results and alerts reflect those sessions. Select a preview to open the original image at full size.
+## Overview
+
+A production-pattern MLOps platform that covers the complete lifecycle from raw trip data to served predictions:
+
+- **Demand forecasting** — LightGBM model predicting pickup volume per taxi zone per time window
+- **ETA prediction** — trip duration model for zone-to-zone corridors
+- **Online feature serving** — Feast feature store backed by Valkey (Redis-compatible)
+- **Ops Copilot** — LangGraph agent with Groq LLM, grounded in live pipeline state via typed tools
+- **Drift monitoring** — Evidently AI reports with performance-decay alerting
+- **Pipeline observability** — Prefect-orchestrated jobs with persistent run history
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    TLC[TLC Parquet\nJan 2023 sample] --> EXT[Batch Extractor]
+    EXT --> KAFKA[Aiven Kafka]
+    KAFKA --> CONS[Stream Consumer]
+    CONS --> PG[(PostgreSQL\nwarehouse schema)]
+    PG --> FEAST[Feast\noffline store]
+    FEAST --> TRAIN[LightGBM\nTraining]
+    TRAIN --> MLFLOW[DagsHub MLflow\nmodel registry]
+    FEAST --> MAT[materialize]
+    MAT --> VALKEY[(Valkey\nonline store)]
+    MLFLOW --> API[FastAPI\nRender Free]
+    VALKEY --> API
+    API --> UI[Streamlit\nCommunity Cloud]
+    API <--> AGENT[LangGraph\nOps Copilot]
+    AGENT --> PG
+    AGENT --> VALKEY
+    EXT --> MON[Evidently\nMonitoring]
+    MON --> PG
+    PG --> PREFECT[Prefect OSS\nGitHub Actions]
+```
+
+**Free cloud profile:** GitHub Actions triggers bounded Prefect OSS flows on a schedule. The pipeline replays the historical sample through Kafka, validates and stores trips in PostgreSQL, materializes features to Valkey, trains models, and runs Evidently drift reports. The dashboard calls the FastAPI inference endpoint on demand.
+
+**Local Compose stack:** Redpanda · PostgreSQL 16 · Redis 7 · MLflow · Prefect · Caddy 2
+
+See [Architecture.md](docs/Architecture.md) and [Decisions.md](docs/Decisions.md) for design rationale and ADRs.
+
+---
+
+## Tech Stack
+
+| Layer | Cloud (deployed) | Local (Compose) |
+|---|---|---|
+| **Message bus** | Aiven Kafka | Redpanda |
+| **Warehouse** | Aiven PostgreSQL 18 | PostgreSQL 16 |
+| **Online store** | Aiven Valkey | Redis 7 |
+| **Feature store** | Feast 0.65 | Feast |
+| **Model training** | LightGBM · XGBoost | same |
+| **Experiment tracking** | DagsHub MLflow | MLflow (self-hosted) |
+| **Inference API** | FastAPI · Render Free | FastAPI · Uvicorn |
+| **Orchestration** | Prefect OSS · GitHub Actions | Prefect |
+| **Monitoring** | Evidently AI | same |
+| **Agent** | LangGraph · Groq · FAISS | same |
+| **Dashboard** | Streamlit Community Cloud | Streamlit |
+| **Reverse proxy** | — | Caddy 2 |
+| **Package manager** | uv | uv |
+
+---
+
+## Dashboard
+
+Four pages, one connected workflow. Screenshots from live public app sessions (October–November 2026).
 
 <table>
   <tr>
-    <th width="50%">Forecasts &amp; Map</th>
+    <th width="50%">Forecasts & Zone Map</th>
     <th width="50%">Ops Copilot</th>
   </tr>
   <tr>
-    <td valign="top"><a href="docs/assets/desktop-forecast.jpg"><img src="docs/assets/desktop-forecast.jpg" width="100%" alt="Forecasts and Map page: real model demand output and NYC zone map"></a><br>Demand predictions with geographic context.</td>
-    <td valign="top"><a href="docs/assets/page-copilot.jpg"><img src="docs/assets/page-copilot.jpg" width="100%" alt="Ops Copilot page: operational shortcuts and a real zone feature query"></a><br>Ask operational questions and inspect feature retrieval.</td>
+    <td><a href="docs/assets/desktop-forecast.jpg"><img src="docs/assets/desktop-forecast.jpg" width="100%" alt="Demand predictions with NYC zone map"></a><br><sub>LightGBM demand output with geographic zone context.</sub></td>
+    <td><a href="docs/assets/page-copilot.jpg"><img src="docs/assets/page-copilot.jpg" width="100%" alt="Ops Copilot with tool call metadata"></a><br><sub>Natural-language queries grounded in live feature and prediction state.</sub></td>
   </tr>
   <tr>
     <th>Pipeline Observability</th>
     <th>Model Monitoring</th>
   </tr>
   <tr>
-    <td valign="top"><a href="docs/assets/page-pipeline.jpg"><img src="docs/assets/page-pipeline.jpg" width="100%" alt="Pipeline Observability page: orchestration health and persistent pipeline run history"></a><br>Track orchestration health and recorded executions.</td>
-    <td valign="top"><a href="docs/assets/page-monitoring.jpg"><img src="docs/assets/page-monitoring.jpg" width="100%" alt="Monitoring page: drift scorecards, genuine performance decay alert and historical trends"></a><br>Review drift, performance alerts and historical trends.</td>
+    <td><a href="docs/assets/page-pipeline.jpg"><img src="docs/assets/page-pipeline.jpg" width="100%" alt="Prefect run history and pipeline health"></a><br><sub>Persistent orchestration history and ingestion checkpoints.</sub></td>
+    <td><a href="docs/assets/page-monitoring.jpg"><img src="docs/assets/page-monitoring.jpg" width="100%" alt="Evidently drift reports and performance alerts"></a><br><sub>Drift scorecards, historical trends, and a genuine 29.9% MAE decay alert.</sub></td>
   </tr>
 </table>
 
-## Explore the platform
+**Quick tries:**
 
-| Experience | What it does | Try this |
-|---|---|---|
-| **Forecasts & Map** | LightGBM demand predictions, zone locations and corridor travel duration | Zones **74, 75, 166**; ETA **75 → 237** |
-| **Ops Copilot** | LangGraph with Groq and read-only tools for features, predictions, pipeline history and monitoring | Ask for **zone 74 features**; inspect tool and source metadata |
-| **Pipeline Observability** | Persistent job history, processed/rejected counts and ingestion checkpoints | Inspect the latest scheduled run |
-| **Model Monitoring** | Evidently drift reports, performance alerts and historical trends | Review the genuine performance-decay alert |
-
-## How the pieces connect
-
-```mermaid
-flowchart LR
-    TLC[Historical TLC data] --> JOB[GitHub Actions / Prefect OSS]
-    JOB --> K[Aiven Kafka]
-    K --> PG[(PostgreSQL)]
-    PG --> F[Feast]
-    F --> V[(Valkey)]
-    F --> TRAIN[LightGBM training]
-    TRAIN --> ML[DagsHub MLflow]
-    ML --> API[FastAPI / Render]
-    V --> API
-    API --> UI[Streamlit dashboard]
-    API <--> AG[LangGraph / Groq]
-    AG --> PG
-    AG --> V
-    JOB --> MON[Evidently monitoring]
-    MON --> PG
-```
-
-In the **free cloud profile**, GitHub Actions starts bounded Prefect OSS flows on a schedule or by manual dispatch. The pipeline replays only the retained historical trip sample into Kafka, consumes bounded batches, and stores validated trips, predictions and monitoring reports in PostgreSQL. It is scheduled processing, not a continuously running real-time consumer; the finite January 2023 sample is exhausted and later runs reconcile existing data and refresh Feast/Valkey features. LightGBM training and Evidently monitoring are separate bounded operations. The dashboard requests forecasts from FastAPI on demand.
-
-**Public hosting:** Aiven Kafka, PostgreSQL 18.6 and Valkey · DagsHub MLflow · GitHub Actions with Prefect OSS · Render Free · Streamlit Community Cloud · Groq Free.
-
-The full local Compose stack retains **Redpanda, PostgreSQL 16, Redis 7, MLflow, Prefect and Caddy**. See [Architecture](docs/Architecture.md) and [ADRs](docs/Decisions.md) for the reference design and cloud adaptations.
-
-## Engineering behind the demo
-
-- **Durable data flow:** acknowledged Kafka writes, consumer offsets, validation and dead-letter routing, with real PostgreSQL persistence.
-- **Consistent features and models:** Feast point-in-time joins, aligned categorical domains, official polygon-derived centroids and MLflow Production artifacts. Cloud inference fails explicitly when dependencies are unavailable.
-- **Traceable operations:** stored predictions and reports, observation timestamps, chronological evaluation and promotion gates. Copilot responses expose tool/source metadata.
-- **Resource-aware delivery:** idempotent jobs, bounded queries, serialized warehouse work, deterministic source checks, separate managed-service tests, Compose verification and AMD64/ARM64 builds.
-
-## Deployment reality
-
-The [deployment report](docs/DEPLOYMENT_REPORT.md) records service verification, workflow links and unresolved limits. Evidence includes Kafka production/consumption, PostgreSQL persistence, Feast retrieval, MLflow metrics/artifacts, trained-model inference and public UI interactions.
-
-| Constraint | What to expect |
+| Page | Try this |
 |---|---|
-| **Historical sample** | The official January 2023 Green TLC Parquet yielded 10,000 sampled positions: 9,232 valid trips and 768 rejected records. The finite replay is exhausted; jobs do not invent new trips, and scheduled runs reconcile stored data and renew online feature availability. |
-| **Free compute** | Sleeping, cold starts, rate limits and quota suspension are possible. [Render's 750 free instance hours](https://render.com/docs/free#free-instance-hours) are shared per workspace; continuous uptime polling can exhaust them across services. |
-| **Model quality** | A genuine **29.9% historical MAE decay alert** remains visible. No unverified production accuracy benchmark is advertised. |
-| **Operational limits** | PostgreSQL memory stability has not been certified after OOM alerts. GitHub schedules are best effort. Some downloads and advanced retrieval/planning paths remain unverified; consult the dated verification reports. |
+| Forecasts & Map | Zones **74, 75, 166** · ETA corridor **75 → 237** |
+| Ops Copilot | *"What are the latest features for zone 74?"* |
+| Pipeline Observability | Inspect the most recent scheduled run |
+| Model Monitoring | Review the performance-decay alert |
 
-**Target recurring hosting cost: $0/month within Free quotas; no uptime SLA.** Account billing controls were owner-confirmed at the time, not independently audited. Keep paid resources disabled and follow the [cloud setup guide](docs/FREE_CLOUD_SETUP.md). Avoid uptime polling that prevents free services from sleeping.
+---
 
-## Try the API
+## API
 
-Run requests sparingly on shared Free infrastructure. The [live OpenAPI docs](https://logistics-forecasting-platform.onrender.com/docs) describe all routes, including batch predictions, features, reports and authenticated Copilot requests.
+The [OpenAPI docs](https://logistics-forecasting-platform.onrender.com/docs) cover all routes. Run requests sparingly on shared Free infrastructure.
 
 ```bash
-# Readiness may return 503 during startup.
+# Health — may return 503 during cold start, retry after ~2 min
 curl --max-time 180 https://logistics-forecasting-platform.onrender.com/health/ready
 
-# The cloud demand model supports a 60-minute horizon.
+# Demand forecast — 60-minute horizon supported in cloud profile
 curl --max-time 180 'https://logistics-forecasting-platform.onrender.com/predict/demand/74?horizon_minutes=60'
 
+# ETA prediction — zone 75 → zone 237
 curl --max-time 180 'https://logistics-forecasting-platform.onrender.com/predict/eta?origin=75&dest=237'
 ```
 
-## Run locally
+---
 
-Use Python 3.11+ and [uv](https://docs.astral.sh/uv/). Docker Engine with Compose v2 is needed for the full local stack; source work does not require local Docker.
+## Local Development
+
+Requires **Python 3.11+**, [**uv**](https://docs.astral.sh/uv/), and **Docker Engine with Compose v2** for the full stack. Source-only work does not require Docker.
 
 ```bash
 git clone https://github.com/KhuzaimaHassan/logistics-forecasting-platform.git
 cd logistics-forecasting-platform
+
 uv sync --frozen --all-extras
 cp .env.example .env
-# Configure .env privately before starting services.
+# Populate .env with service credentials before starting
+
 docker compose up -d --build
 ```
 
-Follow [environment setup](docs/Environment-Setup.md) and [local deployment](docs/Deployment.md) to initialize data, features and models. Containers alone do not bootstrap them. Keep certificates, tokens and private keys outside Git.
+Containers start the services but do not bootstrap data, features, or models. Follow [Environment-Setup.md](docs/Environment-Setup.md) and [Deployment.md](docs/Deployment.md) for full initialization.
 
 <details>
-<summary><strong>Source checks and repository guide</strong></summary>
+<summary><strong>Linting, type checks, and tests</strong></summary>
 
 ```bash
-uv run python scripts/validate_cloud_config.py
 uv run ruff check .
 uv run black --check .
-uv run pytest
+uv run pytest tests/ -v
+uv run python scripts/validate_cloud_config.py
 ```
 
-PR source checks do not receive managed credentials. Containers run in separate CI stages; managed checks require the configured `free-cloud` environment. Passing source tests does not establish cloud integration success.
-
-| Path | Responsibility |
-|---|---|
-| `src/extract/`, `src/transform/` | Extraction, Kafka processing and validation |
-| `src/features/`, `src/training/` | Feast definitions, training, evaluation and promotion |
-| `src/serving/`, `src/agents/` | FastAPI inference and LangGraph tools |
-| `src/monitoring/`, `src/orchestration/` | Drift analysis and Prefect jobs |
-| `ui/` | Streamlit application |
-| `scripts/`, `.github/workflows/` | Bootstrap, diagnostics, verification and CI/CD |
-| `infra/`, `docker-compose.yml`, `tests/` | Infrastructure and automated verification |
+CI source checks run without managed credentials. Containers execute in separate CI stages. The `free-cloud` GitHub environment is required for managed-service integration tests.
 
 </details>
 
-## Read more
+---
 
-[Deployment report](docs/DEPLOYMENT_REPORT.md) · [Cloud setup](docs/FREE_CLOUD_SETUP.md) · [Deployment log](docs/DEPLOYMENT_LOG.md) · [Public UI audit](docs/LIVE_UI_AUDIT_2026-10-28.md)
+## Repository Structure
 
-[Architecture](docs/Architecture.md) · [Decisions](docs/Decisions.md) · [Database](docs/Database.md) · [Feature store](docs/Feature-Store.md) · [Training](docs/AI-Pipeline.md) · [Monitoring](docs/Monitoring.md)
+```
+.
+├── src/
+│   ├── extract/        # Batch TLC Parquet extractor and Kafka producer
+│   ├── transform/      # Stream consumer, validation, cleaning, dead-letter routing
+│   ├── features/       # Feast feature repo — entities, feature views, sources
+│   ├── training/       # LightGBM/XGBoost pipelines, evaluation, MLflow logging
+│   ├── serving/        # FastAPI — prediction, feature lookup, health endpoints
+│   ├── agents/         # LangGraph Ops Copilot — Feast, MLflow, DB, FAISS tools
+│   ├── monitoring/     # Evidently drift analysis and report persistence
+│   └── orchestration/  # Prefect flow definitions and schedules
+├── ui/                 # Streamlit app — map, monitoring dashboard, copilot chat
+├── infra/
+│   ├── docker-compose.yml
+│   └── oracle-vm/      # Ampere A1 provisioning scripts (reference)
+├── scripts/            # Bootstrap, cloud config validation, diagnostics
+├── tests/              # Unit, integration, and contract tests (pytest)
+├── docs/               # Architecture, ADRs, database schema, runbooks
+└── .github/workflows/  # CI/CD — lint, test, managed-service checks, deploy
+```
 
-[API](docs/API.md) · [Agents](docs/Agents.md) · [Security](docs/Security.md) · [Roadmap](docs/Roadmap.md)
+---
 
-<sub>License: project metadata declares MIT in <a href="pyproject.toml">pyproject.toml</a>; a standalone license file has not yet been added.</sub>
+## Deployment Constraints
+
+This is a Free-tier deployment. The [deployment report](docs/DEPLOYMENT_REPORT.md) documents verified evidence and unresolved limits honestly.
+
+| Constraint | Detail |
+|---|---|
+| **Data scope** | 9,232 valid trips from a January 2023 Green Taxi sample. Scheduled runs reconcile stored data; no new trips are generated. |
+| **Compute** | Render Free instances sleep after inactivity. Cold starts take 1–2 minutes. [750 free instance hours/month](https://render.com/docs/free#free-instance-hours) are shared across services — avoid uptime polling. |
+| **Model accuracy** | A **29.9% MAE decay alert** is visible in the monitoring page. No production accuracy SLA is claimed. |
+| **Cost** | Target: **\$0/month** within Free-tier quotas. No uptime SLA. Billing controls were owner-confirmed; keep paid resources disabled. |
+
+---
+
+## Documentation
+
+| Topic | Link |
+|---|---|
+| System architecture & data flow | [Architecture.md](docs/Architecture.md) |
+| Architectural decision records (ADRs) | [Decisions.md](docs/Decisions.md) |
+| Database schema | [Database.md](docs/Database.md) |
+| Feature store design | [Feature-Store.md](docs/Feature-Store.md) |
+| Training pipeline | [AI-Pipeline.md](docs/AI-Pipeline.md) |
+| API reference | [API.md](docs/API.md) |
+| LangGraph Ops Copilot | [Agents.md](docs/Agents.md) |
+| Monitoring & drift | [Monitoring.md](docs/Monitoring.md) |
+| Free cloud setup guide | [FREE_CLOUD_SETUP.md](docs/FREE_CLOUD_SETUP.md) |
+| Local environment setup | [Environment-Setup.md](docs/Environment-Setup.md) |
+| Deployment log | [DEPLOYMENT_LOG.md](docs/DEPLOYMENT_LOG.md) |
+| Deployment report (evidence) | [DEPLOYMENT_REPORT.md](docs/DEPLOYMENT_REPORT.md) |
+| Security | [Security.md](docs/Security.md) |
+| Roadmap | [Roadmap.md](docs/Roadmap.md) |
+
+---
+
+<sub>License: MIT (declared in <a href="pyproject.toml">pyproject.toml</a>). Author: Khuzaima Hassan.</sub>
