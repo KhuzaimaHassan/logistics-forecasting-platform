@@ -8,6 +8,7 @@
 .deployment-*.log
 .uv-sync.log
 .deployment-*.txt
+.local/
 .streamlit/secrets.toml
 *.pem
 
@@ -27,6 +28,7 @@ venv/
 data/
 data/raw/
 data/processed/
+data/dev_platform.db
 
 # Reports / Evaluation artifacts
 reports/
