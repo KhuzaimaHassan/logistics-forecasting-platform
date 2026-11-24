@@ -1,8 +1,8 @@
 # Logistics Demand & ETA Forecasting Platform
 
-A live, production-grade MLOps platform forecasting NYC taxi zone demand and corridor trip duration in real time, featuring an integrated LangGraph Ops Copilot.
+A bounded MLOps portfolio platform for NYC taxi zone demand and corridor trip duration, featuring a LangGraph Ops Copilot. The deployed free-cloud profile uses a historical January 2023 taxi sample; it does not forecast current city traffic. The local Docker Compose topology demonstrates the fuller streaming architecture.
 
-**Stack**: Python 3.11+ · FastAPI · Streamlit · Feast · Redpanda · PostgreSQL 16 · Redis 7 · MLflow · Prefect Cloud · LangGraph · Caddy 2 · Docker Compose · GitHub Actions
+**Stack**: Python 3.11+ · FastAPI · Streamlit · Feast · Aiven Kafka/PostgreSQL/Valkey (cloud) · Redpanda/PostgreSQL 16/Redis 7 (local) · DagsHub MLflow (cloud) · Prefect OSS · LangGraph · Caddy 2 · Docker Compose · GitHub Actions
 
 ---
 
@@ -21,9 +21,11 @@ logistics-forecasting-platform/
 │   ├── monitoring/       # Evidently AI data & prediction drift analysis
 │   └── orchestration/    # Prefect flow definitions and schedules
 ├── ui/                   # Streamlit live map, monitoring dashboard & copilot chat (ui/Dockerfile)
-├── infra/                # Infrastructure definitions
-│   ├── docker-compose.yml# Single-host multi-container deployment topology
-│   └── oracle-vm/        # Oracle Cloud Ampere A1 provisioning and firewall setup scripts
+├── infra/                # Infrastructure definitions and deployment helpers
+│   ├── docker/           # Local Caddy reverse-proxy configuration
+│   └── oracle-vm/        # Optional Oracle Cloud provisioning reference scripts
+├── docker-compose.yml    # Local single-host reference topology
+├── scripts/              # Bootstrap, diagnostics, verification, and training utilities
 ├── tests/                # Unit, integration, and contract tests (pytest)
 ├── .github/
 │   ├── workflows/        # GitHub Actions CI/CD workflows (lint, test, deploy)
@@ -40,8 +42,8 @@ logistics-forecasting-platform/
    - Use `uv` with a single root `pyproject.toml` managing project dependencies and dev tools.
    - Code formatting & linting: `black` and `ruff` configured in `pyproject.toml`, strictly checked in CI.
 2. **Container Standards**:
-   - Every service containerizes with a colocated `Dockerfile` (`src/<service>/Dockerfile`, `ui/Dockerfile`).
-   - All base images MUST use official multi-arch (`linux/amd64`, `linux/arm64`) tags to support both local x86_64 dev and Oracle Ampere A1 ARM64 production.
+   - Local service images use the Dockerfiles under `src/` and `ui/`; the free-cloud profile deploys selected services separately.
+   - Keep local images compatible with supported development architectures where upstream images allow it.
 3. **Database & Storage**:
    - Single PostgreSQL 16 instance with distinct schemas: `raw`, `warehouse`, `feast`, `mlflow`.
    - Use precomputed numeric centroids (`centroid_lat`, `centroid_lon`) for taxi zones.
